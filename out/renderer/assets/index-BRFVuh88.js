@@ -53148,9 +53148,13 @@ function Textarea({ className, ...props }) {
     }
   );
 }
-function KeysPage({ workspaceId }) {
+function KeysPage({
+  workspaceId,
+  showImportPanel = false,
+  onOpenImport,
+  onCloseImport
+}) {
   const { keys, fetchKeys, importKey, deleteKey } = useKeyStore();
-  const [showImport, setShowImport] = reactExports.useState(false);
   reactExports.useEffect(() => {
     fetchKeys(workspaceId);
   }, [workspaceId]);
@@ -53165,7 +53169,7 @@ function KeysPage({ workspaceId }) {
           /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-lg font-semibold", children: "SSH Keys" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Import and manage SSH keys for authentication" })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", onClick: () => setShowImport(true), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", onClick: onOpenImport, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
           "Import Key"
         ] })
@@ -53174,7 +53178,7 @@ function KeysPage({ workspaceId }) {
         /* @__PURE__ */ jsxRuntimeExports.jsx(KeyRound, { className: "h-12 w-12 mx-auto text-muted-foreground/20 mb-3" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium", children: "No SSH keys imported" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mt-1 mb-4", children: "Import your private keys to authenticate with hosts" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { variant: "outline", size: "sm", onClick: () => setShowImport(true), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { variant: "outline", size: "sm", onClick: onOpenImport, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
           "Import your first key"
         ] })
@@ -53197,7 +53201,7 @@ function KeysPage({ workspaceId }) {
         )
       ] }, k2.id)) })
     ] }) }),
-    showImport && /* @__PURE__ */ jsxRuntimeExports.jsx(ImportKeyPanel, { workspaceId, onClose: () => setShowImport(false) })
+    showImportPanel && /* @__PURE__ */ jsxRuntimeExports.jsx(ImportKeyPanel, { workspaceId, onClose: onCloseImport })
   ] });
 }
 function ImportKeyPanel({ workspaceId, onClose }) {
@@ -58424,7 +58428,7 @@ const Toaster2 = ({ ...props }) => {
 };
 function AppShell() {
   const [workspaceId, setWorkspaceId] = reactExports.useState("");
-  const [showHostForm, setShowHostForm] = reactExports.useState(false);
+  const [activePanel, setActivePanel] = reactExports.useState(null);
   const [editingHost, setEditingHost] = reactExports.useState(null);
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
@@ -58445,6 +58449,10 @@ function AppShell() {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("archterm-theme", theme);
   }, [settings?.theme]);
+  reactExports.useEffect(() => {
+    setActivePanel(null);
+    setEditingHost(null);
+  }, [activeTabId]);
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
   function handleGoHome() {
     openTab({ tabId: "hosts", tabType: "hosts", label: "Hosts" });
@@ -58460,14 +58468,17 @@ function AppShell() {
   }
   function handleAddHost() {
     setEditingHost(null);
-    setShowHostForm(true);
+    setActivePanel("host-form");
   }
   function handleEditHost(host) {
     setEditingHost(host);
-    setShowHostForm(true);
+    setActivePanel("host-form");
   }
-  function handleCloseHostForm() {
-    setShowHostForm(false);
+  function handleOpenImportKey() {
+    setActivePanel("import-key");
+  }
+  function handleClosePanel() {
+    setActivePanel(null);
     setEditingHost(null);
   }
   function handleWorkspaceChange(ws2) {
@@ -58501,7 +58512,15 @@ function AppShell() {
               onWorkspaceChange: handleWorkspaceChange
             }
           ),
-          activeTab?.tabType === "keys" && /* @__PURE__ */ jsxRuntimeExports.jsx(KeysPage, { workspaceId }),
+          activeTab?.tabType === "keys" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            KeysPage,
+            {
+              workspaceId,
+              showImportPanel: activePanel === "import-key",
+              onOpenImport: handleOpenImportKey,
+              onCloseImport: handleClosePanel
+            }
+          ),
           activeTab?.tabType === "team" && /* @__PURE__ */ jsxRuntimeExports.jsx(TeamPage, { workspaceId }),
           activeTab?.tabType === "settings" && /* @__PURE__ */ jsxRuntimeExports.jsx(
             SettingsPage,
@@ -58512,12 +58531,12 @@ function AppShell() {
             }
           ),
           (activeTab?.tabType === "terminal" || activeTab?.tabType === "sftp") && /* @__PURE__ */ jsxRuntimeExports.jsx(MainArea, {}),
-          showHostForm && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          activePanel === "host-form" && /* @__PURE__ */ jsxRuntimeExports.jsx(
             HostForm,
             {
               host: editingHost,
               workspaceId,
-              onClose: handleCloseHostForm
+              onClose: handleClosePanel
             }
           )
         ] })

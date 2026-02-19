@@ -16,9 +16,11 @@ import type { Host } from '@shared/types/hosts';
 import type { Workspace } from '@shared/types/workspace';
 import { Toaster } from '@/components/ui/sonner';
 
+type ActivePanel = 'host-form' | 'import-key' | null;
+
 export function AppShell() {
   const [workspaceId, setWorkspaceId] = useState<string>('');
-  const [showHostForm, setShowHostForm] = useState(false);
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [editingHost, setEditingHost] = useState<Host | null>(null);
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
@@ -44,6 +46,12 @@ export function AppShell() {
     localStorage.setItem('archterm-theme', theme);
   }, [settings?.theme]);
 
+  // Close panels when switching tabs
+  useEffect(() => {
+    setActivePanel(null);
+    setEditingHost(null);
+  }, [activeTabId]);
+
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
 
   function handleGoHome() {
@@ -64,16 +72,20 @@ export function AppShell() {
 
   function handleAddHost() {
     setEditingHost(null);
-    setShowHostForm(true);
+    setActivePanel('host-form');
   }
 
   function handleEditHost(host: Host) {
     setEditingHost(host);
-    setShowHostForm(true);
+    setActivePanel('host-form');
   }
 
-  function handleCloseHostForm() {
-    setShowHostForm(false);
+  function handleOpenImportKey() {
+    setActivePanel('import-key');
+  }
+
+  function handleClosePanel() {
+    setActivePanel(null);
     setEditingHost(null);
   }
 
@@ -119,7 +131,14 @@ export function AppShell() {
                 onWorkspaceChange={handleWorkspaceChange}
               />
             )}
-            {activeTab?.tabType === 'keys' && <KeysPage workspaceId={workspaceId} />}
+            {activeTab?.tabType === 'keys' && (
+              <KeysPage
+                workspaceId={workspaceId}
+                showImportPanel={activePanel === 'import-key'}
+                onOpenImport={handleOpenImportKey}
+                onCloseImport={handleClosePanel}
+              />
+            )}
             {activeTab?.tabType === 'team' && <TeamPage workspaceId={workspaceId} />}
             {activeTab?.tabType === 'settings' && (
               <SettingsPage
@@ -130,12 +149,12 @@ export function AppShell() {
             )}
             {(activeTab?.tabType === 'terminal' || activeTab?.tabType === 'sftp') && <MainArea />}
 
-            {/* Host form right panel */}
-            {showHostForm && (
+            {/* Right panels - only one visible at a time */}
+            {activePanel === 'host-form' && (
               <HostForm
                 host={editingHost}
                 workspaceId={workspaceId}
-                onClose={handleCloseHostForm}
+                onClose={handleClosePanel}
               />
             )}
           </div>
