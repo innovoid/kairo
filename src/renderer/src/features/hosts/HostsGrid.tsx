@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import type { Host, HostFolder } from '@shared/types/hosts';
 import { useHostStore } from '@/stores/host-store';
 import { useSessionStore } from '@/stores/session-store';
-import { WorkspaceSwitcher } from '@/features/workspaces/WorkspaceSwitcher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -113,9 +112,6 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
           <div className="flex-1">
             <h1 className="text-lg font-semibold">Hosts</h1>
             <p className="text-sm text-muted-foreground">Manage and connect to your servers</p>
-          </div>
-          <div className="w-48">
-            <WorkspaceSwitcher onWorkspaceChange={onWorkspaceChange} />
           </div>
           <Button size="sm" variant="outline" onClick={handleCreateFolder}>
             <FolderOpen className="h-4 w-4 mr-1.5" />

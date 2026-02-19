@@ -16,7 +16,10 @@ const workspaceApi = {
     remove: (workspaceId, userId) => ipcRenderer.invoke("workspace.members.remove", workspaceId, userId)
   },
   getActiveContext: () => ipcRenderer.invoke("workspace.getActiveContext"),
-  ensurePersonalWorkspace: (name) => ipcRenderer.invoke("workspace.ensurePersonalWorkspace", name)
+  ensurePersonalWorkspace: (name) => ipcRenderer.invoke("workspace.ensurePersonalWorkspace", name),
+  update: (workspaceId, updates) => ipcRenderer.invoke("workspace.updateWorkspace", workspaceId, updates),
+  delete: (workspaceId) => ipcRenderer.invoke("workspace.deleteWorkspace", workspaceId),
+  leave: (workspaceId) => ipcRenderer.invoke("workspace.leaveWorkspace", workspaceId)
 };
 contextBridge.exposeInMainWorld("workspaceApi", workspaceApi);
 const hostsApi = {

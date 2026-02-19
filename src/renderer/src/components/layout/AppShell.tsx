@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
 import { MainArea } from './MainArea';
@@ -8,6 +9,7 @@ import { HostsGrid } from '@/features/hosts/HostsGrid';
 import { KeysPage } from '@/features/keys/KeysPage';
 import { TeamPage } from '@/features/team/TeamPage';
 import { SettingsPage, type SettingsTab } from '@/features/settings/SettingsPage';
+import { ProfilePage } from '@/features/profile/ProfilePage';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { useTransferStore } from '@/stores/transfer-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -19,6 +21,7 @@ import { Toaster } from '@/components/ui/sonner';
 type ActivePanel = 'host-form' | 'import-key' | null;
 
 export function AppShell() {
+  const location = useLocation();
   const [workspaceId, setWorkspaceId] = useState<string>('');
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [editingHost, setEditingHost] = useState<Host | null>(null);
@@ -29,6 +32,9 @@ export function AppShell() {
   const activeTabId = useSessionStore((s) => s.activeTabId);
   const openTab = useSessionStore((s) => s.openTab);
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
+
+  // Track if we're on the profile page via URL
+  const isOnProfile = location.pathname === '/profile';
 
   useEffect(() => {
     window.workspaceApi.getActiveContext().then((ctx) => {
@@ -68,6 +74,10 @@ export function AppShell() {
 
   function handleGoSettings() {
     openTab({ tabId: 'settings', tabType: 'settings', label: 'Settings', settingsTab: 'terminal' });
+  }
+
+  function handleGoProfile() {
+    openTab({ tabId: 'profile', tabType: 'profile', label: 'Profile' });
   }
 
   function handleAddHost() {

@@ -7007,6 +7007,2261 @@ function requireClient() {
 }
 var clientExports = requireClient();
 const ReactDOM$1 = /* @__PURE__ */ getDefaultExportFromCjs(clientExports);
+var PopStateEventType = "popstate";
+function createBrowserHistory(options = {}) {
+  function createBrowserLocation(window2, globalHistory) {
+    let { pathname, search, hash } = window2.location;
+    return createLocation(
+      "",
+      { pathname, search, hash },
+      // state defaults to `null` because `window.history.state` does
+      globalHistory.state && globalHistory.state.usr || null,
+      globalHistory.state && globalHistory.state.key || "default"
+    );
+  }
+  function createBrowserHref(window2, to) {
+    return typeof to === "string" ? to : createPath(to);
+  }
+  return getUrlBasedHistory(
+    createBrowserLocation,
+    createBrowserHref,
+    null,
+    options
+  );
+}
+function invariant(value, message) {
+  if (value === false || value === null || typeof value === "undefined") {
+    throw new Error(message);
+  }
+}
+function warning(cond, message) {
+  if (!cond) {
+    if (typeof console !== "undefined") console.warn(message);
+    try {
+      throw new Error(message);
+    } catch (e) {
+    }
+  }
+}
+function createKey() {
+  return Math.random().toString(36).substring(2, 10);
+}
+function getHistoryState(location, index2) {
+  return {
+    usr: location.state,
+    key: location.key,
+    idx: index2
+  };
+}
+function createLocation(current, to, state = null, key) {
+  let location = {
+    pathname: typeof current === "string" ? current : current.pathname,
+    search: "",
+    hash: "",
+    ...typeof to === "string" ? parsePath(to) : to,
+    state,
+    // TODO: This could be cleaned up.  push/replace should probably just take
+    // full Locations now and avoid the need to run through this flow at all
+    // But that's a pretty big refactor to the current test suite so going to
+    // keep as is for the time being and just let any incoming keys take precedence
+    key: to && to.key || key || createKey()
+  };
+  return location;
+}
+function createPath({
+  pathname = "/",
+  search = "",
+  hash = ""
+}) {
+  if (search && search !== "?")
+    pathname += search.charAt(0) === "?" ? search : "?" + search;
+  if (hash && hash !== "#")
+    pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
+  return pathname;
+}
+function parsePath(path) {
+  let parsedPath = {};
+  if (path) {
+    let hashIndex = path.indexOf("#");
+    if (hashIndex >= 0) {
+      parsedPath.hash = path.substring(hashIndex);
+      path = path.substring(0, hashIndex);
+    }
+    let searchIndex = path.indexOf("?");
+    if (searchIndex >= 0) {
+      parsedPath.search = path.substring(searchIndex);
+      path = path.substring(0, searchIndex);
+    }
+    if (path) {
+      parsedPath.pathname = path;
+    }
+  }
+  return parsedPath;
+}
+function getUrlBasedHistory(getLocation, createHref2, validateLocation, options = {}) {
+  let { window: window2 = document.defaultView, v5Compat = false } = options;
+  let globalHistory = window2.history;
+  let action = "POP";
+  let listener = null;
+  let index2 = getIndex();
+  if (index2 == null) {
+    index2 = 0;
+    globalHistory.replaceState({ ...globalHistory.state, idx: index2 }, "");
+  }
+  function getIndex() {
+    let state = globalHistory.state || { idx: null };
+    return state.idx;
+  }
+  function handlePop() {
+    action = "POP";
+    let nextIndex = getIndex();
+    let delta = nextIndex == null ? null : nextIndex - index2;
+    index2 = nextIndex;
+    if (listener) {
+      listener({ action, location: history.location, delta });
+    }
+  }
+  function push(to, state) {
+    action = "PUSH";
+    let location = createLocation(history.location, to, state);
+    index2 = getIndex() + 1;
+    let historyState = getHistoryState(location, index2);
+    let url = history.createHref(location);
+    try {
+      globalHistory.pushState(historyState, "", url);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "DataCloneError") {
+        throw error;
+      }
+      window2.location.assign(url);
+    }
+    if (v5Compat && listener) {
+      listener({ action, location: history.location, delta: 1 });
+    }
+  }
+  function replace2(to, state) {
+    action = "REPLACE";
+    let location = createLocation(history.location, to, state);
+    index2 = getIndex();
+    let historyState = getHistoryState(location, index2);
+    let url = history.createHref(location);
+    globalHistory.replaceState(historyState, "", url);
+    if (v5Compat && listener) {
+      listener({ action, location: history.location, delta: 0 });
+    }
+  }
+  function createURL(to) {
+    return createBrowserURLImpl(to);
+  }
+  let history = {
+    get action() {
+      return action;
+    },
+    get location() {
+      return getLocation(window2, globalHistory);
+    },
+    listen(fn2) {
+      if (listener) {
+        throw new Error("A history only accepts one active listener");
+      }
+      window2.addEventListener(PopStateEventType, handlePop);
+      listener = fn2;
+      return () => {
+        window2.removeEventListener(PopStateEventType, handlePop);
+        listener = null;
+      };
+    },
+    createHref(to) {
+      return createHref2(window2, to);
+    },
+    createURL,
+    encodeLocation(to) {
+      let url = createURL(to);
+      return {
+        pathname: url.pathname,
+        search: url.search,
+        hash: url.hash
+      };
+    },
+    push,
+    replace: replace2,
+    go(n) {
+      return globalHistory.go(n);
+    }
+  };
+  return history;
+}
+function createBrowserURLImpl(to, isAbsolute = false) {
+  let base = "http://localhost";
+  if (typeof window !== "undefined") {
+    base = window.location.origin !== "null" ? window.location.origin : window.location.href;
+  }
+  invariant(base, "No window.location.(origin|href) available to create URL");
+  let href = typeof to === "string" ? to : createPath(to);
+  href = href.replace(/ $/, "%20");
+  if (!isAbsolute && href.startsWith("//")) {
+    href = base + href;
+  }
+  return new URL(href, base);
+}
+function matchRoutes(routes, locationArg, basename = "/") {
+  return matchRoutesImpl(routes, locationArg, basename, false);
+}
+function matchRoutesImpl(routes, locationArg, basename, allowPartial) {
+  let location = typeof locationArg === "string" ? parsePath(locationArg) : locationArg;
+  let pathname = stripBasename(location.pathname || "/", basename);
+  if (pathname == null) {
+    return null;
+  }
+  let branches = flattenRoutes(routes);
+  rankRouteBranches(branches);
+  let matches2 = null;
+  for (let i = 0; matches2 == null && i < branches.length; ++i) {
+    let decoded = decodePath(pathname);
+    matches2 = matchRouteBranch(
+      branches[i],
+      decoded,
+      allowPartial
+    );
+  }
+  return matches2;
+}
+function flattenRoutes(routes, branches = [], parentsMeta = [], parentPath = "", _hasParentOptionalSegments = false) {
+  let flattenRoute = (route, index2, hasParentOptionalSegments = _hasParentOptionalSegments, relativePath) => {
+    let meta = {
+      relativePath: relativePath === void 0 ? route.path || "" : relativePath,
+      caseSensitive: route.caseSensitive === true,
+      childrenIndex: index2,
+      route
+    };
+    if (meta.relativePath.startsWith("/")) {
+      if (!meta.relativePath.startsWith(parentPath) && hasParentOptionalSegments) {
+        return;
+      }
+      invariant(
+        meta.relativePath.startsWith(parentPath),
+        `Absolute route path "${meta.relativePath}" nested under path "${parentPath}" is not valid. An absolute child route path must start with the combined path of all its parent routes.`
+      );
+      meta.relativePath = meta.relativePath.slice(parentPath.length);
+    }
+    let path = joinPaths([parentPath, meta.relativePath]);
+    let routesMeta = parentsMeta.concat(meta);
+    if (route.children && route.children.length > 0) {
+      invariant(
+        // Our types know better, but runtime JS may not!
+        // @ts-expect-error
+        route.index !== true,
+        `Index routes must not have child routes. Please remove all child routes from route path "${path}".`
+      );
+      flattenRoutes(
+        route.children,
+        branches,
+        routesMeta,
+        path,
+        hasParentOptionalSegments
+      );
+    }
+    if (route.path == null && !route.index) {
+      return;
+    }
+    branches.push({
+      path,
+      score: computeScore(path, route.index),
+      routesMeta
+    });
+  };
+  routes.forEach((route, index2) => {
+    if (route.path === "" || !route.path?.includes("?")) {
+      flattenRoute(route, index2);
+    } else {
+      for (let exploded of explodeOptionalSegments(route.path)) {
+        flattenRoute(route, index2, true, exploded);
+      }
+    }
+  });
+  return branches;
+}
+function explodeOptionalSegments(path) {
+  let segments = path.split("/");
+  if (segments.length === 0) return [];
+  let [first, ...rest] = segments;
+  let isOptional = first.endsWith("?");
+  let required = first.replace(/\?$/, "");
+  if (rest.length === 0) {
+    return isOptional ? [required, ""] : [required];
+  }
+  let restExploded = explodeOptionalSegments(rest.join("/"));
+  let result = [];
+  result.push(
+    ...restExploded.map(
+      (subpath) => subpath === "" ? required : [required, subpath].join("/")
+    )
+  );
+  if (isOptional) {
+    result.push(...restExploded);
+  }
+  return result.map(
+    (exploded) => path.startsWith("/") && exploded === "" ? "/" : exploded
+  );
+}
+function rankRouteBranches(branches) {
+  branches.sort(
+    (a, b2) => a.score !== b2.score ? b2.score - a.score : compareIndexes(
+      a.routesMeta.map((meta) => meta.childrenIndex),
+      b2.routesMeta.map((meta) => meta.childrenIndex)
+    )
+  );
+}
+var paramRe = /^:[\w-]+$/;
+var dynamicSegmentValue = 3;
+var indexRouteValue = 2;
+var emptySegmentValue = 1;
+var staticSegmentValue = 10;
+var splatPenalty = -2;
+var isSplat = (s15) => s15 === "*";
+function computeScore(path, index2) {
+  let segments = path.split("/");
+  let initialScore = segments.length;
+  if (segments.some(isSplat)) {
+    initialScore += splatPenalty;
+  }
+  if (index2) {
+    initialScore += indexRouteValue;
+  }
+  return segments.filter((s15) => !isSplat(s15)).reduce(
+    (score, segment) => score + (paramRe.test(segment) ? dynamicSegmentValue : segment === "" ? emptySegmentValue : staticSegmentValue),
+    initialScore
+  );
+}
+function compareIndexes(a, b2) {
+  let siblings = a.length === b2.length && a.slice(0, -1).every((n, i) => n === b2[i]);
+  return siblings ? (
+    // If two routes are siblings, we should try to match the earlier sibling
+    // first. This allows people to have fine-grained control over the matching
+    // behavior by simply putting routes with identical paths in the order they
+    // want them tried.
+    a[a.length - 1] - b2[b2.length - 1]
+  ) : (
+    // Otherwise, it doesn't really make sense to rank non-siblings by index,
+    // so they sort equally.
+    0
+  );
+}
+function matchRouteBranch(branch, pathname, allowPartial = false) {
+  let { routesMeta } = branch;
+  let matchedParams = {};
+  let matchedPathname = "/";
+  let matches2 = [];
+  for (let i = 0; i < routesMeta.length; ++i) {
+    let meta = routesMeta[i];
+    let end = i === routesMeta.length - 1;
+    let remainingPathname = matchedPathname === "/" ? pathname : pathname.slice(matchedPathname.length) || "/";
+    let match = matchPath(
+      { path: meta.relativePath, caseSensitive: meta.caseSensitive, end },
+      remainingPathname
+    );
+    let route = meta.route;
+    if (!match && end && allowPartial && !routesMeta[routesMeta.length - 1].route.index) {
+      match = matchPath(
+        {
+          path: meta.relativePath,
+          caseSensitive: meta.caseSensitive,
+          end: false
+        },
+        remainingPathname
+      );
+    }
+    if (!match) {
+      return null;
+    }
+    Object.assign(matchedParams, match.params);
+    matches2.push({
+      // TODO: Can this as be avoided?
+      params: matchedParams,
+      pathname: joinPaths([matchedPathname, match.pathname]),
+      pathnameBase: normalizePathname(
+        joinPaths([matchedPathname, match.pathnameBase])
+      ),
+      route
+    });
+    if (match.pathnameBase !== "/") {
+      matchedPathname = joinPaths([matchedPathname, match.pathnameBase]);
+    }
+  }
+  return matches2;
+}
+function matchPath(pattern, pathname) {
+  if (typeof pattern === "string") {
+    pattern = { path: pattern, caseSensitive: false, end: true };
+  }
+  let [matcher, compiledParams] = compilePath(
+    pattern.path,
+    pattern.caseSensitive,
+    pattern.end
+  );
+  let match = pathname.match(matcher);
+  if (!match) return null;
+  let matchedPathname = match[0];
+  let pathnameBase = matchedPathname.replace(/(.)\/+$/, "$1");
+  let captureGroups = match.slice(1);
+  let params = compiledParams.reduce(
+    (memo2, { paramName, isOptional }, index2) => {
+      if (paramName === "*") {
+        let splatValue = captureGroups[index2] || "";
+        pathnameBase = matchedPathname.slice(0, matchedPathname.length - splatValue.length).replace(/(.)\/+$/, "$1");
+      }
+      const value = captureGroups[index2];
+      if (isOptional && !value) {
+        memo2[paramName] = void 0;
+      } else {
+        memo2[paramName] = (value || "").replace(/%2F/g, "/");
+      }
+      return memo2;
+    },
+    {}
+  );
+  return {
+    params,
+    pathname: matchedPathname,
+    pathnameBase,
+    pattern
+  };
+}
+function compilePath(path, caseSensitive = false, end = true) {
+  warning(
+    path === "*" || !path.endsWith("*") || path.endsWith("/*"),
+    `Route path "${path}" will be treated as if it were "${path.replace(/\*$/, "/*")}" because the \`*\` character must always follow a \`/\` in the pattern. To get rid of this warning, please change the route path to "${path.replace(/\*$/, "/*")}".`
+  );
+  let params = [];
+  let regexpSource = "^" + path.replace(/\/*\*?$/, "").replace(/^\/*/, "/").replace(/[\\.*+^${}|()[\]]/g, "\\$&").replace(
+    /\/:([\w-]+)(\?)?/g,
+    (_2, paramName, isOptional) => {
+      params.push({ paramName, isOptional: isOptional != null });
+      return isOptional ? "/?([^\\/]+)?" : "/([^\\/]+)";
+    }
+  ).replace(/\/([\w-]+)\?(\/|$)/g, "(/$1)?$2");
+  if (path.endsWith("*")) {
+    params.push({ paramName: "*" });
+    regexpSource += path === "*" || path === "/*" ? "(.*)$" : "(?:\\/(.+)|\\/*)$";
+  } else if (end) {
+    regexpSource += "\\/*$";
+  } else if (path !== "" && path !== "/") {
+    regexpSource += "(?:(?=\\/|$))";
+  } else ;
+  let matcher = new RegExp(regexpSource, caseSensitive ? void 0 : "i");
+  return [matcher, params];
+}
+function decodePath(value) {
+  try {
+    return value.split("/").map((v3) => decodeURIComponent(v3).replace(/\//g, "%2F")).join("/");
+  } catch (error) {
+    warning(
+      false,
+      `The URL path "${value}" could not be decoded because it is a malformed URL segment. This is probably due to a bad percent encoding (${error}).`
+    );
+    return value;
+  }
+}
+function stripBasename(pathname, basename) {
+  if (basename === "/") return pathname;
+  if (!pathname.toLowerCase().startsWith(basename.toLowerCase())) {
+    return null;
+  }
+  let startIndex = basename.endsWith("/") ? basename.length - 1 : basename.length;
+  let nextChar = pathname.charAt(startIndex);
+  if (nextChar && nextChar !== "/") {
+    return null;
+  }
+  return pathname.slice(startIndex) || "/";
+}
+var ABSOLUTE_URL_REGEX = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+function resolvePath(to, fromPathname = "/") {
+  let {
+    pathname: toPathname,
+    search = "",
+    hash = ""
+  } = typeof to === "string" ? parsePath(to) : to;
+  let pathname;
+  if (toPathname) {
+    toPathname = toPathname.replace(/\/\/+/g, "/");
+    if (toPathname.startsWith("/")) {
+      pathname = resolvePathname(toPathname.substring(1), "/");
+    } else {
+      pathname = resolvePathname(toPathname, fromPathname);
+    }
+  } else {
+    pathname = fromPathname;
+  }
+  return {
+    pathname,
+    search: normalizeSearch(search),
+    hash: normalizeHash(hash)
+  };
+}
+function resolvePathname(relativePath, fromPathname) {
+  let segments = fromPathname.replace(/\/+$/, "").split("/");
+  let relativeSegments = relativePath.split("/");
+  relativeSegments.forEach((segment) => {
+    if (segment === "..") {
+      if (segments.length > 1) segments.pop();
+    } else if (segment !== ".") {
+      segments.push(segment);
+    }
+  });
+  return segments.length > 1 ? segments.join("/") : "/";
+}
+function getInvalidPathError(char, field, dest, path) {
+  return `Cannot include a '${char}' character in a manually specified \`to.${field}\` field [${JSON.stringify(
+    path
+  )}].  Please separate it out to the \`to.${dest}\` field. Alternatively you may provide the full path as a string in <Link to="..."> and the router will parse it for you.`;
+}
+function getPathContributingMatches(matches2) {
+  return matches2.filter(
+    (match, index2) => index2 === 0 || match.route.path && match.route.path.length > 0
+  );
+}
+function getResolveToMatches(matches2) {
+  let pathMatches = getPathContributingMatches(matches2);
+  return pathMatches.map(
+    (match, idx) => idx === pathMatches.length - 1 ? match.pathname : match.pathnameBase
+  );
+}
+function resolveTo(toArg, routePathnames, locationPathname, isPathRelative = false) {
+  let to;
+  if (typeof toArg === "string") {
+    to = parsePath(toArg);
+  } else {
+    to = { ...toArg };
+    invariant(
+      !to.pathname || !to.pathname.includes("?"),
+      getInvalidPathError("?", "pathname", "search", to)
+    );
+    invariant(
+      !to.pathname || !to.pathname.includes("#"),
+      getInvalidPathError("#", "pathname", "hash", to)
+    );
+    invariant(
+      !to.search || !to.search.includes("#"),
+      getInvalidPathError("#", "search", "hash", to)
+    );
+  }
+  let isEmptyPath = toArg === "" || to.pathname === "";
+  let toPathname = isEmptyPath ? "/" : to.pathname;
+  let from;
+  if (toPathname == null) {
+    from = locationPathname;
+  } else {
+    let routePathnameIndex = routePathnames.length - 1;
+    if (!isPathRelative && toPathname.startsWith("..")) {
+      let toSegments = toPathname.split("/");
+      while (toSegments[0] === "..") {
+        toSegments.shift();
+        routePathnameIndex -= 1;
+      }
+      to.pathname = toSegments.join("/");
+    }
+    from = routePathnameIndex >= 0 ? routePathnames[routePathnameIndex] : "/";
+  }
+  let path = resolvePath(to, from);
+  let hasExplicitTrailingSlash = toPathname && toPathname !== "/" && toPathname.endsWith("/");
+  let hasCurrentTrailingSlash = (isEmptyPath || toPathname === ".") && locationPathname.endsWith("/");
+  if (!path.pathname.endsWith("/") && (hasExplicitTrailingSlash || hasCurrentTrailingSlash)) {
+    path.pathname += "/";
+  }
+  return path;
+}
+var joinPaths = (paths) => paths.join("/").replace(/\/\/+/g, "/");
+var normalizePathname = (pathname) => pathname.replace(/\/+$/, "").replace(/^\/*/, "/");
+var normalizeSearch = (search) => !search || search === "?" ? "" : search.startsWith("?") ? search : "?" + search;
+var normalizeHash = (hash) => !hash || hash === "#" ? "" : hash.startsWith("#") ? hash : "#" + hash;
+var ErrorResponseImpl = class {
+  constructor(status, statusText, data2, internal = false) {
+    this.status = status;
+    this.statusText = statusText || "";
+    this.internal = internal;
+    if (data2 instanceof Error) {
+      this.data = data2.toString();
+      this.error = data2;
+    } else {
+      this.data = data2;
+    }
+  }
+};
+function isRouteErrorResponse(error) {
+  return error != null && typeof error.status === "number" && typeof error.statusText === "string" && typeof error.internal === "boolean" && "data" in error;
+}
+function getRoutePattern(matches2) {
+  return matches2.map((m2) => m2.route.path).filter(Boolean).join("/").replace(/\/\/*/g, "/") || "/";
+}
+var isBrowser$1 = typeof window !== "undefined" && typeof window.document !== "undefined" && typeof window.document.createElement !== "undefined";
+function parseToInfo(_to, basename) {
+  let to = _to;
+  if (typeof to !== "string" || !ABSOLUTE_URL_REGEX.test(to)) {
+    return {
+      absoluteURL: void 0,
+      isExternal: false,
+      to
+    };
+  }
+  let absoluteURL = to;
+  let isExternal = false;
+  if (isBrowser$1) {
+    try {
+      let currentUrl = new URL(window.location.href);
+      let targetUrl = to.startsWith("//") ? new URL(currentUrl.protocol + to) : new URL(to);
+      let path = stripBasename(targetUrl.pathname, basename);
+      if (targetUrl.origin === currentUrl.origin && path != null) {
+        to = path + targetUrl.search + targetUrl.hash;
+      } else {
+        isExternal = true;
+      }
+    } catch (e) {
+      warning(
+        false,
+        `<Link to="${to}"> contains an invalid URL which will probably break when clicked - please update to a valid URL path.`
+      );
+    }
+  }
+  return {
+    absoluteURL,
+    isExternal,
+    to
+  };
+}
+Object.getOwnPropertyNames(Object.prototype).sort().join("\0");
+var validMutationMethodsArr = [
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE"
+];
+new Set(
+  validMutationMethodsArr
+);
+var validRequestMethodsArr = [
+  "GET",
+  ...validMutationMethodsArr
+];
+new Set(validRequestMethodsArr);
+var DataRouterContext = reactExports.createContext(null);
+DataRouterContext.displayName = "DataRouter";
+var DataRouterStateContext = reactExports.createContext(null);
+DataRouterStateContext.displayName = "DataRouterState";
+var RSCRouterContext = reactExports.createContext(false);
+var ViewTransitionContext = reactExports.createContext({
+  isTransitioning: false
+});
+ViewTransitionContext.displayName = "ViewTransition";
+var FetchersContext = reactExports.createContext(
+  /* @__PURE__ */ new Map()
+);
+FetchersContext.displayName = "Fetchers";
+var AwaitContext = reactExports.createContext(null);
+AwaitContext.displayName = "Await";
+var NavigationContext = reactExports.createContext(
+  null
+);
+NavigationContext.displayName = "Navigation";
+var LocationContext = reactExports.createContext(
+  null
+);
+LocationContext.displayName = "Location";
+var RouteContext = reactExports.createContext({
+  outlet: null,
+  matches: [],
+  isDataRoute: false
+});
+RouteContext.displayName = "Route";
+var RouteErrorContext = reactExports.createContext(null);
+RouteErrorContext.displayName = "RouteError";
+var ERROR_DIGEST_BASE = "REACT_ROUTER_ERROR";
+var ERROR_DIGEST_REDIRECT = "REDIRECT";
+var ERROR_DIGEST_ROUTE_ERROR_RESPONSE = "ROUTE_ERROR_RESPONSE";
+function decodeRedirectErrorDigest(digest) {
+  if (digest.startsWith(`${ERROR_DIGEST_BASE}:${ERROR_DIGEST_REDIRECT}:{`)) {
+    try {
+      let parsed = JSON.parse(digest.slice(28));
+      if (typeof parsed === "object" && parsed && typeof parsed.status === "number" && typeof parsed.statusText === "string" && typeof parsed.location === "string" && typeof parsed.reloadDocument === "boolean" && typeof parsed.replace === "boolean") {
+        return parsed;
+      }
+    } catch {
+    }
+  }
+}
+function decodeRouteErrorResponseDigest(digest) {
+  if (digest.startsWith(
+    `${ERROR_DIGEST_BASE}:${ERROR_DIGEST_ROUTE_ERROR_RESPONSE}:{`
+  )) {
+    try {
+      let parsed = JSON.parse(digest.slice(40));
+      if (typeof parsed === "object" && parsed && typeof parsed.status === "number" && typeof parsed.statusText === "string") {
+        return new ErrorResponseImpl(
+          parsed.status,
+          parsed.statusText,
+          parsed.data
+        );
+      }
+    } catch {
+    }
+  }
+}
+function useHref(to, { relative } = {}) {
+  invariant(
+    useInRouterContext(),
+    // TODO: This error is probably because they somehow have 2 versions of the
+    // router loaded. We can help them understand how to avoid that.
+    `useHref() may be used only in the context of a <Router> component.`
+  );
+  let { basename, navigator: navigator2 } = reactExports.useContext(NavigationContext);
+  let { hash, pathname, search } = useResolvedPath(to, { relative });
+  let joinedPathname = pathname;
+  if (basename !== "/") {
+    joinedPathname = pathname === "/" ? basename : joinPaths([basename, pathname]);
+  }
+  return navigator2.createHref({ pathname: joinedPathname, search, hash });
+}
+function useInRouterContext() {
+  return reactExports.useContext(LocationContext) != null;
+}
+function useLocation() {
+  invariant(
+    useInRouterContext(),
+    // TODO: This error is probably because they somehow have 2 versions of the
+    // router loaded. We can help them understand how to avoid that.
+    `useLocation() may be used only in the context of a <Router> component.`
+  );
+  return reactExports.useContext(LocationContext).location;
+}
+var navigateEffectWarning = `You should call navigate() in a React.useEffect(), not when your component is first rendered.`;
+function useIsomorphicLayoutEffect$2(cb) {
+  let isStatic = reactExports.useContext(NavigationContext).static;
+  if (!isStatic) {
+    reactExports.useLayoutEffect(cb);
+  }
+}
+function useNavigate() {
+  let { isDataRoute } = reactExports.useContext(RouteContext);
+  return isDataRoute ? useNavigateStable() : useNavigateUnstable();
+}
+function useNavigateUnstable() {
+  invariant(
+    useInRouterContext(),
+    // TODO: This error is probably because they somehow have 2 versions of the
+    // router loaded. We can help them understand how to avoid that.
+    `useNavigate() may be used only in the context of a <Router> component.`
+  );
+  let dataRouterContext = reactExports.useContext(DataRouterContext);
+  let { basename, navigator: navigator2 } = reactExports.useContext(NavigationContext);
+  let { matches: matches2 } = reactExports.useContext(RouteContext);
+  let { pathname: locationPathname } = useLocation();
+  let routePathnamesJson = JSON.stringify(getResolveToMatches(matches2));
+  let activeRef = reactExports.useRef(false);
+  useIsomorphicLayoutEffect$2(() => {
+    activeRef.current = true;
+  });
+  let navigate = reactExports.useCallback(
+    (to, options = {}) => {
+      warning(activeRef.current, navigateEffectWarning);
+      if (!activeRef.current) return;
+      if (typeof to === "number") {
+        navigator2.go(to);
+        return;
+      }
+      let path = resolveTo(
+        to,
+        JSON.parse(routePathnamesJson),
+        locationPathname,
+        options.relative === "path"
+      );
+      if (dataRouterContext == null && basename !== "/") {
+        path.pathname = path.pathname === "/" ? basename : joinPaths([basename, path.pathname]);
+      }
+      (!!options.replace ? navigator2.replace : navigator2.push)(
+        path,
+        options.state,
+        options
+      );
+    },
+    [
+      basename,
+      navigator2,
+      routePathnamesJson,
+      locationPathname,
+      dataRouterContext
+    ]
+  );
+  return navigate;
+}
+reactExports.createContext(null);
+function useResolvedPath(to, { relative } = {}) {
+  let { matches: matches2 } = reactExports.useContext(RouteContext);
+  let { pathname: locationPathname } = useLocation();
+  let routePathnamesJson = JSON.stringify(getResolveToMatches(matches2));
+  return reactExports.useMemo(
+    () => resolveTo(
+      to,
+      JSON.parse(routePathnamesJson),
+      locationPathname,
+      relative === "path"
+    ),
+    [to, routePathnamesJson, locationPathname, relative]
+  );
+}
+function useRoutes(routes, locationArg) {
+  return useRoutesImpl(routes, locationArg);
+}
+function useRoutesImpl(routes, locationArg, dataRouterState, onError, future) {
+  invariant(
+    useInRouterContext(),
+    // TODO: This error is probably because they somehow have 2 versions of the
+    // router loaded. We can help them understand how to avoid that.
+    `useRoutes() may be used only in the context of a <Router> component.`
+  );
+  let { navigator: navigator2 } = reactExports.useContext(NavigationContext);
+  let { matches: parentMatches } = reactExports.useContext(RouteContext);
+  let routeMatch = parentMatches[parentMatches.length - 1];
+  let parentParams = routeMatch ? routeMatch.params : {};
+  let parentPathname = routeMatch ? routeMatch.pathname : "/";
+  let parentPathnameBase = routeMatch ? routeMatch.pathnameBase : "/";
+  let parentRoute = routeMatch && routeMatch.route;
+  {
+    let parentPath = parentRoute && parentRoute.path || "";
+    warningOnce(
+      parentPathname,
+      !parentRoute || parentPath.endsWith("*") || parentPath.endsWith("*?"),
+      `You rendered descendant <Routes> (or called \`useRoutes()\`) at "${parentPathname}" (under <Route path="${parentPath}">) but the parent route path has no trailing "*". This means if you navigate deeper, the parent won't match anymore and therefore the child routes will never render.
+
+Please change the parent <Route path="${parentPath}"> to <Route path="${parentPath === "/" ? "*" : `${parentPath}/*`}">.`
+    );
+  }
+  let locationFromContext = useLocation();
+  let location;
+  if (locationArg) {
+    let parsedLocationArg = typeof locationArg === "string" ? parsePath(locationArg) : locationArg;
+    invariant(
+      parentPathnameBase === "/" || parsedLocationArg.pathname?.startsWith(parentPathnameBase),
+      `When overriding the location using \`<Routes location>\` or \`useRoutes(routes, location)\`, the location pathname must begin with the portion of the URL pathname that was matched by all parent routes. The current pathname base is "${parentPathnameBase}" but pathname "${parsedLocationArg.pathname}" was given in the \`location\` prop.`
+    );
+    location = parsedLocationArg;
+  } else {
+    location = locationFromContext;
+  }
+  let pathname = location.pathname || "/";
+  let remainingPathname = pathname;
+  if (parentPathnameBase !== "/") {
+    let parentSegments = parentPathnameBase.replace(/^\//, "").split("/");
+    let segments = pathname.replace(/^\//, "").split("/");
+    remainingPathname = "/" + segments.slice(parentSegments.length).join("/");
+  }
+  let matches2 = matchRoutes(routes, { pathname: remainingPathname });
+  {
+    warning(
+      parentRoute || matches2 != null,
+      `No routes matched location "${location.pathname}${location.search}${location.hash}" `
+    );
+    warning(
+      matches2 == null || matches2[matches2.length - 1].route.element !== void 0 || matches2[matches2.length - 1].route.Component !== void 0 || matches2[matches2.length - 1].route.lazy !== void 0,
+      `Matched leaf route at location "${location.pathname}${location.search}${location.hash}" does not have an element or Component. This means it will render an <Outlet /> with a null value by default resulting in an "empty" page.`
+    );
+  }
+  let renderedMatches = _renderMatches(
+    matches2 && matches2.map(
+      (match) => Object.assign({}, match, {
+        params: Object.assign({}, parentParams, match.params),
+        pathname: joinPaths([
+          parentPathnameBase,
+          // Re-encode pathnames that were decoded inside matchRoutes.
+          // Pre-encode `?` and `#` ahead of `encodeLocation` because it uses
+          // `new URL()` internally and we need to prevent it from treating
+          // them as separators
+          navigator2.encodeLocation ? navigator2.encodeLocation(
+            match.pathname.replace(/\?/g, "%3F").replace(/#/g, "%23")
+          ).pathname : match.pathname
+        ]),
+        pathnameBase: match.pathnameBase === "/" ? parentPathnameBase : joinPaths([
+          parentPathnameBase,
+          // Re-encode pathnames that were decoded inside matchRoutes
+          // Pre-encode `?` and `#` ahead of `encodeLocation` because it uses
+          // `new URL()` internally and we need to prevent it from treating
+          // them as separators
+          navigator2.encodeLocation ? navigator2.encodeLocation(
+            match.pathnameBase.replace(/\?/g, "%3F").replace(/#/g, "%23")
+          ).pathname : match.pathnameBase
+        ])
+      })
+    ),
+    parentMatches,
+    dataRouterState,
+    onError,
+    future
+  );
+  if (locationArg && renderedMatches) {
+    return /* @__PURE__ */ reactExports.createElement(
+      LocationContext.Provider,
+      {
+        value: {
+          location: {
+            pathname: "/",
+            search: "",
+            hash: "",
+            state: null,
+            key: "default",
+            ...location
+          },
+          navigationType: "POP"
+          /* Pop */
+        }
+      },
+      renderedMatches
+    );
+  }
+  return renderedMatches;
+}
+function DefaultErrorComponent() {
+  let error = useRouteError();
+  let message = isRouteErrorResponse(error) ? `${error.status} ${error.statusText}` : error instanceof Error ? error.message : JSON.stringify(error);
+  let stack = error instanceof Error ? error.stack : null;
+  let lightgrey = "rgba(200,200,200, 0.5)";
+  let preStyles = { padding: "0.5rem", backgroundColor: lightgrey };
+  let codeStyles = { padding: "2px 4px", backgroundColor: lightgrey };
+  let devInfo = null;
+  {
+    console.error(
+      "Error handled by React Router default ErrorBoundary:",
+      error
+    );
+    devInfo = /* @__PURE__ */ reactExports.createElement(reactExports.Fragment, null, /* @__PURE__ */ reactExports.createElement("p", null, "💿 Hey developer 👋"), /* @__PURE__ */ reactExports.createElement("p", null, "You can provide a way better UX than this when your app throws errors by providing your own ", /* @__PURE__ */ reactExports.createElement("code", { style: codeStyles }, "ErrorBoundary"), " or", " ", /* @__PURE__ */ reactExports.createElement("code", { style: codeStyles }, "errorElement"), " prop on your route."));
+  }
+  return /* @__PURE__ */ reactExports.createElement(reactExports.Fragment, null, /* @__PURE__ */ reactExports.createElement("h2", null, "Unexpected Application Error!"), /* @__PURE__ */ reactExports.createElement("h3", { style: { fontStyle: "italic" } }, message), stack ? /* @__PURE__ */ reactExports.createElement("pre", { style: preStyles }, stack) : null, devInfo);
+}
+var defaultErrorElement = /* @__PURE__ */ reactExports.createElement(DefaultErrorComponent, null);
+var RenderErrorBoundary = class extends reactExports.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      location: props.location,
+      revalidation: props.revalidation,
+      error: props.error
+    };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  static getDerivedStateFromProps(props, state) {
+    if (state.location !== props.location || state.revalidation !== "idle" && props.revalidation === "idle") {
+      return {
+        error: props.error,
+        location: props.location,
+        revalidation: props.revalidation
+      };
+    }
+    return {
+      error: props.error !== void 0 ? props.error : state.error,
+      location: state.location,
+      revalidation: props.revalidation || state.revalidation
+    };
+  }
+  componentDidCatch(error, errorInfo) {
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    } else {
+      console.error(
+        "React Router caught the following error during render",
+        error
+      );
+    }
+  }
+  render() {
+    let error = this.state.error;
+    if (this.context && typeof error === "object" && error && "digest" in error && typeof error.digest === "string") {
+      const decoded = decodeRouteErrorResponseDigest(error.digest);
+      if (decoded) error = decoded;
+    }
+    let result = error !== void 0 ? /* @__PURE__ */ reactExports.createElement(RouteContext.Provider, { value: this.props.routeContext }, /* @__PURE__ */ reactExports.createElement(
+      RouteErrorContext.Provider,
+      {
+        value: error,
+        children: this.props.component
+      }
+    )) : this.props.children;
+    if (this.context) {
+      return /* @__PURE__ */ reactExports.createElement(RSCErrorHandler, { error }, result);
+    }
+    return result;
+  }
+};
+RenderErrorBoundary.contextType = RSCRouterContext;
+var errorRedirectHandledMap = /* @__PURE__ */ new WeakMap();
+function RSCErrorHandler({
+  children,
+  error
+}) {
+  let { basename } = reactExports.useContext(NavigationContext);
+  if (typeof error === "object" && error && "digest" in error && typeof error.digest === "string") {
+    let redirect2 = decodeRedirectErrorDigest(error.digest);
+    if (redirect2) {
+      let existingRedirect = errorRedirectHandledMap.get(error);
+      if (existingRedirect) throw existingRedirect;
+      let parsed = parseToInfo(redirect2.location, basename);
+      if (isBrowser$1 && !errorRedirectHandledMap.get(error)) {
+        if (parsed.isExternal || redirect2.reloadDocument) {
+          window.location.href = parsed.absoluteURL || parsed.to;
+        } else {
+          const redirectPromise = Promise.resolve().then(
+            () => window.__reactRouterDataRouter.navigate(parsed.to, {
+              replace: redirect2.replace
+            })
+          );
+          errorRedirectHandledMap.set(error, redirectPromise);
+          throw redirectPromise;
+        }
+      }
+      return /* @__PURE__ */ reactExports.createElement(
+        "meta",
+        {
+          httpEquiv: "refresh",
+          content: `0;url=${parsed.absoluteURL || parsed.to}`
+        }
+      );
+    }
+  }
+  return children;
+}
+function RenderedRoute({ routeContext, match, children }) {
+  let dataRouterContext = reactExports.useContext(DataRouterContext);
+  if (dataRouterContext && dataRouterContext.static && dataRouterContext.staticContext && (match.route.errorElement || match.route.ErrorBoundary)) {
+    dataRouterContext.staticContext._deepestRenderedBoundaryId = match.route.id;
+  }
+  return /* @__PURE__ */ reactExports.createElement(RouteContext.Provider, { value: routeContext }, children);
+}
+function _renderMatches(matches2, parentMatches = [], dataRouterState = null, onErrorHandler = null, future = null) {
+  if (matches2 == null) {
+    if (!dataRouterState) {
+      return null;
+    }
+    if (dataRouterState.errors) {
+      matches2 = dataRouterState.matches;
+    } else if (parentMatches.length === 0 && !dataRouterState.initialized && dataRouterState.matches.length > 0) {
+      matches2 = dataRouterState.matches;
+    } else {
+      return null;
+    }
+  }
+  let renderedMatches = matches2;
+  let errors = dataRouterState?.errors;
+  if (errors != null) {
+    let errorIndex = renderedMatches.findIndex(
+      (m2) => m2.route.id && errors?.[m2.route.id] !== void 0
+    );
+    invariant(
+      errorIndex >= 0,
+      `Could not find a matching route for errors on route IDs: ${Object.keys(
+        errors
+      ).join(",")}`
+    );
+    renderedMatches = renderedMatches.slice(
+      0,
+      Math.min(renderedMatches.length, errorIndex + 1)
+    );
+  }
+  let renderFallback = false;
+  let fallbackIndex = -1;
+  if (dataRouterState) {
+    for (let i = 0; i < renderedMatches.length; i++) {
+      let match = renderedMatches[i];
+      if (match.route.HydrateFallback || match.route.hydrateFallbackElement) {
+        fallbackIndex = i;
+      }
+      if (match.route.id) {
+        let { loaderData, errors: errors2 } = dataRouterState;
+        let needsToRunLoader = match.route.loader && !loaderData.hasOwnProperty(match.route.id) && (!errors2 || errors2[match.route.id] === void 0);
+        if (match.route.lazy || needsToRunLoader) {
+          renderFallback = true;
+          if (fallbackIndex >= 0) {
+            renderedMatches = renderedMatches.slice(0, fallbackIndex + 1);
+          } else {
+            renderedMatches = [renderedMatches[0]];
+          }
+          break;
+        }
+      }
+    }
+  }
+  let onError = dataRouterState && onErrorHandler ? (error, errorInfo) => {
+    onErrorHandler(error, {
+      location: dataRouterState.location,
+      params: dataRouterState.matches?.[0]?.params ?? {},
+      unstable_pattern: getRoutePattern(dataRouterState.matches),
+      errorInfo
+    });
+  } : void 0;
+  return renderedMatches.reduceRight(
+    (outlet, match, index2) => {
+      let error;
+      let shouldRenderHydrateFallback = false;
+      let errorElement = null;
+      let hydrateFallbackElement = null;
+      if (dataRouterState) {
+        error = errors && match.route.id ? errors[match.route.id] : void 0;
+        errorElement = match.route.errorElement || defaultErrorElement;
+        if (renderFallback) {
+          if (fallbackIndex < 0 && index2 === 0) {
+            warningOnce(
+              "route-fallback",
+              false,
+              "No `HydrateFallback` element provided to render during initial hydration"
+            );
+            shouldRenderHydrateFallback = true;
+            hydrateFallbackElement = null;
+          } else if (fallbackIndex === index2) {
+            shouldRenderHydrateFallback = true;
+            hydrateFallbackElement = match.route.hydrateFallbackElement || null;
+          }
+        }
+      }
+      let matches22 = parentMatches.concat(renderedMatches.slice(0, index2 + 1));
+      let getChildren = () => {
+        let children;
+        if (error) {
+          children = errorElement;
+        } else if (shouldRenderHydrateFallback) {
+          children = hydrateFallbackElement;
+        } else if (match.route.Component) {
+          children = /* @__PURE__ */ reactExports.createElement(match.route.Component, null);
+        } else if (match.route.element) {
+          children = match.route.element;
+        } else {
+          children = outlet;
+        }
+        return /* @__PURE__ */ reactExports.createElement(
+          RenderedRoute,
+          {
+            match,
+            routeContext: {
+              outlet,
+              matches: matches22,
+              isDataRoute: dataRouterState != null
+            },
+            children
+          }
+        );
+      };
+      return dataRouterState && (match.route.ErrorBoundary || match.route.errorElement || index2 === 0) ? /* @__PURE__ */ reactExports.createElement(
+        RenderErrorBoundary,
+        {
+          location: dataRouterState.location,
+          revalidation: dataRouterState.revalidation,
+          component: errorElement,
+          error,
+          children: getChildren(),
+          routeContext: { outlet: null, matches: matches22, isDataRoute: true },
+          onError
+        }
+      ) : getChildren();
+    },
+    null
+  );
+}
+function getDataRouterConsoleError(hookName) {
+  return `${hookName} must be used within a data router.  See https://reactrouter.com/en/main/routers/picking-a-router.`;
+}
+function useDataRouterContext(hookName) {
+  let ctx = reactExports.useContext(DataRouterContext);
+  invariant(ctx, getDataRouterConsoleError(hookName));
+  return ctx;
+}
+function useDataRouterState(hookName) {
+  let state = reactExports.useContext(DataRouterStateContext);
+  invariant(state, getDataRouterConsoleError(hookName));
+  return state;
+}
+function useRouteContext(hookName) {
+  let route = reactExports.useContext(RouteContext);
+  invariant(route, getDataRouterConsoleError(hookName));
+  return route;
+}
+function useCurrentRouteId(hookName) {
+  let route = useRouteContext(hookName);
+  let thisRoute = route.matches[route.matches.length - 1];
+  invariant(
+    thisRoute.route.id,
+    `${hookName} can only be used on routes that contain a unique "id"`
+  );
+  return thisRoute.route.id;
+}
+function useRouteId() {
+  return useCurrentRouteId(
+    "useRouteId"
+    /* UseRouteId */
+  );
+}
+function useRouteError() {
+  let error = reactExports.useContext(RouteErrorContext);
+  let state = useDataRouterState(
+    "useRouteError"
+    /* UseRouteError */
+  );
+  let routeId = useCurrentRouteId(
+    "useRouteError"
+    /* UseRouteError */
+  );
+  if (error !== void 0) {
+    return error;
+  }
+  return state.errors?.[routeId];
+}
+function useNavigateStable() {
+  let { router } = useDataRouterContext(
+    "useNavigate"
+    /* UseNavigateStable */
+  );
+  let id = useCurrentRouteId(
+    "useNavigate"
+    /* UseNavigateStable */
+  );
+  let activeRef = reactExports.useRef(false);
+  useIsomorphicLayoutEffect$2(() => {
+    activeRef.current = true;
+  });
+  let navigate = reactExports.useCallback(
+    async (to, options = {}) => {
+      warning(activeRef.current, navigateEffectWarning);
+      if (!activeRef.current) return;
+      if (typeof to === "number") {
+        await router.navigate(to);
+      } else {
+        await router.navigate(to, { fromRouteId: id, ...options });
+      }
+    },
+    [router, id]
+  );
+  return navigate;
+}
+var alreadyWarned = {};
+function warningOnce(key, cond, message) {
+  if (!cond && !alreadyWarned[key]) {
+    alreadyWarned[key] = true;
+    warning(false, message);
+  }
+}
+reactExports.memo(DataRoutes);
+function DataRoutes({
+  routes,
+  future,
+  state,
+  onError
+}) {
+  return useRoutesImpl(routes, void 0, state, onError, future);
+}
+function Route(props) {
+  invariant(
+    false,
+    `A <Route> is only ever to be used as the child of <Routes> element, never rendered directly. Please wrap your <Route> in a <Routes>.`
+  );
+}
+function Router({
+  basename: basenameProp = "/",
+  children = null,
+  location: locationProp,
+  navigationType = "POP",
+  navigator: navigator2,
+  static: staticProp = false,
+  unstable_useTransitions
+}) {
+  invariant(
+    !useInRouterContext(),
+    `You cannot render a <Router> inside another <Router>. You should never have more than one in your app.`
+  );
+  let basename = basenameProp.replace(/^\/*/, "/");
+  let navigationContext = reactExports.useMemo(
+    () => ({
+      basename,
+      navigator: navigator2,
+      static: staticProp,
+      unstable_useTransitions,
+      future: {}
+    }),
+    [basename, navigator2, staticProp, unstable_useTransitions]
+  );
+  if (typeof locationProp === "string") {
+    locationProp = parsePath(locationProp);
+  }
+  let {
+    pathname = "/",
+    search = "",
+    hash = "",
+    state = null,
+    key = "default"
+  } = locationProp;
+  let locationContext = reactExports.useMemo(() => {
+    let trailingPathname = stripBasename(pathname, basename);
+    if (trailingPathname == null) {
+      return null;
+    }
+    return {
+      location: {
+        pathname: trailingPathname,
+        search,
+        hash,
+        state,
+        key
+      },
+      navigationType
+    };
+  }, [basename, pathname, search, hash, state, key, navigationType]);
+  warning(
+    locationContext != null,
+    `<Router basename="${basename}"> is not able to match the URL "${pathname}${search}${hash}" because it does not start with the basename, so the <Router> won't render anything.`
+  );
+  if (locationContext == null) {
+    return null;
+  }
+  return /* @__PURE__ */ reactExports.createElement(NavigationContext.Provider, { value: navigationContext }, /* @__PURE__ */ reactExports.createElement(LocationContext.Provider, { children, value: locationContext }));
+}
+function Routes({
+  children,
+  location
+}) {
+  return useRoutes(createRoutesFromChildren(children), location);
+}
+function createRoutesFromChildren(children, parentPath = []) {
+  let routes = [];
+  reactExports.Children.forEach(children, (element, index2) => {
+    if (!reactExports.isValidElement(element)) {
+      return;
+    }
+    let treePath = [...parentPath, index2];
+    if (element.type === reactExports.Fragment) {
+      routes.push.apply(
+        routes,
+        createRoutesFromChildren(element.props.children, treePath)
+      );
+      return;
+    }
+    invariant(
+      element.type === Route,
+      `[${typeof element.type === "string" ? element.type : element.type.name}] is not a <Route> component. All component children of <Routes> must be a <Route> or <React.Fragment>`
+    );
+    invariant(
+      !element.props.index || !element.props.children,
+      "An index route cannot have child routes."
+    );
+    let route = {
+      id: element.props.id || treePath.join("-"),
+      caseSensitive: element.props.caseSensitive,
+      element: element.props.element,
+      Component: element.props.Component,
+      index: element.props.index,
+      path: element.props.path,
+      middleware: element.props.middleware,
+      loader: element.props.loader,
+      action: element.props.action,
+      hydrateFallbackElement: element.props.hydrateFallbackElement,
+      HydrateFallback: element.props.HydrateFallback,
+      errorElement: element.props.errorElement,
+      ErrorBoundary: element.props.ErrorBoundary,
+      hasErrorBoundary: element.props.hasErrorBoundary === true || element.props.ErrorBoundary != null || element.props.errorElement != null,
+      shouldRevalidate: element.props.shouldRevalidate,
+      handle: element.props.handle,
+      lazy: element.props.lazy
+    };
+    if (element.props.children) {
+      route.children = createRoutesFromChildren(
+        element.props.children,
+        treePath
+      );
+    }
+    routes.push(route);
+  });
+  return routes;
+}
+var defaultMethod = "get";
+var defaultEncType = "application/x-www-form-urlencoded";
+function isHtmlElement(object) {
+  return typeof HTMLElement !== "undefined" && object instanceof HTMLElement;
+}
+function isButtonElement$1(object) {
+  return isHtmlElement(object) && object.tagName.toLowerCase() === "button";
+}
+function isFormElement(object) {
+  return isHtmlElement(object) && object.tagName.toLowerCase() === "form";
+}
+function isInputElement$1(object) {
+  return isHtmlElement(object) && object.tagName.toLowerCase() === "input";
+}
+function isModifiedEvent(event) {
+  return !!(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
+}
+function shouldProcessLinkClick(event, target) {
+  return event.button === 0 && // Ignore everything but left clicks
+  (!target || target === "_self") && // Let browser handle "target=_blank" etc.
+  !isModifiedEvent(event);
+}
+var _formDataSupportsSubmitter = null;
+function isFormDataSubmitterSupported() {
+  if (_formDataSupportsSubmitter === null) {
+    try {
+      new FormData(
+        document.createElement("form"),
+        // @ts-expect-error if FormData supports the submitter parameter, this will throw
+        0
+      );
+      _formDataSupportsSubmitter = false;
+    } catch (e) {
+      _formDataSupportsSubmitter = true;
+    }
+  }
+  return _formDataSupportsSubmitter;
+}
+var supportedFormEncTypes = /* @__PURE__ */ new Set([
+  "application/x-www-form-urlencoded",
+  "multipart/form-data",
+  "text/plain"
+]);
+function getFormEncType(encType) {
+  if (encType != null && !supportedFormEncTypes.has(encType)) {
+    warning(
+      false,
+      `"${encType}" is not a valid \`encType\` for \`<Form>\`/\`<fetcher.Form>\` and will default to "${defaultEncType}"`
+    );
+    return null;
+  }
+  return encType;
+}
+function getFormSubmissionInfo(target, basename) {
+  let method;
+  let action;
+  let encType;
+  let formData;
+  let body;
+  if (isFormElement(target)) {
+    let attr2 = target.getAttribute("action");
+    action = attr2 ? stripBasename(attr2, basename) : null;
+    method = target.getAttribute("method") || defaultMethod;
+    encType = getFormEncType(target.getAttribute("enctype")) || defaultEncType;
+    formData = new FormData(target);
+  } else if (isButtonElement$1(target) || isInputElement$1(target) && (target.type === "submit" || target.type === "image")) {
+    let form = target.form;
+    if (form == null) {
+      throw new Error(
+        `Cannot submit a <button> or <input type="submit"> without a <form>`
+      );
+    }
+    let attr2 = target.getAttribute("formaction") || form.getAttribute("action");
+    action = attr2 ? stripBasename(attr2, basename) : null;
+    method = target.getAttribute("formmethod") || form.getAttribute("method") || defaultMethod;
+    encType = getFormEncType(target.getAttribute("formenctype")) || getFormEncType(form.getAttribute("enctype")) || defaultEncType;
+    formData = new FormData(form, target);
+    if (!isFormDataSubmitterSupported()) {
+      let { name, type, value } = target;
+      if (type === "image") {
+        let prefix = name ? `${name}.` : "";
+        formData.append(`${prefix}x`, "0");
+        formData.append(`${prefix}y`, "0");
+      } else if (name) {
+        formData.append(name, value);
+      }
+    }
+  } else if (isHtmlElement(target)) {
+    throw new Error(
+      `Cannot submit element that is not <form>, <button>, or <input type="submit|image">`
+    );
+  } else {
+    method = defaultMethod;
+    action = null;
+    encType = defaultEncType;
+    body = target;
+  }
+  if (formData && encType === "text/plain") {
+    body = formData;
+    formData = void 0;
+  }
+  return { action, method: method.toLowerCase(), encType, formData, body };
+}
+Object.getOwnPropertyNames(Object.prototype).sort().join("\0");
+function invariant2(value, message) {
+  if (value === false || value === null || typeof value === "undefined") {
+    throw new Error(message);
+  }
+}
+function singleFetchUrl(reqUrl, basename, trailingSlashAware, extension) {
+  let url = typeof reqUrl === "string" ? new URL(
+    reqUrl,
+    // This can be called during the SSR flow via PrefetchPageLinksImpl so
+    // don't assume window is available
+    typeof window === "undefined" ? "server://singlefetch/" : window.location.origin
+  ) : reqUrl;
+  if (trailingSlashAware) {
+    if (url.pathname.endsWith("/")) {
+      url.pathname = `${url.pathname}_.${extension}`;
+    } else {
+      url.pathname = `${url.pathname}.${extension}`;
+    }
+  } else {
+    if (url.pathname === "/") {
+      url.pathname = `_root.${extension}`;
+    } else if (basename && stripBasename(url.pathname, basename) === "/") {
+      url.pathname = `${basename.replace(/\/$/, "")}/_root.${extension}`;
+    } else {
+      url.pathname = `${url.pathname.replace(/\/$/, "")}.${extension}`;
+    }
+  }
+  return url;
+}
+async function loadRouteModule(route, routeModulesCache) {
+  if (route.id in routeModulesCache) {
+    return routeModulesCache[route.id];
+  }
+  try {
+    let routeModule = await import(
+      /* @vite-ignore */
+      /* webpackIgnore: true */
+      route.module
+    );
+    routeModulesCache[route.id] = routeModule;
+    return routeModule;
+  } catch (error) {
+    console.error(
+      `Error loading route module \`${route.module}\`, reloading page...`
+    );
+    console.error(error);
+    if (window.__reactRouterContext && window.__reactRouterContext.isSpaMode && // @ts-expect-error
+    void 0) ;
+    window.location.reload();
+    return new Promise(() => {
+    });
+  }
+}
+function isHtmlLinkDescriptor(object) {
+  if (object == null) {
+    return false;
+  }
+  if (object.href == null) {
+    return object.rel === "preload" && typeof object.imageSrcSet === "string" && typeof object.imageSizes === "string";
+  }
+  return typeof object.rel === "string" && typeof object.href === "string";
+}
+async function getKeyedPrefetchLinks(matches2, manifest, routeModules) {
+  let links = await Promise.all(
+    matches2.map(async (match) => {
+      let route = manifest.routes[match.route.id];
+      if (route) {
+        let mod = await loadRouteModule(route, routeModules);
+        return mod.links ? mod.links() : [];
+      }
+      return [];
+    })
+  );
+  return dedupeLinkDescriptors(
+    links.flat(1).filter(isHtmlLinkDescriptor).filter((link) => link.rel === "stylesheet" || link.rel === "preload").map(
+      (link) => link.rel === "stylesheet" ? { ...link, rel: "prefetch", as: "style" } : { ...link, rel: "prefetch" }
+    )
+  );
+}
+function getNewMatchesForLinks(page, nextMatches, currentMatches, manifest, location, mode) {
+  let isNew = (match, index2) => {
+    if (!currentMatches[index2]) return true;
+    return match.route.id !== currentMatches[index2].route.id;
+  };
+  let matchPathChanged = (match, index2) => {
+    return (
+      // param change, /users/123 -> /users/456
+      currentMatches[index2].pathname !== match.pathname || // splat param changed, which is not present in match.path
+      // e.g. /files/images/avatar.jpg -> files/finances.xls
+      currentMatches[index2].route.path?.endsWith("*") && currentMatches[index2].params["*"] !== match.params["*"]
+    );
+  };
+  if (mode === "assets") {
+    return nextMatches.filter(
+      (match, index2) => isNew(match, index2) || matchPathChanged(match, index2)
+    );
+  }
+  if (mode === "data") {
+    return nextMatches.filter((match, index2) => {
+      let manifestRoute = manifest.routes[match.route.id];
+      if (!manifestRoute || !manifestRoute.hasLoader) {
+        return false;
+      }
+      if (isNew(match, index2) || matchPathChanged(match, index2)) {
+        return true;
+      }
+      if (match.route.shouldRevalidate) {
+        let routeChoice = match.route.shouldRevalidate({
+          currentUrl: new URL(
+            location.pathname + location.search + location.hash,
+            window.origin
+          ),
+          currentParams: currentMatches[0]?.params || {},
+          nextUrl: new URL(page, window.origin),
+          nextParams: match.params,
+          defaultShouldRevalidate: true
+        });
+        if (typeof routeChoice === "boolean") {
+          return routeChoice;
+        }
+      }
+      return true;
+    });
+  }
+  return [];
+}
+function getModuleLinkHrefs(matches2, manifest, { includeHydrateFallback } = {}) {
+  return dedupeHrefs(
+    matches2.map((match) => {
+      let route = manifest.routes[match.route.id];
+      if (!route) return [];
+      let hrefs = [route.module];
+      if (route.clientActionModule) {
+        hrefs = hrefs.concat(route.clientActionModule);
+      }
+      if (route.clientLoaderModule) {
+        hrefs = hrefs.concat(route.clientLoaderModule);
+      }
+      if (includeHydrateFallback && route.hydrateFallbackModule) {
+        hrefs = hrefs.concat(route.hydrateFallbackModule);
+      }
+      if (route.imports) {
+        hrefs = hrefs.concat(route.imports);
+      }
+      return hrefs;
+    }).flat(1)
+  );
+}
+function dedupeHrefs(hrefs) {
+  return [...new Set(hrefs)];
+}
+function sortKeys(obj) {
+  let sorted = {};
+  let keys = Object.keys(obj).sort();
+  for (let key of keys) {
+    sorted[key] = obj[key];
+  }
+  return sorted;
+}
+function dedupeLinkDescriptors(descriptors, preloads) {
+  let set = /* @__PURE__ */ new Set();
+  new Set(preloads);
+  return descriptors.reduce((deduped, descriptor) => {
+    let key = JSON.stringify(sortKeys(descriptor));
+    if (!set.has(key)) {
+      set.add(key);
+      deduped.push({ key, link: descriptor });
+    }
+    return deduped;
+  }, []);
+}
+function useDataRouterContext2() {
+  let context = reactExports.useContext(DataRouterContext);
+  invariant2(
+    context,
+    "You must render this element inside a <DataRouterContext.Provider> element"
+  );
+  return context;
+}
+function useDataRouterStateContext() {
+  let context = reactExports.useContext(DataRouterStateContext);
+  invariant2(
+    context,
+    "You must render this element inside a <DataRouterStateContext.Provider> element"
+  );
+  return context;
+}
+var FrameworkContext = reactExports.createContext(void 0);
+FrameworkContext.displayName = "FrameworkContext";
+function useFrameworkContext() {
+  let context = reactExports.useContext(FrameworkContext);
+  invariant2(
+    context,
+    "You must render this element inside a <HydratedRouter> element"
+  );
+  return context;
+}
+function usePrefetchBehavior(prefetch, theirElementProps) {
+  let frameworkContext = reactExports.useContext(FrameworkContext);
+  let [maybePrefetch, setMaybePrefetch] = reactExports.useState(false);
+  let [shouldPrefetch, setShouldPrefetch] = reactExports.useState(false);
+  let { onFocus, onBlur, onMouseEnter, onMouseLeave, onTouchStart } = theirElementProps;
+  let ref = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    if (prefetch === "render") {
+      setShouldPrefetch(true);
+    }
+    if (prefetch === "viewport") {
+      let callback = (entries) => {
+        entries.forEach((entry) => {
+          setShouldPrefetch(entry.isIntersecting);
+        });
+      };
+      let observer = new IntersectionObserver(callback, { threshold: 0.5 });
+      if (ref.current) observer.observe(ref.current);
+      return () => {
+        observer.disconnect();
+      };
+    }
+  }, [prefetch]);
+  reactExports.useEffect(() => {
+    if (maybePrefetch) {
+      let id = setTimeout(() => {
+        setShouldPrefetch(true);
+      }, 100);
+      return () => {
+        clearTimeout(id);
+      };
+    }
+  }, [maybePrefetch]);
+  let setIntent = () => {
+    setMaybePrefetch(true);
+  };
+  let cancelIntent = () => {
+    setMaybePrefetch(false);
+    setShouldPrefetch(false);
+  };
+  if (!frameworkContext) {
+    return [false, ref, {}];
+  }
+  if (prefetch !== "intent") {
+    return [shouldPrefetch, ref, {}];
+  }
+  return [
+    shouldPrefetch,
+    ref,
+    {
+      onFocus: composeEventHandlers$1(onFocus, setIntent),
+      onBlur: composeEventHandlers$1(onBlur, cancelIntent),
+      onMouseEnter: composeEventHandlers$1(onMouseEnter, setIntent),
+      onMouseLeave: composeEventHandlers$1(onMouseLeave, cancelIntent),
+      onTouchStart: composeEventHandlers$1(onTouchStart, setIntent)
+    }
+  ];
+}
+function composeEventHandlers$1(theirHandler, ourHandler) {
+  return (event) => {
+    theirHandler && theirHandler(event);
+    if (!event.defaultPrevented) {
+      ourHandler(event);
+    }
+  };
+}
+function PrefetchPageLinks({ page, ...linkProps }) {
+  let { router } = useDataRouterContext2();
+  let matches2 = reactExports.useMemo(
+    () => matchRoutes(router.routes, page, router.basename),
+    [router.routes, page, router.basename]
+  );
+  if (!matches2) {
+    return null;
+  }
+  return /* @__PURE__ */ reactExports.createElement(PrefetchPageLinksImpl, { page, matches: matches2, ...linkProps });
+}
+function useKeyedPrefetchLinks(matches2) {
+  let { manifest, routeModules } = useFrameworkContext();
+  let [keyedPrefetchLinks, setKeyedPrefetchLinks] = reactExports.useState([]);
+  reactExports.useEffect(() => {
+    let interrupted = false;
+    void getKeyedPrefetchLinks(matches2, manifest, routeModules).then(
+      (links) => {
+        if (!interrupted) {
+          setKeyedPrefetchLinks(links);
+        }
+      }
+    );
+    return () => {
+      interrupted = true;
+    };
+  }, [matches2, manifest, routeModules]);
+  return keyedPrefetchLinks;
+}
+function PrefetchPageLinksImpl({
+  page,
+  matches: nextMatches,
+  ...linkProps
+}) {
+  let location = useLocation();
+  let { future, manifest, routeModules } = useFrameworkContext();
+  let { basename } = useDataRouterContext2();
+  let { loaderData, matches: matches2 } = useDataRouterStateContext();
+  let newMatchesForData = reactExports.useMemo(
+    () => getNewMatchesForLinks(
+      page,
+      nextMatches,
+      matches2,
+      manifest,
+      location,
+      "data"
+    ),
+    [page, nextMatches, matches2, manifest, location]
+  );
+  let newMatchesForAssets = reactExports.useMemo(
+    () => getNewMatchesForLinks(
+      page,
+      nextMatches,
+      matches2,
+      manifest,
+      location,
+      "assets"
+    ),
+    [page, nextMatches, matches2, manifest, location]
+  );
+  let dataHrefs = reactExports.useMemo(() => {
+    if (page === location.pathname + location.search + location.hash) {
+      return [];
+    }
+    let routesParams = /* @__PURE__ */ new Set();
+    let foundOptOutRoute = false;
+    nextMatches.forEach((m2) => {
+      let manifestRoute = manifest.routes[m2.route.id];
+      if (!manifestRoute || !manifestRoute.hasLoader) {
+        return;
+      }
+      if (!newMatchesForData.some((m22) => m22.route.id === m2.route.id) && m2.route.id in loaderData && routeModules[m2.route.id]?.shouldRevalidate) {
+        foundOptOutRoute = true;
+      } else if (manifestRoute.hasClientLoader) {
+        foundOptOutRoute = true;
+      } else {
+        routesParams.add(m2.route.id);
+      }
+    });
+    if (routesParams.size === 0) {
+      return [];
+    }
+    let url = singleFetchUrl(
+      page,
+      basename,
+      future.unstable_trailingSlashAwareDataRequests,
+      "data"
+    );
+    if (foundOptOutRoute && routesParams.size > 0) {
+      url.searchParams.set(
+        "_routes",
+        nextMatches.filter((m2) => routesParams.has(m2.route.id)).map((m2) => m2.route.id).join(",")
+      );
+    }
+    return [url.pathname + url.search];
+  }, [
+    basename,
+    future.unstable_trailingSlashAwareDataRequests,
+    loaderData,
+    location,
+    manifest,
+    newMatchesForData,
+    nextMatches,
+    page,
+    routeModules
+  ]);
+  let moduleHrefs = reactExports.useMemo(
+    () => getModuleLinkHrefs(newMatchesForAssets, manifest),
+    [newMatchesForAssets, manifest]
+  );
+  let keyedPrefetchLinks = useKeyedPrefetchLinks(newMatchesForAssets);
+  return /* @__PURE__ */ reactExports.createElement(reactExports.Fragment, null, dataHrefs.map((href) => /* @__PURE__ */ reactExports.createElement("link", { key: href, rel: "prefetch", as: "fetch", href, ...linkProps })), moduleHrefs.map((href) => /* @__PURE__ */ reactExports.createElement("link", { key: href, rel: "modulepreload", href, ...linkProps })), keyedPrefetchLinks.map(({ key, link }) => (
+    // these don't spread `linkProps` because they are full link descriptors
+    // already with their own props
+    /* @__PURE__ */ reactExports.createElement(
+      "link",
+      {
+        key,
+        nonce: linkProps.nonce,
+        ...link,
+        crossOrigin: link.crossOrigin ?? linkProps.crossOrigin
+      }
+    )
+  )));
+}
+function mergeRefs(...refs) {
+  return (value) => {
+    refs.forEach((ref) => {
+      if (typeof ref === "function") {
+        ref(value);
+      } else if (ref != null) {
+        ref.current = value;
+      }
+    });
+  };
+}
+var isBrowser2 = typeof window !== "undefined" && typeof window.document !== "undefined" && typeof window.document.createElement !== "undefined";
+try {
+  if (isBrowser2) {
+    window.__reactRouterVersion = // @ts-expect-error
+    "7.13.0";
+  }
+} catch (e) {
+}
+function BrowserRouter({
+  basename,
+  children,
+  unstable_useTransitions,
+  window: window2
+}) {
+  let historyRef = reactExports.useRef();
+  if (historyRef.current == null) {
+    historyRef.current = createBrowserHistory({ window: window2, v5Compat: true });
+  }
+  let history = historyRef.current;
+  let [state, setStateImpl] = reactExports.useState({
+    action: history.action,
+    location: history.location
+  });
+  let setState = reactExports.useCallback(
+    (newState) => {
+      if (unstable_useTransitions === false) {
+        setStateImpl(newState);
+      } else {
+        reactExports.startTransition(() => setStateImpl(newState));
+      }
+    },
+    [unstable_useTransitions]
+  );
+  reactExports.useLayoutEffect(() => history.listen(setState), [history, setState]);
+  return /* @__PURE__ */ reactExports.createElement(
+    Router,
+    {
+      basename,
+      children,
+      location: state.location,
+      navigationType: state.action,
+      navigator: history,
+      unstable_useTransitions
+    }
+  );
+}
+var ABSOLUTE_URL_REGEX2 = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+var Link = reactExports.forwardRef(
+  function LinkWithRef({
+    onClick,
+    discover = "render",
+    prefetch = "none",
+    relative,
+    reloadDocument,
+    replace: replace2,
+    state,
+    target,
+    to,
+    preventScrollReset,
+    viewTransition,
+    unstable_defaultShouldRevalidate,
+    ...rest
+  }, forwardedRef) {
+    let { basename, unstable_useTransitions } = reactExports.useContext(NavigationContext);
+    let isAbsolute = typeof to === "string" && ABSOLUTE_URL_REGEX2.test(to);
+    let parsed = parseToInfo(to, basename);
+    to = parsed.to;
+    let href = useHref(to, { relative });
+    let [shouldPrefetch, prefetchRef, prefetchHandlers] = usePrefetchBehavior(
+      prefetch,
+      rest
+    );
+    let internalOnClick = useLinkClickHandler(to, {
+      replace: replace2,
+      state,
+      target,
+      preventScrollReset,
+      relative,
+      viewTransition,
+      unstable_defaultShouldRevalidate,
+      unstable_useTransitions
+    });
+    function handleClick(event) {
+      if (onClick) onClick(event);
+      if (!event.defaultPrevented) {
+        internalOnClick(event);
+      }
+    }
+    let link = (
+      // eslint-disable-next-line jsx-a11y/anchor-has-content
+      /* @__PURE__ */ reactExports.createElement(
+        "a",
+        {
+          ...rest,
+          ...prefetchHandlers,
+          href: parsed.absoluteURL || href,
+          onClick: parsed.isExternal || reloadDocument ? onClick : handleClick,
+          ref: mergeRefs(forwardedRef, prefetchRef),
+          target,
+          "data-discover": !isAbsolute && discover === "render" ? "true" : void 0
+        }
+      )
+    );
+    return shouldPrefetch && !isAbsolute ? /* @__PURE__ */ reactExports.createElement(reactExports.Fragment, null, link, /* @__PURE__ */ reactExports.createElement(PrefetchPageLinks, { page: href })) : link;
+  }
+);
+Link.displayName = "Link";
+var NavLink = reactExports.forwardRef(
+  function NavLinkWithRef({
+    "aria-current": ariaCurrentProp = "page",
+    caseSensitive = false,
+    className: classNameProp = "",
+    end = false,
+    style: styleProp,
+    to,
+    viewTransition,
+    children,
+    ...rest
+  }, ref) {
+    let path = useResolvedPath(to, { relative: rest.relative });
+    let location = useLocation();
+    let routerState = reactExports.useContext(DataRouterStateContext);
+    let { navigator: navigator2, basename } = reactExports.useContext(NavigationContext);
+    let isTransitioning = routerState != null && // Conditional usage is OK here because the usage of a data router is static
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useViewTransitionState(path) && viewTransition === true;
+    let toPathname = navigator2.encodeLocation ? navigator2.encodeLocation(path).pathname : path.pathname;
+    let locationPathname = location.pathname;
+    let nextLocationPathname = routerState && routerState.navigation && routerState.navigation.location ? routerState.navigation.location.pathname : null;
+    if (!caseSensitive) {
+      locationPathname = locationPathname.toLowerCase();
+      nextLocationPathname = nextLocationPathname ? nextLocationPathname.toLowerCase() : null;
+      toPathname = toPathname.toLowerCase();
+    }
+    if (nextLocationPathname && basename) {
+      nextLocationPathname = stripBasename(nextLocationPathname, basename) || nextLocationPathname;
+    }
+    const endSlashPosition = toPathname !== "/" && toPathname.endsWith("/") ? toPathname.length - 1 : toPathname.length;
+    let isActive = locationPathname === toPathname || !end && locationPathname.startsWith(toPathname) && locationPathname.charAt(endSlashPosition) === "/";
+    let isPending = nextLocationPathname != null && (nextLocationPathname === toPathname || !end && nextLocationPathname.startsWith(toPathname) && nextLocationPathname.charAt(toPathname.length) === "/");
+    let renderProps = {
+      isActive,
+      isPending,
+      isTransitioning
+    };
+    let ariaCurrent = isActive ? ariaCurrentProp : void 0;
+    let className;
+    if (typeof classNameProp === "function") {
+      className = classNameProp(renderProps);
+    } else {
+      className = [
+        classNameProp,
+        isActive ? "active" : null,
+        isPending ? "pending" : null,
+        isTransitioning ? "transitioning" : null
+      ].filter(Boolean).join(" ");
+    }
+    let style = typeof styleProp === "function" ? styleProp(renderProps) : styleProp;
+    return /* @__PURE__ */ reactExports.createElement(
+      Link,
+      {
+        ...rest,
+        "aria-current": ariaCurrent,
+        className,
+        ref,
+        style,
+        to,
+        viewTransition
+      },
+      typeof children === "function" ? children(renderProps) : children
+    );
+  }
+);
+NavLink.displayName = "NavLink";
+var Form = reactExports.forwardRef(
+  ({
+    discover = "render",
+    fetcherKey,
+    navigate,
+    reloadDocument,
+    replace: replace2,
+    state,
+    method = defaultMethod,
+    action,
+    onSubmit,
+    relative,
+    preventScrollReset,
+    viewTransition,
+    unstable_defaultShouldRevalidate,
+    ...props
+  }, forwardedRef) => {
+    let { unstable_useTransitions } = reactExports.useContext(NavigationContext);
+    let submit = useSubmit();
+    let formAction = useFormAction(action, { relative });
+    let formMethod = method.toLowerCase() === "get" ? "get" : "post";
+    let isAbsolute = typeof action === "string" && ABSOLUTE_URL_REGEX2.test(action);
+    let submitHandler = (event) => {
+      onSubmit && onSubmit(event);
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      let submitter = event.nativeEvent.submitter;
+      let submitMethod = submitter?.getAttribute("formmethod") || method;
+      let doSubmit = () => submit(submitter || event.currentTarget, {
+        fetcherKey,
+        method: submitMethod,
+        navigate,
+        replace: replace2,
+        state,
+        relative,
+        preventScrollReset,
+        viewTransition,
+        unstable_defaultShouldRevalidate
+      });
+      if (unstable_useTransitions && navigate !== false) {
+        reactExports.startTransition(() => doSubmit());
+      } else {
+        doSubmit();
+      }
+    };
+    return /* @__PURE__ */ reactExports.createElement(
+      "form",
+      {
+        ref: forwardedRef,
+        method: formMethod,
+        action: formAction,
+        onSubmit: reloadDocument ? onSubmit : submitHandler,
+        ...props,
+        "data-discover": !isAbsolute && discover === "render" ? "true" : void 0
+      }
+    );
+  }
+);
+Form.displayName = "Form";
+function getDataRouterConsoleError2(hookName) {
+  return `${hookName} must be used within a data router.  See https://reactrouter.com/en/main/routers/picking-a-router.`;
+}
+function useDataRouterContext3(hookName) {
+  let ctx = reactExports.useContext(DataRouterContext);
+  invariant(ctx, getDataRouterConsoleError2(hookName));
+  return ctx;
+}
+function useLinkClickHandler(to, {
+  target,
+  replace: replaceProp,
+  state,
+  preventScrollReset,
+  relative,
+  viewTransition,
+  unstable_defaultShouldRevalidate,
+  unstable_useTransitions
+} = {}) {
+  let navigate = useNavigate();
+  let location = useLocation();
+  let path = useResolvedPath(to, { relative });
+  return reactExports.useCallback(
+    (event) => {
+      if (shouldProcessLinkClick(event, target)) {
+        event.preventDefault();
+        let replace2 = replaceProp !== void 0 ? replaceProp : createPath(location) === createPath(path);
+        let doNavigate = () => navigate(to, {
+          replace: replace2,
+          state,
+          preventScrollReset,
+          relative,
+          viewTransition,
+          unstable_defaultShouldRevalidate
+        });
+        if (unstable_useTransitions) {
+          reactExports.startTransition(() => doNavigate());
+        } else {
+          doNavigate();
+        }
+      }
+    },
+    [
+      location,
+      navigate,
+      path,
+      replaceProp,
+      state,
+      target,
+      to,
+      preventScrollReset,
+      relative,
+      viewTransition,
+      unstable_defaultShouldRevalidate,
+      unstable_useTransitions
+    ]
+  );
+}
+var fetcherId = 0;
+var getUniqueFetcherId = () => `__${String(++fetcherId)}__`;
+function useSubmit() {
+  let { router } = useDataRouterContext3(
+    "useSubmit"
+    /* UseSubmit */
+  );
+  let { basename } = reactExports.useContext(NavigationContext);
+  let currentRouteId = useRouteId();
+  let routerFetch = router.fetch;
+  let routerNavigate = router.navigate;
+  return reactExports.useCallback(
+    async (target, options = {}) => {
+      let { action, method, encType, formData, body } = getFormSubmissionInfo(
+        target,
+        basename
+      );
+      if (options.navigate === false) {
+        let key = options.fetcherKey || getUniqueFetcherId();
+        await routerFetch(key, currentRouteId, options.action || action, {
+          unstable_defaultShouldRevalidate: options.unstable_defaultShouldRevalidate,
+          preventScrollReset: options.preventScrollReset,
+          formData,
+          body,
+          formMethod: options.method || method,
+          formEncType: options.encType || encType,
+          flushSync: options.flushSync
+        });
+      } else {
+        await routerNavigate(options.action || action, {
+          unstable_defaultShouldRevalidate: options.unstable_defaultShouldRevalidate,
+          preventScrollReset: options.preventScrollReset,
+          formData,
+          body,
+          formMethod: options.method || method,
+          formEncType: options.encType || encType,
+          replace: options.replace,
+          state: options.state,
+          fromRouteId: currentRouteId,
+          flushSync: options.flushSync,
+          viewTransition: options.viewTransition
+        });
+      }
+    },
+    [routerFetch, routerNavigate, basename, currentRouteId]
+  );
+}
+function useFormAction(action, { relative } = {}) {
+  let { basename } = reactExports.useContext(NavigationContext);
+  let routeContext = reactExports.useContext(RouteContext);
+  invariant(routeContext, "useFormAction must be used inside a RouteContext");
+  let [match] = routeContext.matches.slice(-1);
+  let path = { ...useResolvedPath(action ? action : ".", { relative }) };
+  let location = useLocation();
+  if (action == null) {
+    path.search = location.search;
+    let params = new URLSearchParams(path.search);
+    let indexValues = params.getAll("index");
+    let hasNakedIndexParam = indexValues.some((v3) => v3 === "");
+    if (hasNakedIndexParam) {
+      params.delete("index");
+      indexValues.filter((v3) => v3).forEach((v3) => params.append("index", v3));
+      let qs2 = params.toString();
+      path.search = qs2 ? `?${qs2}` : "";
+    }
+  }
+  if ((!action || action === ".") && match.route.index) {
+    path.search = path.search ? path.search.replace(/^\?/, "?index&") : "?index";
+  }
+  if (basename !== "/") {
+    path.pathname = path.pathname === "/" ? basename : joinPaths([basename, path.pathname]);
+  }
+  return createPath(path);
+}
+function useViewTransitionState(to, { relative } = {}) {
+  let vtContext = reactExports.useContext(ViewTransitionContext);
+  invariant(
+    vtContext != null,
+    "`useViewTransitionState` must be used within `react-router-dom`'s `RouterProvider`.  Did you accidentally import `RouterProvider` from `react-router`?"
+  );
+  let { basename } = useDataRouterContext3(
+    "useViewTransitionState"
+    /* useViewTransitionState */
+  );
+  let path = useResolvedPath(to, { relative });
+  if (!vtContext.isTransitioning) {
+    return false;
+  }
+  let currentPath = stripBasename(vtContext.currentLocation.pathname, basename) || vtContext.currentLocation.pathname;
+  let nextPath = stripBasename(vtContext.nextLocation.pathname, basename) || vtContext.nextLocation.pathname;
+  return matchPath(path.pathname, nextPath) != null || matchPath(path.pathname, currentPath) != null;
+}
+var reactDomExports = requireReactDom();
+const ReactDOM = /* @__PURE__ */ getDefaultExportFromCjs(reactDomExports);
 var __assign = function() {
   __assign = Object.assign || function __assign2(t) {
     for (var s15, i = 1, n = arguments.length; i < n; i++) {
@@ -19102,7 +21357,6 @@ function NOOP() {
 const EMPTY_ARRAY$1 = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 const TYPEAHEAD_RESET_MS = 500;
-const PATIENT_CLICK_THRESHOLD = 500;
 const DISABLED_TRANSITIONS_STYLE = {
   style: {
     transition: "none"
@@ -23704,28 +25958,6 @@ function getNextTabbable(referenceElement) {
 function getPreviousTabbable(referenceElement) {
   return getTabbableIn(ownerDocument(referenceElement).body, -1) || referenceElement;
 }
-function getTabbableNearElement(referenceElement, dir) {
-  if (!referenceElement) {
-    return null;
-  }
-  const list = tabbable(ownerDocument(referenceElement).body, getTabbableOptions());
-  const elementCount = list.length;
-  if (elementCount === 0) {
-    return null;
-  }
-  const index2 = list.indexOf(referenceElement);
-  if (index2 === -1) {
-    return null;
-  }
-  const nextIndex = (index2 + dir + elementCount) % elementCount;
-  return list[nextIndex];
-}
-function getTabbableAfterElement(referenceElement) {
-  return getTabbableNearElement(referenceElement, 1);
-}
-function getTabbableBeforeElement(referenceElement) {
-  return getTabbableNearElement(referenceElement, -1);
-}
 function isOutsideEvent(event, container) {
   const containerElement = container || event.currentTarget;
   const relatedTarget = event.relatedTarget;
@@ -23750,8 +25982,6 @@ function enableFocusInside(container) {
     }
   });
 }
-var reactDomExports = requireReactDom();
-const ReactDOM = /* @__PURE__ */ getDefaultExportFromCjs(reactDomExports);
 const EMPTY = null;
 class Scheduler {
   /* This implementation uses an array as a backing data-structure for frame callbacks.
@@ -24493,40 +26723,51 @@ const createLucideIcon = (iconName, iconNode) => {
   Component.displayName = toPascalCase(iconName);
   return Component;
 };
-const __iconNode$w = [
+const __iconNode$y = [
   ["path", { d: "m21 16-4 4-4-4", key: "f6ql7i" }],
   ["path", { d: "M17 20V4", key: "1ejh1v" }],
   ["path", { d: "m3 8 4-4 4 4", key: "11wl7u" }],
   ["path", { d: "M7 4v16", key: "1glfcx" }]
 ];
-const ArrowUpDown = createLucideIcon("arrow-up-down", __iconNode$w);
-const __iconNode$v = [["path", { d: "M20 6 9 17l-5-5", key: "1gmf2c" }]];
-const Check = createLucideIcon("check", __iconNode$v);
-const __iconNode$u = [["path", { d: "m6 9 6 6 6-6", key: "qrunsl" }]];
-const ChevronDown = createLucideIcon("chevron-down", __iconNode$u);
-const __iconNode$t = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
-const ChevronLeft = createLucideIcon("chevron-left", __iconNode$t);
-const __iconNode$s = [["path", { d: "m9 18 6-6-6-6", key: "mthhwq" }]];
-const ChevronRight = createLucideIcon("chevron-right", __iconNode$s);
-const __iconNode$r = [["path", { d: "m18 15-6-6-6 6", key: "153udz" }]];
-const ChevronUp = createLucideIcon("chevron-up", __iconNode$r);
-const __iconNode$q = [
-  ["path", { d: "m7 15 5 5 5-5", key: "1hf1tw" }],
-  ["path", { d: "m7 9 5-5 5 5", key: "sgt6xg" }]
+const ArrowUpDown = createLucideIcon("arrow-up-down", __iconNode$y);
+const __iconNode$x = [
+  ["path", { d: "M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z", key: "1b4qmf" }],
+  ["path", { d: "M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2", key: "i71pzd" }],
+  ["path", { d: "M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2", key: "10jefs" }],
+  ["path", { d: "M10 6h4", key: "1itunk" }],
+  ["path", { d: "M10 10h4", key: "tcdvrf" }],
+  ["path", { d: "M10 14h4", key: "kelpxr" }],
+  ["path", { d: "M10 18h4", key: "1ulq68" }]
 ];
-const ChevronsUpDown = createLucideIcon("chevrons-up-down", __iconNode$q);
-const __iconNode$p = [
+const Building2 = createLucideIcon("building-2", __iconNode$x);
+const __iconNode$w = [["path", { d: "M20 6 9 17l-5-5", key: "1gmf2c" }]];
+const Check = createLucideIcon("check", __iconNode$w);
+const __iconNode$v = [["path", { d: "m6 9 6 6 6-6", key: "qrunsl" }]];
+const ChevronDown = createLucideIcon("chevron-down", __iconNode$v);
+const __iconNode$u = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
+const ChevronLeft = createLucideIcon("chevron-left", __iconNode$u);
+const __iconNode$t = [["path", { d: "m9 18 6-6-6-6", key: "mthhwq" }]];
+const ChevronRight = createLucideIcon("chevron-right", __iconNode$t);
+const __iconNode$s = [["path", { d: "m18 15-6-6-6 6", key: "153udz" }]];
+const ChevronUp = createLucideIcon("chevron-up", __iconNode$s);
+const __iconNode$r = [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
   ["path", { d: "m9 12 2 2 4-4", key: "dzmm74" }]
 ];
-const CircleCheck = createLucideIcon("circle-check", __iconNode$p);
-const __iconNode$o = [
+const CircleCheck = createLucideIcon("circle-check", __iconNode$r);
+const __iconNode$q = [
   ["path", { d: "M12 15V3", key: "m9g1x1" }],
   ["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", key: "ih7n3h" }],
   ["path", { d: "m7 10 5 5 5-5", key: "brsn70" }]
 ];
-const Download = createLucideIcon("download", __iconNode$o);
-const __iconNode$n = [
+const Download = createLucideIcon("download", __iconNode$q);
+const __iconNode$p = [
+  ["path", { d: "M15 3h6v6", key: "1q9fwt" }],
+  ["path", { d: "M10 14 21 3", key: "gplh6r" }],
+  ["path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6", key: "a6xqqp" }]
+];
+const ExternalLink = createLucideIcon("external-link", __iconNode$p);
+const __iconNode$o = [
   [
     "path",
     {
@@ -24544,8 +26785,8 @@ const __iconNode$n = [
   ],
   ["path", { d: "m2 2 20 20", key: "1ooewy" }]
 ];
-const EyeOff = createLucideIcon("eye-off", __iconNode$n);
-const __iconNode$m = [
+const EyeOff = createLucideIcon("eye-off", __iconNode$o);
+const __iconNode$n = [
   [
     "path",
     {
@@ -24555,13 +26796,13 @@ const __iconNode$m = [
   ],
   ["circle", { cx: "12", cy: "12", r: "3", key: "1v7zrd" }]
 ];
-const Eye = createLucideIcon("eye", __iconNode$m);
-const __iconNode$l = [
+const Eye = createLucideIcon("eye", __iconNode$n);
+const __iconNode$m = [
   ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", key: "1rqfz7" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }]
 ];
-const File = createLucideIcon("file", __iconNode$l);
-const __iconNode$k = [
+const File = createLucideIcon("file", __iconNode$m);
+const __iconNode$l = [
   [
     "path",
     {
@@ -24570,8 +26811,8 @@ const __iconNode$k = [
     }
   ]
 ];
-const FolderOpen = createLucideIcon("folder-open", __iconNode$k);
-const __iconNode$j = [
+const FolderOpen = createLucideIcon("folder-open", __iconNode$l);
+const __iconNode$k = [
   ["path", { d: "M12 10v6", key: "1bos4e" }],
   ["path", { d: "M9 13h6", key: "1uhe8q" }],
   [
@@ -24582,14 +26823,14 @@ const __iconNode$j = [
     }
   ]
 ];
-const FolderPlus = createLucideIcon("folder-plus", __iconNode$j);
-const __iconNode$i = [
+const FolderPlus = createLucideIcon("folder-plus", __iconNode$k);
+const __iconNode$j = [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
   ["path", { d: "M12 16v-4", key: "1dtifu" }],
   ["path", { d: "M12 8h.01", key: "e9boi3" }]
 ];
-const Info = createLucideIcon("info", __iconNode$i);
-const __iconNode$h = [
+const Info = createLucideIcon("info", __iconNode$j);
+const __iconNode$i = [
   [
     "path",
     {
@@ -24599,20 +26840,25 @@ const __iconNode$h = [
   ],
   ["circle", { cx: "16.5", cy: "7.5", r: ".5", fill: "currentColor", key: "w0ekpg" }]
 ];
-const KeyRound = createLucideIcon("key-round", __iconNode$h);
-const __iconNode$g = [
+const KeyRound = createLucideIcon("key-round", __iconNode$i);
+const __iconNode$h = [
   ["path", { d: "m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4", key: "g0fldk" }],
   ["path", { d: "m21 2-9.6 9.6", key: "1j0ho8" }],
   ["circle", { cx: "7.5", cy: "15.5", r: "5.5", key: "yqb3hr" }]
 ];
-const Key = createLucideIcon("key", __iconNode$g);
-const __iconNode$f = [["path", { d: "M21 12a9 9 0 1 1-6.219-8.56", key: "13zald" }]];
-const LoaderCircle = createLucideIcon("loader-circle", __iconNode$f);
-const __iconNode$e = [
+const Key = createLucideIcon("key", __iconNode$h);
+const __iconNode$g = [["path", { d: "M21 12a9 9 0 1 1-6.219-8.56", key: "13zald" }]];
+const LoaderCircle = createLucideIcon("loader-circle", __iconNode$g);
+const __iconNode$f = [
   ["rect", { width: "18", height: "11", x: "3", y: "11", rx: "2", ry: "2", key: "1w4ew1" }],
   ["path", { d: "M7 11V7a5 5 0 0 1 10 0v4", key: "fwvmzm" }]
 ];
-const Lock = createLucideIcon("lock", __iconNode$e);
+const Lock = createLucideIcon("lock", __iconNode$f);
+const __iconNode$e = [
+  ["path", { d: "m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7", key: "132q7q" }],
+  ["rect", { x: "2", y: "4", width: "20", height: "16", rx: "2", key: "izxlao" }]
+];
+const Mail = createLucideIcon("mail", __iconNode$e);
 const __iconNode$d = [
   ["path", { d: "m15 9-6 6", key: "1uzhvr" }],
   [
@@ -24672,25 +26918,19 @@ const __iconNode$7 = [
 ];
 const Settings = createLucideIcon("settings", __iconNode$7);
 const __iconNode$6 = [
-  ["path", { d: "m7 11 2-2-2-2", key: "1lz0vl" }],
-  ["path", { d: "M11 13h4", key: "1p7l4v" }],
-  ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2", ry: "2", key: "1m3agn" }]
-];
-const SquareTerminal = createLucideIcon("square-terminal", __iconNode$6);
-const __iconNode$5 = [
   ["path", { d: "M12 19h8", key: "baeox8" }],
   ["path", { d: "m4 17 6-6-6-6", key: "1yngyt" }]
 ];
-const Terminal = createLucideIcon("terminal", __iconNode$5);
-const __iconNode$4 = [
+const Terminal = createLucideIcon("terminal", __iconNode$6);
+const __iconNode$5 = [
   ["path", { d: "M10 11v6", key: "nco0om" }],
   ["path", { d: "M14 11v6", key: "outv1u" }],
   ["path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", key: "miytrc" }],
   ["path", { d: "M3 6h18", key: "d0wm0j" }],
   ["path", { d: "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2", key: "e791ji" }]
 ];
-const Trash2 = createLucideIcon("trash-2", __iconNode$4);
-const __iconNode$3 = [
+const Trash2 = createLucideIcon("trash-2", __iconNode$5);
+const __iconNode$4 = [
   [
     "path",
     {
@@ -24701,13 +26941,18 @@ const __iconNode$3 = [
   ["path", { d: "M12 9v4", key: "juzpu7" }],
   ["path", { d: "M12 17h.01", key: "p32p05" }]
 ];
-const TriangleAlert = createLucideIcon("triangle-alert", __iconNode$3);
-const __iconNode$2 = [
+const TriangleAlert = createLucideIcon("triangle-alert", __iconNode$4);
+const __iconNode$3 = [
   ["path", { d: "M12 3v12", key: "1x0j5s" }],
   ["path", { d: "m17 8-5-5-5 5", key: "7q97r8" }],
   ["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", key: "ih7n3h" }]
 ];
-const Upload = createLucideIcon("upload", __iconNode$2);
+const Upload = createLucideIcon("upload", __iconNode$3);
+const __iconNode$2 = [
+  ["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", key: "975kel" }],
+  ["circle", { cx: "12", cy: "7", r: "4", key: "17ys0d" }]
+];
+const User = createLucideIcon("user", __iconNode$2);
 const __iconNode$1 = [
   ["path", { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", key: "1yyitq" }],
   ["path", { d: "M16 3.128a4 4 0 0 1 0 7.744", key: "16gr8j" }],
@@ -32229,37 +34474,28 @@ function TooltipContent({
     }
   ) });
 }
-function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoTeam, activeView }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipProvider, { delay: 300, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center h-9 w-9 mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SquareTerminal, { className: "h-6 w-6 text-primary" }) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Server, label: "Hosts", active: activeView === "hosts", onClick: onGoHome }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: KeyRound, label: "SSH Keys", active: activeView === "keys", onClick: onGoKeys }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Users, label: "Team", active: activeView === "team", onClick: onGoTeam }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Settings, label: "Settings", active: activeView === "settings", onClick: onOpenSettings })
-  ] }) });
-}
-function NavButton({
-  icon: Icon2,
-  label,
-  active,
-  onClick
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(Tooltip, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      TooltipTrigger,
-      {
-        className: cn$2(
-          "inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors",
-          "hover:bg-accent hover:text-accent-foreground",
-          active && "bg-accent text-accent-foreground"
-        ),
-        onClick,
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Icon2, { className: "h-5 w-5" })
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipContent, { side: "right", sideOffset: 8, children: label })
-  ] });
+function AvatarInitials({ name, size: size2 = "md", className }) {
+  const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  const hash = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = hash % 360;
+  const backgroundColor = `hsl(${hue}, 70%, 50%)`;
+  const sizeClasses = {
+    sm: "h-8 w-8 text-xs",
+    md: "h-10 w-10 text-sm",
+    lg: "h-16 w-16 text-lg"
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      className: cn$2(
+        "rounded-full flex items-center justify-center font-semibold text-white shrink-0",
+        sizeClasses[size2],
+        className
+      ),
+      style: { backgroundColor },
+      children: initials || "?"
+    }
+  );
 }
 const createStoreImpl = (createState) => {
   let state;
@@ -32300,6 +34536,2873 @@ const createImpl = (createState) => {
   return useBoundStore;
 };
 const create = ((createState) => createState ? createImpl(createState) : createImpl);
+const useWorkspaceStore = create((set) => ({
+  workspaces: [],
+  activeWorkspace: null,
+  isLoading: false,
+  error: null,
+  fetchWorkspaces: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const workspaces = await window.workspaceApi.listMine();
+      const context = await window.workspaceApi.getActiveContext?.();
+      set({
+        workspaces: workspaces ?? [],
+        activeWorkspace: context?.workspace ?? null,
+        isLoading: false
+      });
+    } catch (e) {
+      set({ error: e.message, isLoading: false });
+    }
+  },
+  setActiveWorkspace: async (workspaceId) => {
+    try {
+      await window.workspaceApi.switchActive(workspaceId);
+      await set({ isLoading: true });
+      const context = await window.workspaceApi.getActiveContext?.();
+      const workspaces = await window.workspaceApi.listMine();
+      set({
+        activeWorkspace: context?.workspace ?? null,
+        workspaces: workspaces ?? [],
+        isLoading: false
+      });
+    } catch (e) {
+      set({ error: e.message, isLoading: false });
+    }
+  }
+}));
+const SelectRootContext = /* @__PURE__ */ reactExports.createContext(null);
+const SelectFloatingContext = /* @__PURE__ */ reactExports.createContext(null);
+function useSelectRootContext() {
+  const context = reactExports.useContext(SelectRootContext);
+  if (context === null) {
+    throw new Error(formatErrorMessage(60));
+  }
+  return context;
+}
+function useSelectFloatingContext() {
+  const context = reactExports.useContext(SelectFloatingContext);
+  if (context === null) {
+    throw new Error(formatErrorMessage(61));
+  }
+  return context;
+}
+const defaultItemEquality = (itemValue, selectedValue) => Object.is(itemValue, selectedValue);
+function compareItemEquality(itemValue, selectedValue, comparer) {
+  if (itemValue == null || selectedValue == null) {
+    return Object.is(itemValue, selectedValue);
+  }
+  return comparer(itemValue, selectedValue);
+}
+function selectedValueIncludes(selectedValues, itemValue, comparer) {
+  if (!selectedValues || selectedValues.length === 0) {
+    return false;
+  }
+  return selectedValues.some((selectedValue) => {
+    if (selectedValue === void 0) {
+      return false;
+    }
+    return compareItemEquality(itemValue, selectedValue, comparer);
+  });
+}
+function findItemIndex(itemValues, selectedValue, comparer) {
+  if (!itemValues || itemValues.length === 0) {
+    return -1;
+  }
+  return itemValues.findIndex((itemValue) => {
+    if (itemValue === void 0) {
+      return false;
+    }
+    return compareItemEquality(itemValue, selectedValue, comparer);
+  });
+}
+function removeItem(selectedValues, itemValue, comparer) {
+  return selectedValues.filter((selectedValue) => !compareItemEquality(itemValue, selectedValue, comparer));
+}
+function serializeValue(value) {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+function isGroupedItems(items) {
+  return items != null && items.length > 0 && typeof items[0] === "object" && items[0] != null && "items" in items[0];
+}
+function hasNullItemLabel(items) {
+  if (!Array.isArray(items)) {
+    return items != null && !("null" in items);
+  }
+  if (isGroupedItems(items)) {
+    for (const group of items) {
+      for (const item of group.items) {
+        if (item && item.value == null && item.label != null) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  for (const item of items) {
+    if (item && item.value == null && item.label != null) {
+      return true;
+    }
+  }
+  return false;
+}
+function stringifyAsLabel(item, itemToStringLabel) {
+  if (itemToStringLabel && item != null) {
+    return itemToStringLabel(item) ?? "";
+  }
+  if (item && typeof item === "object") {
+    if ("label" in item && item.label != null) {
+      return String(item.label);
+    }
+    if ("value" in item) {
+      return String(item.value);
+    }
+  }
+  return serializeValue(item);
+}
+function stringifyAsValue(item, itemToStringValue) {
+  if (itemToStringValue && item != null) {
+    return itemToStringValue(item) ?? "";
+  }
+  if (item && typeof item === "object" && "value" in item && "label" in item) {
+    return serializeValue(item.value);
+  }
+  return serializeValue(item);
+}
+function resolveSelectedLabel(value, items, itemToStringLabel) {
+  function fallback() {
+    return stringifyAsLabel(value, itemToStringLabel);
+  }
+  if (itemToStringLabel && value != null) {
+    return itemToStringLabel(value);
+  }
+  if (value && typeof value === "object" && "label" in value && value.label != null) {
+    return value.label;
+  }
+  if (items && !Array.isArray(items)) {
+    return items[value] ?? fallback();
+  }
+  if (Array.isArray(items)) {
+    const flatItems = isGroupedItems(items) ? items.flatMap((g2) => g2.items) : items;
+    if (value == null || typeof value !== "object") {
+      const match = flatItems.find((item) => item.value === value);
+      if (match && match.label != null) {
+        return match.label;
+      }
+      return fallback();
+    }
+    if ("value" in value) {
+      const match = flatItems.find((item) => item && item.value === value.value);
+      if (match && match.label != null) {
+        return match.label;
+      }
+    }
+  }
+  return fallback();
+}
+function resolveMultipleLabels(values, items, itemToStringLabel) {
+  return values.reduce((acc, value, index2) => {
+    if (index2 > 0) {
+      acc.push(", ");
+    }
+    acc.push(/* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
+      children: resolveSelectedLabel(value, items, itemToStringLabel)
+    }, index2));
+    return acc;
+  }, []);
+}
+const selectors$2 = {
+  id: createSelector((state) => state.id),
+  modal: createSelector((state) => state.modal),
+  multiple: createSelector((state) => state.multiple),
+  items: createSelector((state) => state.items),
+  itemToStringLabel: createSelector((state) => state.itemToStringLabel),
+  itemToStringValue: createSelector((state) => state.itemToStringValue),
+  isItemEqualToValue: createSelector((state) => state.isItemEqualToValue),
+  value: createSelector((state) => state.value),
+  hasSelectedValue: createSelector((state) => {
+    const {
+      value,
+      multiple,
+      itemToStringValue
+    } = state;
+    if (value == null) {
+      return false;
+    }
+    if (multiple && Array.isArray(value)) {
+      return value.length > 0;
+    }
+    return stringifyAsValue(value, itemToStringValue) !== "";
+  }),
+  hasNullItemLabel: createSelector((state, enabled) => {
+    return enabled ? hasNullItemLabel(state.items) : false;
+  }),
+  open: createSelector((state) => state.open),
+  mounted: createSelector((state) => state.mounted),
+  forceMount: createSelector((state) => state.forceMount),
+  transitionStatus: createSelector((state) => state.transitionStatus),
+  openMethod: createSelector((state) => state.openMethod),
+  activeIndex: createSelector((state) => state.activeIndex),
+  selectedIndex: createSelector((state) => state.selectedIndex),
+  isActive: createSelector((state, index2) => state.activeIndex === index2),
+  isSelected: createSelector((state, index2, itemValue) => {
+    const comparer = state.isItemEqualToValue;
+    const storeValue = state.value;
+    if (state.multiple) {
+      return Array.isArray(storeValue) && storeValue.some((selectedItem) => compareItemEquality(itemValue, selectedItem, comparer));
+    }
+    if (state.selectedIndex === index2 && state.selectedIndex !== null) {
+      return true;
+    }
+    return compareItemEquality(itemValue, storeValue, comparer);
+  }),
+  isSelectedByFocus: createSelector((state, index2) => {
+    return state.selectedIndex === index2;
+  }),
+  popupProps: createSelector((state) => state.popupProps),
+  triggerProps: createSelector((state) => state.triggerProps),
+  triggerElement: createSelector((state) => state.triggerElement),
+  positionerElement: createSelector((state) => state.positionerElement),
+  listElement: createSelector((state) => state.listElement),
+  scrollUpArrowVisible: createSelector((state) => state.scrollUpArrowVisible),
+  scrollDownArrowVisible: createSelector((state) => state.scrollDownArrowVisible),
+  hasScrollArrows: createSelector((state) => state.hasScrollArrows)
+};
+function useValueChanged(value, onChange) {
+  const valueRef = reactExports.useRef(value);
+  const onChangeCallback = useStableCallback(onChange);
+  useIsoLayoutEffect(() => {
+    if (valueRef.current === value) {
+      return;
+    }
+    onChangeCallback(valueRef.current);
+  }, [value, onChangeCallback]);
+  useIsoLayoutEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+}
+function useEnhancedClickHandler(handler) {
+  const lastClickInteractionTypeRef = reactExports.useRef("");
+  const handlePointerDown = reactExports.useCallback((event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    lastClickInteractionTypeRef.current = event.pointerType;
+    handler(event, event.pointerType);
+  }, [handler]);
+  const handleClick = reactExports.useCallback((event) => {
+    if (event.detail === 0) {
+      handler(event, "keyboard");
+      return;
+    }
+    if ("pointerType" in event) {
+      handler(event, event.pointerType);
+    } else {
+      handler(event, lastClickInteractionTypeRef.current);
+    }
+    lastClickInteractionTypeRef.current = "";
+  }, [handler]);
+  return {
+    onClick: handleClick,
+    onPointerDown: handlePointerDown
+  };
+}
+function useOpenInteractionType(open) {
+  const [openMethod, setOpenMethod] = reactExports.useState(null);
+  const handleTriggerClick = useStableCallback((_2, interactionType) => {
+    if (!open) {
+      setOpenMethod(interactionType || // On iOS Safari, the hitslop around touch targets means tapping outside an element's
+      // bounds does not fire `pointerdown` but does fire `mousedown`. The `interactionType`
+      // will be "" in that case.
+      (isIOS ? "touch" : ""));
+    }
+  });
+  const reset = reactExports.useCallback(() => {
+    setOpenMethod(null);
+  }, []);
+  const {
+    onClick,
+    onPointerDown
+  } = useEnhancedClickHandler(handleTriggerClick);
+  return reactExports.useMemo(() => ({
+    openMethod,
+    reset,
+    triggerProps: {
+      onClick,
+      onPointerDown
+    }
+  }), [openMethod, reset, onClick, onPointerDown]);
+}
+function SelectRoot(props) {
+  const {
+    id,
+    value: valueProp,
+    defaultValue: defaultValue2 = null,
+    onValueChange,
+    open: openProp,
+    defaultOpen = false,
+    onOpenChange,
+    name: nameProp,
+    autoComplete,
+    disabled: disabledProp = false,
+    readOnly = false,
+    required = false,
+    modal = true,
+    actionsRef,
+    inputRef,
+    onOpenChangeComplete,
+    items,
+    multiple = false,
+    itemToStringLabel,
+    itemToStringValue,
+    isItemEqualToValue = defaultItemEquality,
+    highlightItemOnHover = true,
+    children
+  } = props;
+  const {
+    clearErrors
+  } = useFormContext();
+  const {
+    setDirty,
+    setTouched,
+    setFocused,
+    shouldValidateOnChange,
+    validityData,
+    setFilled,
+    name: fieldName,
+    disabled: fieldDisabled,
+    validation,
+    validationMode
+  } = useFieldRootContext();
+  const generatedId = useLabelableId({
+    id
+  });
+  const disabled2 = fieldDisabled || disabledProp;
+  const name = fieldName ?? nameProp;
+  const [value, setValueUnwrapped] = useControlled({
+    controlled: valueProp,
+    default: multiple ? defaultValue2 ?? EMPTY_ARRAY$1 : defaultValue2,
+    name: "Select",
+    state: "value"
+  });
+  const [open, setOpenUnwrapped] = useControlled({
+    controlled: openProp,
+    default: defaultOpen,
+    name: "Select",
+    state: "open"
+  });
+  const listRef = reactExports.useRef([]);
+  const labelsRef = reactExports.useRef([]);
+  const popupRef = reactExports.useRef(null);
+  const scrollHandlerRef = reactExports.useRef(null);
+  const scrollArrowsMountedCountRef = reactExports.useRef(0);
+  const valueRef = reactExports.useRef(null);
+  const valuesRef = reactExports.useRef([]);
+  const typingRef = reactExports.useRef(false);
+  const keyboardActiveRef = reactExports.useRef(false);
+  const selectedItemTextRef = reactExports.useRef(null);
+  const selectionRef = reactExports.useRef({
+    allowSelectedMouseUp: false,
+    allowUnselectedMouseUp: false
+  });
+  const alignItemWithTriggerActiveRef = reactExports.useRef(false);
+  const {
+    mounted,
+    setMounted,
+    transitionStatus
+  } = useTransitionStatus(open);
+  const {
+    openMethod,
+    triggerProps: interactionTypeProps,
+    reset: resetOpenInteractionType
+  } = useOpenInteractionType(open);
+  const store = useRefWithInit(() => new Store({
+    id: generatedId,
+    modal,
+    multiple,
+    itemToStringLabel,
+    itemToStringValue,
+    isItemEqualToValue,
+    value,
+    open,
+    mounted,
+    transitionStatus,
+    items,
+    forceMount: false,
+    openMethod: null,
+    activeIndex: null,
+    selectedIndex: null,
+    popupProps: {},
+    triggerProps: {},
+    triggerElement: null,
+    positionerElement: null,
+    listElement: null,
+    scrollUpArrowVisible: false,
+    scrollDownArrowVisible: false,
+    hasScrollArrows: false
+  })).current;
+  const activeIndex = useStore$1(store, selectors$2.activeIndex);
+  const selectedIndex = useStore$1(store, selectors$2.selectedIndex);
+  const triggerElement = useStore$1(store, selectors$2.triggerElement);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const serializedValue = reactExports.useMemo(() => {
+    if (multiple && Array.isArray(value) && value.length === 0) {
+      return "";
+    }
+    return stringifyAsValue(value, itemToStringValue);
+  }, [multiple, value, itemToStringValue]);
+  const fieldStringValue = reactExports.useMemo(() => {
+    if (multiple && Array.isArray(value)) {
+      return value.map((currentValue) => stringifyAsValue(currentValue, itemToStringValue));
+    }
+    return stringifyAsValue(value, itemToStringValue);
+  }, [multiple, value, itemToStringValue]);
+  const controlRef = useValueAsRef(store.state.triggerElement);
+  useField({
+    id: generatedId,
+    commit: validation.commit,
+    value,
+    controlRef,
+    name,
+    getValue: () => fieldStringValue
+  });
+  const initialValueRef = reactExports.useRef(value);
+  useIsoLayoutEffect(() => {
+    if (value !== initialValueRef.current) {
+      store.set("forceMount", true);
+    }
+  }, [store, value]);
+  useIsoLayoutEffect(() => {
+    setFilled(multiple ? Array.isArray(value) && value.length > 0 : value != null);
+  }, [multiple, value, setFilled]);
+  useIsoLayoutEffect(function syncSelectedIndex() {
+    if (open) {
+      return;
+    }
+    const registry = valuesRef.current;
+    if (multiple) {
+      const currentValue = Array.isArray(value) ? value : [];
+      if (currentValue.length === 0) {
+        store.set("selectedIndex", null);
+        return;
+      }
+      const lastValue = currentValue[currentValue.length - 1];
+      const lastIndex = findItemIndex(registry, lastValue, isItemEqualToValue);
+      store.set("selectedIndex", lastIndex === -1 ? null : lastIndex);
+      return;
+    }
+    const index2 = findItemIndex(registry, value, isItemEqualToValue);
+    store.set("selectedIndex", index2 === -1 ? null : index2);
+  }, [multiple, open, value, valuesRef, isItemEqualToValue, store]);
+  useValueChanged(value, () => {
+    clearErrors(name);
+    setDirty(value !== validityData.initialValue);
+    if (shouldValidateOnChange()) {
+      validation.commit(value);
+    } else {
+      validation.commit(value, true);
+    }
+  });
+  const setOpen = useStableCallback((nextOpen, eventDetails) => {
+    onOpenChange?.(nextOpen, eventDetails);
+    if (eventDetails.isCanceled) {
+      return;
+    }
+    setOpenUnwrapped(nextOpen);
+    if (!nextOpen && (eventDetails.reason === focusOut || eventDetails.reason === outsidePress)) {
+      setTouched(true);
+      setFocused(false);
+      if (validationMode === "onBlur") {
+        validation.commit(value);
+      }
+    }
+    if (!nextOpen && store.state.activeIndex !== null) {
+      const activeOption = listRef.current[store.state.activeIndex];
+      queueMicrotask(() => {
+        activeOption?.setAttribute("tabindex", "-1");
+      });
+    }
+  });
+  const handleUnmount = useStableCallback(() => {
+    setMounted(false);
+    store.set("activeIndex", null);
+    resetOpenInteractionType();
+    onOpenChangeComplete?.(false);
+  });
+  useOpenChangeComplete({
+    enabled: !actionsRef,
+    open,
+    ref: popupRef,
+    onComplete() {
+      if (!open) {
+        handleUnmount();
+      }
+    }
+  });
+  reactExports.useImperativeHandle(actionsRef, () => ({
+    unmount: handleUnmount
+  }), [handleUnmount]);
+  const setValue = useStableCallback((nextValue, eventDetails) => {
+    onValueChange?.(nextValue, eventDetails);
+    if (eventDetails.isCanceled) {
+      return;
+    }
+    setValueUnwrapped(nextValue);
+  });
+  const handleScrollArrowVisibility = useStableCallback(() => {
+    const scroller = store.state.listElement || popupRef.current;
+    if (!scroller) {
+      return;
+    }
+    const viewportTop = scroller.scrollTop;
+    const viewportBottom = scroller.scrollTop + scroller.clientHeight;
+    const shouldShowUp = viewportTop > 1;
+    const shouldShowDown = viewportBottom < scroller.scrollHeight - 1;
+    if (store.state.scrollUpArrowVisible !== shouldShowUp) {
+      store.set("scrollUpArrowVisible", shouldShowUp);
+    }
+    if (store.state.scrollDownArrowVisible !== shouldShowDown) {
+      store.set("scrollDownArrowVisible", shouldShowDown);
+    }
+  });
+  const floatingContext = useFloatingRootContext({
+    open,
+    onOpenChange: setOpen,
+    elements: {
+      reference: triggerElement,
+      floating: positionerElement
+    }
+  });
+  const click = useClick(floatingContext, {
+    enabled: !readOnly && !disabled2,
+    event: "mousedown"
+  });
+  const dismiss = useDismiss(floatingContext, {
+    bubbles: false
+  });
+  const listNavigation2 = useListNavigation(floatingContext, {
+    enabled: !readOnly && !disabled2,
+    listRef,
+    activeIndex,
+    selectedIndex,
+    disabledIndices: EMPTY_ARRAY$1,
+    onNavigate(nextActiveIndex) {
+      if (nextActiveIndex === null && !open) {
+        return;
+      }
+      store.set("activeIndex", nextActiveIndex);
+    },
+    // Implement our own listeners since `onPointerLeave` on each option fires while scrolling with
+    // the `alignItemWithTrigger=true`, causing a performance issue on Chrome.
+    focusItemOnHover: false
+  });
+  const typeahead = useTypeahead(floatingContext, {
+    enabled: !readOnly && !disabled2 && (open || !multiple),
+    listRef: labelsRef,
+    activeIndex,
+    selectedIndex,
+    onMatch(index2) {
+      if (open) {
+        store.set("activeIndex", index2);
+      } else {
+        setValue(valuesRef.current[index2], createChangeEventDetails("none"));
+      }
+    },
+    onTypingChange(typing) {
+      typingRef.current = typing;
+    }
+  });
+  const {
+    getReferenceProps,
+    getFloatingProps,
+    getItemProps
+  } = useInteractions([click, dismiss, listNavigation2, typeahead]);
+  const mergedTriggerProps = reactExports.useMemo(() => {
+    return mergeProps$2(getReferenceProps(), interactionTypeProps, generatedId ? {
+      id: generatedId
+    } : EMPTY_OBJECT);
+  }, [getReferenceProps, interactionTypeProps, generatedId]);
+  useOnFirstRender(() => {
+    store.update({
+      popupProps: getFloatingProps(),
+      triggerProps: mergedTriggerProps
+    });
+  });
+  useIsoLayoutEffect(() => {
+    store.update({
+      id: generatedId,
+      modal,
+      multiple,
+      value,
+      open,
+      mounted,
+      transitionStatus,
+      popupProps: getFloatingProps(),
+      triggerProps: mergedTriggerProps,
+      items,
+      itemToStringLabel,
+      itemToStringValue,
+      isItemEqualToValue,
+      openMethod
+    });
+  }, [store, generatedId, modal, multiple, value, open, mounted, transitionStatus, getFloatingProps, mergedTriggerProps, items, itemToStringLabel, itemToStringValue, isItemEqualToValue, openMethod]);
+  const contextValue = reactExports.useMemo(() => ({
+    store,
+    name,
+    required,
+    disabled: disabled2,
+    readOnly,
+    multiple,
+    itemToStringLabel,
+    itemToStringValue,
+    highlightItemOnHover,
+    setValue,
+    setOpen,
+    listRef,
+    popupRef,
+    scrollHandlerRef,
+    handleScrollArrowVisibility,
+    scrollArrowsMountedCountRef,
+    getItemProps,
+    events: floatingContext.context.events,
+    valueRef,
+    valuesRef,
+    labelsRef,
+    typingRef,
+    selectionRef,
+    selectedItemTextRef,
+    validation,
+    onOpenChangeComplete,
+    keyboardActiveRef,
+    alignItemWithTriggerActiveRef,
+    initialValueRef
+  }), [store, name, required, disabled2, readOnly, multiple, itemToStringLabel, itemToStringValue, highlightItemOnHover, setValue, setOpen, getItemProps, floatingContext.context.events, validation, onOpenChangeComplete, handleScrollArrowVisibility]);
+  const ref = useMergedRefs(inputRef, validation.inputRef);
+  const hasMultipleSelection = multiple && Array.isArray(value) && value.length > 0;
+  const hiddenInputs = reactExports.useMemo(() => {
+    if (!multiple || !Array.isArray(value) || !name) {
+      return null;
+    }
+    return value.map((v3) => {
+      const currentSerializedValue = stringifyAsValue(v3, itemToStringValue);
+      return /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
+        type: "hidden",
+        name,
+        value: currentSerializedValue
+      }, currentSerializedValue);
+    });
+  }, [multiple, value, name, itemToStringValue]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectRootContext.Provider, {
+    value: contextValue,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectFloatingContext.Provider, {
+      value: floatingContext,
+      children: [children, /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
+        ...validation.getInputValidationProps({
+          onFocus() {
+            store.state.triggerElement?.focus({
+              // Supported in Chrome from 144 (January 2026)
+              // @ts-expect-error - focusVisible is not yet in the lib.dom.d.ts
+              focusVisible: true
+            });
+          },
+          // Handle browser autofill.
+          onChange(event) {
+            if (event.nativeEvent.defaultPrevented) {
+              return;
+            }
+            const nextValue = event.target.value;
+            const details = createChangeEventDetails(none, event.nativeEvent);
+            function handleChange() {
+              if (multiple) {
+                return;
+              }
+              const matchingValue = valuesRef.current.find((v3) => {
+                const candidate = stringifyAsValue(v3, itemToStringValue);
+                if (candidate.toLowerCase() === nextValue.toLowerCase()) {
+                  return true;
+                }
+                return false;
+              });
+              if (matchingValue != null) {
+                setDirty(matchingValue !== validityData.initialValue);
+                setValue(matchingValue, details);
+                if (shouldValidateOnChange()) {
+                  validation.commit(matchingValue);
+                }
+              }
+            }
+            store.set("forceMount", true);
+            queueMicrotask(handleChange);
+          }
+        }),
+        name: multiple ? void 0 : name,
+        autoComplete,
+        value: serializedValue,
+        disabled: disabled2,
+        required: required && !hasMultipleSelection,
+        readOnly,
+        ref,
+        style: name ? visuallyHiddenInput : visuallyHidden,
+        tabIndex: -1,
+        "aria-hidden": true
+      }), hiddenInputs]
+    })
+  });
+}
+function getPseudoElementBounds(element) {
+  const elementRect = element.getBoundingClientRect();
+  const beforeStyles = window.getComputedStyle(element, "::before");
+  const afterStyles = window.getComputedStyle(element, "::after");
+  const hasPseudoElements = beforeStyles.content !== "none" || afterStyles.content !== "none";
+  if (!hasPseudoElements) {
+    return elementRect;
+  }
+  const beforeWidth = parseFloat(beforeStyles.width) || 0;
+  const beforeHeight = parseFloat(beforeStyles.height) || 0;
+  const afterWidth = parseFloat(afterStyles.width) || 0;
+  const afterHeight = parseFloat(afterStyles.height) || 0;
+  const totalWidth = Math.max(elementRect.width, beforeWidth, afterWidth);
+  const totalHeight = Math.max(elementRect.height, beforeHeight, afterHeight);
+  const widthDiff = totalWidth - elementRect.width;
+  const heightDiff = totalHeight - elementRect.height;
+  return {
+    left: elementRect.left - widthDiff / 2,
+    right: elementRect.right + widthDiff / 2,
+    top: elementRect.top - heightDiff / 2,
+    bottom: elementRect.bottom + heightDiff / 2
+  };
+}
+const BOUNDARY_OFFSET = 2;
+const SELECTED_DELAY = 400;
+const UNSELECTED_DELAY = 200;
+const stateAttributesMapping$6 = {
+  ...pressableTriggerOpenStateMapping,
+  ...fieldValidityMapping,
+  value: () => null
+};
+const SelectTrigger$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectTrigger2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    id: idProp,
+    disabled: disabledProp = false,
+    nativeButton = true,
+    ...elementProps
+  } = componentProps;
+  const {
+    setTouched,
+    setFocused,
+    validationMode,
+    state: fieldState,
+    disabled: fieldDisabled
+  } = useFieldRootContext();
+  const {
+    labelId
+  } = useLabelableContext();
+  const {
+    store,
+    setOpen,
+    selectionRef,
+    validation,
+    readOnly,
+    required,
+    alignItemWithTriggerActiveRef,
+    disabled: selectDisabled,
+    keyboardActiveRef
+  } = useSelectRootContext();
+  const disabled2 = fieldDisabled || selectDisabled || disabledProp;
+  const open = useStore$1(store, selectors$2.open);
+  const value = useStore$1(store, selectors$2.value);
+  const triggerProps = useStore$1(store, selectors$2.triggerProps);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const listElement = useStore$1(store, selectors$2.listElement);
+  const rootId = useStore$1(store, selectors$2.id);
+  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
+  const shouldCheckNullItemLabel = !hasSelectedValue && open;
+  const hasNullItemLabel2 = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
+  const id = idProp ?? rootId;
+  useLabelableId({
+    id
+  });
+  const positionerRef = useValueAsRef(positionerElement);
+  const triggerRef = reactExports.useRef(null);
+  const {
+    getButtonProps,
+    buttonRef
+  } = useButton({
+    disabled: disabled2,
+    native: nativeButton
+  });
+  const setTriggerElement = useStableCallback((element) => {
+    store.set("triggerElement", element);
+  });
+  const mergedRef = useMergedRefs(forwardedRef, triggerRef, buttonRef, setTriggerElement);
+  const timeoutFocus = useTimeout();
+  const timeoutMouseDown = useTimeout();
+  const selectedDelayTimeout = useTimeout();
+  const unselectedDelayTimeout = useTimeout();
+  reactExports.useEffect(() => {
+    if (open) {
+      const hasSelectedItemInList = hasSelectedValue || hasNullItemLabel2;
+      const shouldDelayUnselectedMouseUpLonger = !hasSelectedItemInList;
+      if (shouldDelayUnselectedMouseUpLonger) {
+        selectedDelayTimeout.start(SELECTED_DELAY, () => {
+          selectionRef.current.allowUnselectedMouseUp = true;
+          selectionRef.current.allowSelectedMouseUp = true;
+        });
+      } else {
+        unselectedDelayTimeout.start(UNSELECTED_DELAY, () => {
+          selectionRef.current.allowUnselectedMouseUp = true;
+          selectedDelayTimeout.start(UNSELECTED_DELAY, () => {
+            selectionRef.current.allowSelectedMouseUp = true;
+          });
+        });
+      }
+      return () => {
+        selectedDelayTimeout.clear();
+        unselectedDelayTimeout.clear();
+      };
+    }
+    selectionRef.current = {
+      allowSelectedMouseUp: false,
+      allowUnselectedMouseUp: false
+    };
+    timeoutMouseDown.clear();
+    return void 0;
+  }, [open, hasSelectedValue, hasNullItemLabel2, selectionRef, timeoutMouseDown, selectedDelayTimeout, unselectedDelayTimeout]);
+  const ariaControlsId = reactExports.useMemo(() => {
+    return listElement?.id ?? getFloatingFocusElement(positionerElement)?.id;
+  }, [listElement, positionerElement]);
+  const props = mergeProps$2(triggerProps, {
+    id,
+    role: "combobox",
+    "aria-expanded": open ? "true" : "false",
+    "aria-haspopup": "listbox",
+    "aria-controls": open ? ariaControlsId : void 0,
+    "aria-labelledby": labelId,
+    "aria-readonly": readOnly || void 0,
+    "aria-required": required || void 0,
+    tabIndex: disabled2 ? -1 : 0,
+    ref: mergedRef,
+    onFocus(event) {
+      setFocused(true);
+      if (open && alignItemWithTriggerActiveRef.current) {
+        setOpen(false, createChangeEventDetails(none, event.nativeEvent));
+      }
+      timeoutFocus.start(0, () => {
+        store.set("forceMount", true);
+      });
+    },
+    onBlur(event) {
+      if (contains(positionerElement, event.relatedTarget)) {
+        return;
+      }
+      setTouched(true);
+      setFocused(false);
+      if (validationMode === "onBlur") {
+        validation.commit(value);
+      }
+    },
+    onPointerMove() {
+      keyboardActiveRef.current = false;
+    },
+    onKeyDown() {
+      keyboardActiveRef.current = true;
+    },
+    onMouseDown(event) {
+      if (open) {
+        return;
+      }
+      const doc = ownerDocument(event.currentTarget);
+      function handleMouseUp(mouseEvent) {
+        if (!triggerRef.current) {
+          return;
+        }
+        const mouseUpTarget = mouseEvent.target;
+        if (contains(triggerRef.current, mouseUpTarget) || contains(positionerRef.current, mouseUpTarget) || mouseUpTarget === triggerRef.current) {
+          return;
+        }
+        const bounds = getPseudoElementBounds(triggerRef.current);
+        if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET) {
+          return;
+        }
+        setOpen(false, createChangeEventDetails(cancelOpen, mouseEvent));
+      }
+      timeoutMouseDown.start(0, () => {
+        doc.addEventListener("mouseup", handleMouseUp, {
+          once: true
+        });
+      });
+    }
+  }, validation.getValidationProps, elementProps, getButtonProps);
+  props.role = "combobox";
+  const state = {
+    ...fieldState,
+    open,
+    disabled: disabled2,
+    value,
+    readOnly,
+    placeholder: !hasSelectedValue
+  };
+  return useRenderElement("button", componentProps, {
+    ref: [forwardedRef, triggerRef],
+    state,
+    stateAttributesMapping: stateAttributesMapping$6,
+    props
+  });
+});
+const stateAttributesMapping$5 = {
+  value: () => null
+};
+const SelectValue$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectValue2(componentProps, forwardedRef) {
+  const {
+    className,
+    render,
+    children: childrenProp,
+    placeholder,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    valueRef
+  } = useSelectRootContext();
+  const value = useStore$1(store, selectors$2.value);
+  const items = useStore$1(store, selectors$2.items);
+  const itemToStringLabel = useStore$1(store, selectors$2.itemToStringLabel);
+  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
+  const shouldCheckNullItemLabel = !hasSelectedValue && placeholder != null && childrenProp == null;
+  const hasNullLabel = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
+  const state = {
+    value,
+    placeholder: !hasSelectedValue
+  };
+  let children = null;
+  if (typeof childrenProp === "function") {
+    children = childrenProp(value);
+  } else if (childrenProp != null) {
+    children = childrenProp;
+  } else if (!hasSelectedValue && placeholder != null && !hasNullLabel) {
+    children = placeholder;
+  } else if (Array.isArray(value)) {
+    children = resolveMultipleLabels(value, items, itemToStringLabel);
+  } else {
+    children = resolveSelectedLabel(value, items, itemToStringLabel);
+  }
+  const element = useRenderElement("span", componentProps, {
+    state,
+    ref: [forwardedRef, valueRef],
+    props: [{
+      children
+    }, elementProps],
+    stateAttributesMapping: stateAttributesMapping$5
+  });
+  return element;
+});
+const SelectIcon = /* @__PURE__ */ reactExports.forwardRef(function SelectIcon2(componentProps, forwardedRef) {
+  const {
+    className,
+    render,
+    ...elementProps
+  } = componentProps;
+  const {
+    store
+  } = useSelectRootContext();
+  const open = useStore$1(store, selectors$2.open);
+  const state = {
+    open
+  };
+  const element = useRenderElement("span", componentProps, {
+    state,
+    ref: forwardedRef,
+    props: [{
+      "aria-hidden": true,
+      children: "▼"
+    }, elementProps],
+    stateAttributesMapping: triggerOpenStateMapping
+  });
+  return element;
+});
+const SelectPortalContext = /* @__PURE__ */ reactExports.createContext(void 0);
+const SelectPortal = /* @__PURE__ */ reactExports.forwardRef(function SelectPortal2(portalProps, forwardedRef) {
+  const {
+    store
+  } = useSelectRootContext();
+  const mounted = useStore$1(store, selectors$2.mounted);
+  const forceMount = useStore$1(store, selectors$2.forceMount);
+  const shouldRender = mounted || forceMount;
+  if (!shouldRender) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortalContext.Provider, {
+    value: true,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingPortal, {
+      ref: forwardedRef,
+      ...portalProps
+    })
+  });
+});
+let originalHtmlStyles = {};
+let originalBodyStyles = {};
+let originalHtmlScrollBehavior = "";
+function hasInsetScrollbars(referenceElement) {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  const doc = ownerDocument(referenceElement);
+  const win = getWindow$1(doc);
+  return win.innerWidth - doc.documentElement.clientWidth > 0;
+}
+function supportsStableScrollbarGutter(referenceElement) {
+  const supported = typeof CSS !== "undefined" && CSS.supports && CSS.supports("scrollbar-gutter", "stable");
+  if (!supported || typeof document === "undefined") {
+    return false;
+  }
+  const doc = ownerDocument(referenceElement);
+  const html = doc.documentElement;
+  const body = doc.body;
+  const scrollContainer = isOverflowElement(html) ? html : body;
+  const originalScrollContainerOverflowY = scrollContainer.style.overflowY;
+  const originalHtmlStyleGutter = html.style.scrollbarGutter;
+  html.style.scrollbarGutter = "stable";
+  scrollContainer.style.overflowY = "scroll";
+  const before = scrollContainer.offsetWidth;
+  scrollContainer.style.overflowY = "hidden";
+  const after = scrollContainer.offsetWidth;
+  scrollContainer.style.overflowY = originalScrollContainerOverflowY;
+  html.style.scrollbarGutter = originalHtmlStyleGutter;
+  return before === after;
+}
+function preventScrollOverlayScrollbars(referenceElement) {
+  const doc = ownerDocument(referenceElement);
+  const html = doc.documentElement;
+  const body = doc.body;
+  const elementToLock = isOverflowElement(html) ? html : body;
+  const originalElementToLockStyles = {
+    overflowY: elementToLock.style.overflowY,
+    overflowX: elementToLock.style.overflowX
+  };
+  Object.assign(elementToLock.style, {
+    overflowY: "hidden",
+    overflowX: "hidden"
+  });
+  return () => {
+    Object.assign(elementToLock.style, originalElementToLockStyles);
+  };
+}
+function preventScrollInsetScrollbars(referenceElement) {
+  const doc = ownerDocument(referenceElement);
+  const html = doc.documentElement;
+  const body = doc.body;
+  const win = getWindow$1(html);
+  let scrollTop = 0;
+  let scrollLeft = 0;
+  let updateGutterOnly = false;
+  const resizeFrame = AnimationFrame.create();
+  if (isWebKit && (win.visualViewport?.scale ?? 1) !== 1) {
+    return () => {
+    };
+  }
+  function lockScroll() {
+    const htmlStyles = win.getComputedStyle(html);
+    const bodyStyles = win.getComputedStyle(body);
+    const htmlScrollbarGutterValue = htmlStyles.scrollbarGutter || "";
+    const hasBothEdges = htmlScrollbarGutterValue.includes("both-edges");
+    const scrollbarGutterValue = hasBothEdges ? "stable both-edges" : "stable";
+    scrollTop = html.scrollTop;
+    scrollLeft = html.scrollLeft;
+    originalHtmlStyles = {
+      scrollbarGutter: html.style.scrollbarGutter,
+      overflowY: html.style.overflowY,
+      overflowX: html.style.overflowX
+    };
+    originalHtmlScrollBehavior = html.style.scrollBehavior;
+    originalBodyStyles = {
+      position: body.style.position,
+      height: body.style.height,
+      width: body.style.width,
+      boxSizing: body.style.boxSizing,
+      overflowY: body.style.overflowY,
+      overflowX: body.style.overflowX,
+      scrollBehavior: body.style.scrollBehavior
+    };
+    const isScrollableY = html.scrollHeight > html.clientHeight;
+    const isScrollableX = html.scrollWidth > html.clientWidth;
+    const hasConstantOverflowY = htmlStyles.overflowY === "scroll" || bodyStyles.overflowY === "scroll";
+    const hasConstantOverflowX = htmlStyles.overflowX === "scroll" || bodyStyles.overflowX === "scroll";
+    const scrollbarWidth = Math.max(0, win.innerWidth - body.clientWidth);
+    const scrollbarHeight = Math.max(0, win.innerHeight - body.clientHeight);
+    const marginY = parseFloat(bodyStyles.marginTop) + parseFloat(bodyStyles.marginBottom);
+    const marginX = parseFloat(bodyStyles.marginLeft) + parseFloat(bodyStyles.marginRight);
+    const elementToLock = isOverflowElement(html) ? html : body;
+    updateGutterOnly = supportsStableScrollbarGutter(referenceElement);
+    if (updateGutterOnly) {
+      html.style.scrollbarGutter = scrollbarGutterValue;
+      elementToLock.style.overflowY = "hidden";
+      elementToLock.style.overflowX = "hidden";
+      return;
+    }
+    Object.assign(html.style, {
+      scrollbarGutter: scrollbarGutterValue,
+      overflowY: "hidden",
+      overflowX: "hidden"
+    });
+    if (isScrollableY || hasConstantOverflowY) {
+      html.style.overflowY = "scroll";
+    }
+    if (isScrollableX || hasConstantOverflowX) {
+      html.style.overflowX = "scroll";
+    }
+    Object.assign(body.style, {
+      position: "relative",
+      height: marginY || scrollbarHeight ? `calc(100dvh - ${marginY + scrollbarHeight}px)` : "100dvh",
+      width: marginX || scrollbarWidth ? `calc(100vw - ${marginX + scrollbarWidth}px)` : "100vw",
+      boxSizing: "border-box",
+      overflow: "hidden",
+      scrollBehavior: "unset"
+    });
+    body.scrollTop = scrollTop;
+    body.scrollLeft = scrollLeft;
+    html.setAttribute("data-base-ui-scroll-locked", "");
+    html.style.scrollBehavior = "unset";
+  }
+  function cleanup() {
+    Object.assign(html.style, originalHtmlStyles);
+    Object.assign(body.style, originalBodyStyles);
+    if (!updateGutterOnly) {
+      html.scrollTop = scrollTop;
+      html.scrollLeft = scrollLeft;
+      html.removeAttribute("data-base-ui-scroll-locked");
+      html.style.scrollBehavior = originalHtmlScrollBehavior;
+    }
+  }
+  function handleResize() {
+    cleanup();
+    resizeFrame.request(lockScroll);
+  }
+  lockScroll();
+  win.addEventListener("resize", handleResize);
+  return () => {
+    resizeFrame.cancel();
+    cleanup();
+    if (typeof win.removeEventListener === "function") {
+      win.removeEventListener("resize", handleResize);
+    }
+  };
+}
+class ScrollLocker {
+  lockCount = 0;
+  restore = null;
+  timeoutLock = Timeout.create();
+  timeoutUnlock = Timeout.create();
+  acquire(referenceElement) {
+    this.lockCount += 1;
+    if (this.lockCount === 1 && this.restore === null) {
+      this.timeoutLock.start(0, () => this.lock(referenceElement));
+    }
+    return this.release;
+  }
+  release = () => {
+    this.lockCount -= 1;
+    if (this.lockCount === 0 && this.restore) {
+      this.timeoutUnlock.start(0, this.unlock);
+    }
+  };
+  unlock = () => {
+    if (this.lockCount === 0 && this.restore) {
+      this.restore?.();
+      this.restore = null;
+    }
+  };
+  lock(referenceElement) {
+    if (this.lockCount === 0 || this.restore !== null) {
+      return;
+    }
+    const doc = ownerDocument(referenceElement);
+    const html = doc.documentElement;
+    const htmlOverflowY = getWindow$1(html).getComputedStyle(html).overflowY;
+    if (htmlOverflowY === "hidden" || htmlOverflowY === "clip") {
+      this.restore = NOOP;
+      return;
+    }
+    const hasOverlayScrollbars = isIOS || !hasInsetScrollbars(referenceElement);
+    this.restore = hasOverlayScrollbars ? preventScrollOverlayScrollbars(referenceElement) : preventScrollInsetScrollbars(referenceElement);
+  }
+}
+const SCROLL_LOCKER = new ScrollLocker();
+function useScrollLock(enabled = true, referenceElement = null) {
+  useIsoLayoutEffect(() => {
+    if (!enabled) {
+      return void 0;
+    }
+    return SCROLL_LOCKER.acquire(referenceElement);
+  }, [enabled, referenceElement]);
+}
+const CompositeListContext = /* @__PURE__ */ reactExports.createContext({
+  register: () => {
+  },
+  unregister: () => {
+  },
+  subscribeMapChange: () => {
+    return () => {
+    };
+  },
+  elementsRef: {
+    current: []
+  },
+  nextIndexRef: {
+    current: 0
+  }
+});
+function useCompositeListContext() {
+  return reactExports.useContext(CompositeListContext);
+}
+function CompositeList(props) {
+  const {
+    children,
+    elementsRef,
+    labelsRef,
+    onMapChange: onMapChangeProp
+  } = props;
+  const onMapChange = useStableCallback(onMapChangeProp);
+  const nextIndexRef = reactExports.useRef(0);
+  const listeners = useRefWithInit(createListeners).current;
+  const map = useRefWithInit(createMap).current;
+  const [mapTick, setMapTick] = reactExports.useState(0);
+  const lastTickRef = reactExports.useRef(mapTick);
+  const register2 = useStableCallback((node, metadata) => {
+    map.set(node, metadata ?? null);
+    lastTickRef.current += 1;
+    setMapTick(lastTickRef.current);
+  });
+  const unregister = useStableCallback((node) => {
+    map.delete(node);
+    lastTickRef.current += 1;
+    setMapTick(lastTickRef.current);
+  });
+  const sortedMap = reactExports.useMemo(() => {
+    const newMap = /* @__PURE__ */ new Map();
+    const sortedNodes = Array.from(map.keys()).filter((node) => node.isConnected).sort(sortByDocumentPosition);
+    sortedNodes.forEach((node, index2) => {
+      const metadata = map.get(node) ?? {};
+      newMap.set(node, {
+        ...metadata,
+        index: index2
+      });
+    });
+    return newMap;
+  }, [map, mapTick]);
+  useIsoLayoutEffect(() => {
+    if (typeof MutationObserver !== "function" || sortedMap.size === 0) {
+      return void 0;
+    }
+    const mutationObserver = new MutationObserver((entries) => {
+      const diff = /* @__PURE__ */ new Set();
+      const updateDiff = (node) => diff.has(node) ? diff.delete(node) : diff.add(node);
+      entries.forEach((entry) => {
+        entry.removedNodes.forEach(updateDiff);
+        entry.addedNodes.forEach(updateDiff);
+      });
+      if (diff.size === 0) {
+        lastTickRef.current += 1;
+        setMapTick(lastTickRef.current);
+      }
+    });
+    sortedMap.forEach((_2, node) => {
+      if (node.parentElement) {
+        mutationObserver.observe(node.parentElement, {
+          childList: true
+        });
+      }
+    });
+    return () => {
+      mutationObserver.disconnect();
+    };
+  }, [sortedMap]);
+  useIsoLayoutEffect(() => {
+    const shouldUpdateLengths = lastTickRef.current === mapTick;
+    if (shouldUpdateLengths) {
+      if (elementsRef.current.length !== sortedMap.size) {
+        elementsRef.current.length = sortedMap.size;
+      }
+      if (labelsRef && labelsRef.current.length !== sortedMap.size) {
+        labelsRef.current.length = sortedMap.size;
+      }
+      nextIndexRef.current = sortedMap.size;
+    }
+    onMapChange(sortedMap);
+  }, [onMapChange, sortedMap, elementsRef, labelsRef, mapTick]);
+  useIsoLayoutEffect(() => {
+    return () => {
+      elementsRef.current = [];
+    };
+  }, [elementsRef]);
+  useIsoLayoutEffect(() => {
+    return () => {
+      if (labelsRef) {
+        labelsRef.current = [];
+      }
+    };
+  }, [labelsRef]);
+  const subscribeMapChange = useStableCallback((fn2) => {
+    listeners.add(fn2);
+    return () => {
+      listeners.delete(fn2);
+    };
+  });
+  useIsoLayoutEffect(() => {
+    listeners.forEach((l2) => l2(sortedMap));
+  }, [listeners, sortedMap]);
+  const contextValue = reactExports.useMemo(() => ({
+    register: register2,
+    unregister,
+    subscribeMapChange,
+    elementsRef,
+    labelsRef,
+    nextIndexRef
+  }), [register2, unregister, subscribeMapChange, elementsRef, labelsRef, nextIndexRef]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeListContext.Provider, {
+    value: contextValue,
+    children
+  });
+}
+function createMap() {
+  return /* @__PURE__ */ new Map();
+}
+function createListeners() {
+  return /* @__PURE__ */ new Set();
+}
+function sortByDocumentPosition(a, b2) {
+  const position = a.compareDocumentPosition(b2);
+  if (position & Node.DOCUMENT_POSITION_FOLLOWING || position & Node.DOCUMENT_POSITION_CONTAINED_BY) {
+    return -1;
+  }
+  if (position & Node.DOCUMENT_POSITION_PRECEDING || position & Node.DOCUMENT_POSITION_CONTAINS) {
+    return 1;
+  }
+  return 0;
+}
+const SelectPositionerContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useSelectPositionerContext() {
+  const context = reactExports.useContext(SelectPositionerContext);
+  if (!context) {
+    throw new Error(formatErrorMessage(59));
+  }
+  return context;
+}
+const InternalBackdrop = /* @__PURE__ */ reactExports.forwardRef(function InternalBackdrop2(props, ref) {
+  const {
+    cutout,
+    ...otherProps
+  } = props;
+  let clipPath;
+  if (cutout) {
+    const rect = cutout?.getBoundingClientRect();
+    clipPath = `polygon(
+      0% 0%,
+      100% 0%,
+      100% 100%,
+      0% 100%,
+      0% 0%,
+      ${rect.left}px ${rect.top}px,
+      ${rect.left}px ${rect.bottom}px,
+      ${rect.right}px ${rect.bottom}px,
+      ${rect.right}px ${rect.top}px,
+      ${rect.left}px ${rect.top}px
+    )`;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
+    ref,
+    role: "presentation",
+    "data-base-ui-inert": "",
+    ...otherProps,
+    style: {
+      position: "fixed",
+      inset: 0,
+      userSelect: "none",
+      WebkitUserSelect: "none",
+      clipPath
+    }
+  });
+});
+function clearStyles(element, originalStyles) {
+  if (element) {
+    Object.assign(element.style, originalStyles);
+  }
+}
+const LIST_FUNCTIONAL_STYLES = {
+  position: "relative",
+  maxHeight: "100%",
+  overflowX: "hidden",
+  overflowY: "auto"
+};
+const FIXED = {
+  position: "fixed"
+};
+const SelectPositioner = /* @__PURE__ */ reactExports.forwardRef(function SelectPositioner2(componentProps, forwardedRef) {
+  const {
+    anchor,
+    positionMethod = "absolute",
+    className,
+    render,
+    side = "bottom",
+    align = "center",
+    sideOffset = 0,
+    alignOffset = 0,
+    collisionBoundary = "clipping-ancestors",
+    collisionPadding,
+    arrowPadding = 5,
+    sticky = false,
+    disableAnchorTracking,
+    alignItemWithTrigger = true,
+    collisionAvoidance = DROPDOWN_COLLISION_AVOIDANCE,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    listRef,
+    labelsRef,
+    alignItemWithTriggerActiveRef,
+    selectedItemTextRef,
+    valuesRef,
+    initialValueRef,
+    popupRef,
+    setValue
+  } = useSelectRootContext();
+  const floatingRootContext = useSelectFloatingContext();
+  const open = useStore$1(store, selectors$2.open);
+  const mounted = useStore$1(store, selectors$2.mounted);
+  const modal = useStore$1(store, selectors$2.modal);
+  const value = useStore$1(store, selectors$2.value);
+  const openMethod = useStore$1(store, selectors$2.openMethod);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const triggerElement = useStore$1(store, selectors$2.triggerElement);
+  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
+  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
+  const scrollUpArrowRef = reactExports.useRef(null);
+  const scrollDownArrowRef = reactExports.useRef(null);
+  const [controlledAlignItemWithTrigger, setControlledAlignItemWithTrigger] = reactExports.useState(alignItemWithTrigger);
+  const alignItemWithTriggerActive = mounted && controlledAlignItemWithTrigger && openMethod !== "touch";
+  if (!mounted && controlledAlignItemWithTrigger !== alignItemWithTrigger) {
+    setControlledAlignItemWithTrigger(alignItemWithTrigger);
+  }
+  useIsoLayoutEffect(() => {
+    if (!mounted) {
+      if (selectors$2.scrollUpArrowVisible(store.state)) {
+        store.set("scrollUpArrowVisible", false);
+      }
+      if (selectors$2.scrollDownArrowVisible(store.state)) {
+        store.set("scrollDownArrowVisible", false);
+      }
+    }
+  }, [store, mounted]);
+  reactExports.useImperativeHandle(alignItemWithTriggerActiveRef, () => alignItemWithTriggerActive);
+  useScrollLock((alignItemWithTriggerActive || modal) && open && openMethod !== "touch", triggerElement);
+  const positioning = useAnchorPositioning({
+    anchor,
+    floatingRootContext,
+    positionMethod,
+    mounted,
+    side,
+    sideOffset,
+    align,
+    alignOffset,
+    arrowPadding,
+    collisionBoundary,
+    collisionPadding,
+    sticky,
+    disableAnchorTracking: disableAnchorTracking ?? alignItemWithTriggerActive,
+    collisionAvoidance,
+    keepMounted: true
+  });
+  const renderedSide = alignItemWithTriggerActive ? "none" : positioning.side;
+  const positionerStyles = alignItemWithTriggerActive ? FIXED : positioning.positionerStyles;
+  const defaultProps = reactExports.useMemo(() => {
+    const hiddenStyles2 = {};
+    if (!open) {
+      hiddenStyles2.pointerEvents = "none";
+    }
+    return {
+      role: "presentation",
+      hidden: !mounted,
+      style: {
+        ...positionerStyles,
+        ...hiddenStyles2
+      }
+    };
+  }, [open, mounted, positionerStyles]);
+  const state = {
+    open,
+    side: renderedSide,
+    align: positioning.align,
+    anchorHidden: positioning.anchorHidden
+  };
+  const setPositionerElement = useStableCallback((element2) => {
+    store.set("positionerElement", element2);
+  });
+  const element = useRenderElement("div", componentProps, {
+    ref: [forwardedRef, setPositionerElement],
+    state,
+    stateAttributesMapping: popupStateMapping,
+    props: [defaultProps, getDisabledMountTransitionStyles(transitionStatus), elementProps]
+  });
+  const prevMapSizeRef = reactExports.useRef(0);
+  const onMapChange = useStableCallback((map) => {
+    if (map.size === 0 && prevMapSizeRef.current === 0) {
+      return;
+    }
+    if (valuesRef.current.length === 0) {
+      return;
+    }
+    const prevSize = prevMapSizeRef.current;
+    prevMapSizeRef.current = map.size;
+    if (map.size === prevSize) {
+      return;
+    }
+    const eventDetails = createChangeEventDetails(none);
+    if (prevSize !== 0 && !store.state.multiple && value !== null) {
+      const selectedValueIndex = findItemIndex(valuesRef.current, value, isItemEqualToValue);
+      if (selectedValueIndex === -1) {
+        const initialSelectedValue = initialValueRef.current;
+        const hasInitial = initialSelectedValue != null && findItemIndex(valuesRef.current, initialSelectedValue, isItemEqualToValue) !== -1;
+        const nextValue = hasInitial ? initialSelectedValue : null;
+        setValue(nextValue, eventDetails);
+        if (nextValue === null) {
+          store.set("selectedIndex", null);
+          selectedItemTextRef.current = null;
+        }
+      }
+    }
+    if (prevSize !== 0 && store.state.multiple && Array.isArray(value)) {
+      const hasVisibleItem = (selectedItemValue) => findItemIndex(valuesRef.current, selectedItemValue, isItemEqualToValue) !== -1;
+      const nextValue = value.filter((selectedItemValue) => hasVisibleItem(selectedItemValue));
+      if (nextValue.length !== value.length || nextValue.some((selectedItemValue) => !selectedValueIncludes(value, selectedItemValue, isItemEqualToValue))) {
+        setValue(nextValue, eventDetails);
+        if (nextValue.length === 0) {
+          store.set("selectedIndex", null);
+          selectedItemTextRef.current = null;
+        }
+      }
+    }
+    if (open && alignItemWithTriggerActive) {
+      store.update({
+        scrollUpArrowVisible: false,
+        scrollDownArrowVisible: false
+      });
+      const stylesToClear = {
+        height: ""
+      };
+      clearStyles(positionerElement, stylesToClear);
+      clearStyles(popupRef.current, stylesToClear);
+    }
+  });
+  const contextValue = reactExports.useMemo(() => ({
+    ...positioning,
+    side: renderedSide,
+    alignItemWithTriggerActive,
+    setControlledAlignItemWithTrigger,
+    scrollUpArrowRef,
+    scrollDownArrowRef
+  }), [positioning, renderedSide, alignItemWithTriggerActive, setControlledAlignItemWithTrigger]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeList, {
+    elementsRef: listRef,
+    labelsRef,
+    onMapChange,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectPositionerContext.Provider, {
+      value: contextValue,
+      children: [mounted && modal && /* @__PURE__ */ jsxRuntimeExports.jsx(InternalBackdrop, {
+        inert: inertValue(!open),
+        cutout: triggerElement
+      }), element]
+    })
+  });
+});
+function isMouseWithinBounds(event) {
+  const targetRect = event.currentTarget.getBoundingClientRect();
+  const isWithinBounds = targetRect.top + 1 <= event.clientY && event.clientY <= targetRect.bottom - 1 && targetRect.left + 1 <= event.clientX && event.clientX <= targetRect.right - 1;
+  return isWithinBounds;
+}
+const DISABLE_SCROLLBAR_CLASS_NAME = "base-ui-disable-scrollbar";
+const styleDisableScrollbar = {
+  className: DISABLE_SCROLLBAR_CLASS_NAME,
+  getElement(nonce) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("style", {
+      nonce,
+      href: DISABLE_SCROLLBAR_CLASS_NAME,
+      precedence: "base-ui:low",
+      children: `.${DISABLE_SCROLLBAR_CLASS_NAME}{scrollbar-width:none}.${DISABLE_SCROLLBAR_CLASS_NAME}::-webkit-scrollbar{display:none}`
+    });
+  }
+};
+const ToolbarRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useToolbarRootContext(optional) {
+  const context = reactExports.useContext(ToolbarRootContext);
+  return context;
+}
+const ARROW_UP = "ArrowUp";
+const ARROW_DOWN = "ArrowDown";
+const ARROW_LEFT = "ArrowLeft";
+const ARROW_RIGHT = "ArrowRight";
+const HOME = "Home";
+const END = "End";
+const HORIZONTAL_KEYS = /* @__PURE__ */ new Set([ARROW_LEFT, ARROW_RIGHT]);
+const HORIZONTAL_KEYS_WITH_EXTRA_KEYS = /* @__PURE__ */ new Set([ARROW_LEFT, ARROW_RIGHT, HOME, END]);
+const VERTICAL_KEYS = /* @__PURE__ */ new Set([ARROW_UP, ARROW_DOWN]);
+const VERTICAL_KEYS_WITH_EXTRA_KEYS = /* @__PURE__ */ new Set([ARROW_UP, ARROW_DOWN, HOME, END]);
+const ARROW_KEYS = /* @__PURE__ */ new Set([...HORIZONTAL_KEYS, ...VERTICAL_KEYS]);
+const ALL_KEYS = /* @__PURE__ */ new Set([...ARROW_KEYS, HOME, END]);
+const COMPOSITE_KEYS = /* @__PURE__ */ new Set([ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END]);
+const SHIFT = "Shift";
+const CONTROL = "Control";
+const ALT = "Alt";
+const META = "Meta";
+const MODIFIER_KEYS = /* @__PURE__ */ new Set([SHIFT, CONTROL, ALT, META]);
+function isInputElement(element) {
+  return isHTMLElement$1(element) && element.tagName === "INPUT";
+}
+function isNativeInput(element) {
+  if (isInputElement(element) && element.selectionStart != null) {
+    return true;
+  }
+  if (isHTMLElement$1(element) && element.tagName === "TEXTAREA") {
+    return true;
+  }
+  return false;
+}
+function scrollIntoViewIfNeeded$1(scrollContainer, element, direction, orientation) {
+  if (!scrollContainer || !element || !element.scrollTo) {
+    return;
+  }
+  let targetX = scrollContainer.scrollLeft;
+  let targetY = scrollContainer.scrollTop;
+  const isOverflowingX = scrollContainer.clientWidth < scrollContainer.scrollWidth;
+  const isOverflowingY = scrollContainer.clientHeight < scrollContainer.scrollHeight;
+  if (isOverflowingX && orientation !== "vertical") {
+    const elementOffsetLeft = getOffset$1(scrollContainer, element, "left");
+    const containerStyles = getStyles$1(scrollContainer);
+    const elementStyles = getStyles$1(element);
+    if (direction === "ltr") {
+      if (elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight > scrollContainer.scrollLeft + scrollContainer.clientWidth - containerStyles.scrollPaddingRight) {
+        targetX = elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight - scrollContainer.clientWidth + containerStyles.scrollPaddingRight;
+      } else if (elementOffsetLeft - elementStyles.scrollMarginLeft < scrollContainer.scrollLeft + containerStyles.scrollPaddingLeft) {
+        targetX = elementOffsetLeft - elementStyles.scrollMarginLeft - containerStyles.scrollPaddingLeft;
+      }
+    }
+    if (direction === "rtl") {
+      if (elementOffsetLeft - elementStyles.scrollMarginRight < scrollContainer.scrollLeft + containerStyles.scrollPaddingLeft) {
+        targetX = elementOffsetLeft - elementStyles.scrollMarginLeft - containerStyles.scrollPaddingLeft;
+      } else if (elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight > scrollContainer.scrollLeft + scrollContainer.clientWidth - containerStyles.scrollPaddingRight) {
+        targetX = elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight - scrollContainer.clientWidth + containerStyles.scrollPaddingRight;
+      }
+    }
+  }
+  if (isOverflowingY && orientation !== "horizontal") {
+    const elementOffsetTop = getOffset$1(scrollContainer, element, "top");
+    const containerStyles = getStyles$1(scrollContainer);
+    const elementStyles = getStyles$1(element);
+    if (elementOffsetTop - elementStyles.scrollMarginTop < scrollContainer.scrollTop + containerStyles.scrollPaddingTop) {
+      targetY = elementOffsetTop - elementStyles.scrollMarginTop - containerStyles.scrollPaddingTop;
+    } else if (elementOffsetTop + element.offsetHeight + elementStyles.scrollMarginBottom > scrollContainer.scrollTop + scrollContainer.clientHeight - containerStyles.scrollPaddingBottom) {
+      targetY = elementOffsetTop + element.offsetHeight + elementStyles.scrollMarginBottom - scrollContainer.clientHeight + containerStyles.scrollPaddingBottom;
+    }
+  }
+  scrollContainer.scrollTo({
+    left: targetX,
+    top: targetY,
+    behavior: "auto"
+  });
+}
+function getOffset$1(ancestor, element, side) {
+  const propName = side === "left" ? "offsetLeft" : "offsetTop";
+  let result = 0;
+  while (element.offsetParent) {
+    result += element[propName];
+    if (element.offsetParent === ancestor) {
+      break;
+    }
+    element = element.offsetParent;
+  }
+  return result;
+}
+function getStyles$1(element) {
+  const styles = getComputedStyle(element);
+  return {
+    scrollMarginTop: parseFloat(styles.scrollMarginTop) || 0,
+    scrollMarginRight: parseFloat(styles.scrollMarginRight) || 0,
+    scrollMarginBottom: parseFloat(styles.scrollMarginBottom) || 0,
+    scrollMarginLeft: parseFloat(styles.scrollMarginLeft) || 0,
+    scrollPaddingTop: parseFloat(styles.scrollPaddingTop) || 0,
+    scrollPaddingRight: parseFloat(styles.scrollPaddingRight) || 0,
+    scrollPaddingBottom: parseFloat(styles.scrollPaddingBottom) || 0,
+    scrollPaddingLeft: parseFloat(styles.scrollPaddingLeft) || 0
+  };
+}
+function clamp(val, min2 = Number.MIN_SAFE_INTEGER, max2 = Number.MAX_SAFE_INTEGER) {
+  return Math.max(min2, Math.min(val, max2));
+}
+const CSPContext = /* @__PURE__ */ reactExports.createContext(void 0);
+const DEFAULT_CSP_CONTEXT_VALUE = {
+  disableStyleElements: false
+};
+function useCSPContext() {
+  return reactExports.useContext(CSPContext) ?? DEFAULT_CSP_CONTEXT_VALUE;
+}
+const SCROLL_EPS_PX = 1;
+const stateAttributesMapping$4 = {
+  ...popupStateMapping,
+  ...transitionStatusMapping
+};
+const SelectPopup = /* @__PURE__ */ reactExports.forwardRef(function SelectPopup2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    finalFocus,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    popupRef,
+    onOpenChangeComplete,
+    setOpen,
+    valueRef,
+    selectedItemTextRef,
+    keyboardActiveRef,
+    multiple,
+    handleScrollArrowVisibility,
+    scrollHandlerRef,
+    highlightItemOnHover
+  } = useSelectRootContext();
+  const {
+    side,
+    align,
+    alignItemWithTriggerActive,
+    setControlledAlignItemWithTrigger,
+    scrollDownArrowRef,
+    scrollUpArrowRef
+  } = useSelectPositionerContext();
+  const insideToolbar = useToolbarRootContext() != null;
+  const floatingRootContext = useSelectFloatingContext();
+  const {
+    nonce,
+    disableStyleElements
+  } = useCSPContext();
+  const highlightTimeout = useTimeout();
+  const id = useStore$1(store, selectors$2.id);
+  const open = useStore$1(store, selectors$2.open);
+  const mounted = useStore$1(store, selectors$2.mounted);
+  const popupProps = useStore$1(store, selectors$2.popupProps);
+  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
+  const triggerElement = useStore$1(store, selectors$2.triggerElement);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const listElement = useStore$1(store, selectors$2.listElement);
+  const initialHeightRef = reactExports.useRef(0);
+  const reachedMaxHeightRef = reactExports.useRef(false);
+  const maxHeightRef = reactExports.useRef(0);
+  const initialPlacedRef = reactExports.useRef(false);
+  const originalPositionerStylesRef = reactExports.useRef({});
+  const scrollArrowFrame = useAnimationFrame();
+  const handleScroll2 = useStableCallback((scroller) => {
+    if (!positionerElement || !popupRef.current || !initialPlacedRef.current) {
+      return;
+    }
+    if (reachedMaxHeightRef.current || !alignItemWithTriggerActive) {
+      handleScrollArrowVisibility();
+      return;
+    }
+    const isTopPositioned = positionerElement.style.top === "0px";
+    const isBottomPositioned = positionerElement.style.bottom === "0px";
+    const currentHeight = positionerElement.getBoundingClientRect().height;
+    const doc = ownerDocument(positionerElement);
+    const positionerStyles = getComputedStyle(positionerElement);
+    const marginTop = parseFloat(positionerStyles.marginTop);
+    const marginBottom = parseFloat(positionerStyles.marginBottom);
+    const maxPopupHeight = getMaxPopupHeight(getComputedStyle(popupRef.current));
+    const maxAvailableHeight = Math.min(doc.documentElement.clientHeight - marginTop - marginBottom, maxPopupHeight);
+    const scrollTop = scroller.scrollTop;
+    const maxScrollTop = getMaxScrollTop(scroller);
+    let nextPositionerHeight = 0;
+    let nextScrollTop = null;
+    let setReachedMax = false;
+    let scrollToMax = false;
+    const setHeight = (height) => {
+      positionerElement.style.height = `${height}px`;
+    };
+    const handleSmallDiff = (diff, targetScrollTop) => {
+      const heightDelta = clamp(diff, 0, maxAvailableHeight - currentHeight);
+      if (heightDelta > 0) {
+        setHeight(currentHeight + heightDelta);
+      }
+      scroller.scrollTop = targetScrollTop;
+      if (maxAvailableHeight - (currentHeight + heightDelta) <= SCROLL_EPS_PX) {
+        reachedMaxHeightRef.current = true;
+      }
+      handleScrollArrowVisibility();
+    };
+    if (isTopPositioned) {
+      const diff = maxScrollTop - scrollTop;
+      const idealHeight = currentHeight + diff;
+      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
+      nextPositionerHeight = nextHeight;
+      if (diff <= SCROLL_EPS_PX) {
+        handleSmallDiff(diff, maxScrollTop);
+        return;
+      }
+      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
+        scrollToMax = true;
+      } else {
+        setReachedMax = true;
+      }
+    } else if (isBottomPositioned) {
+      const diff = scrollTop;
+      const idealHeight = currentHeight + diff;
+      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
+      const overshoot = idealHeight - maxAvailableHeight;
+      nextPositionerHeight = nextHeight;
+      if (diff <= SCROLL_EPS_PX) {
+        handleSmallDiff(diff, 0);
+        return;
+      }
+      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
+        nextScrollTop = 0;
+      } else {
+        setReachedMax = true;
+        if (scrollTop < maxScrollTop) {
+          nextScrollTop = scrollTop - (diff - overshoot);
+        }
+      }
+    }
+    nextPositionerHeight = Math.ceil(nextPositionerHeight);
+    if (nextPositionerHeight !== 0) {
+      setHeight(nextPositionerHeight);
+    }
+    if (scrollToMax || nextScrollTop != null) {
+      const nextMaxScrollTop = getMaxScrollTop(scroller);
+      const target = scrollToMax ? nextMaxScrollTop : clamp(nextScrollTop, 0, nextMaxScrollTop);
+      if (Math.abs(scroller.scrollTop - target) > SCROLL_EPS_PX) {
+        scroller.scrollTop = target;
+      }
+    }
+    if (setReachedMax || nextPositionerHeight >= maxAvailableHeight - SCROLL_EPS_PX) {
+      reachedMaxHeightRef.current = true;
+    }
+    handleScrollArrowVisibility();
+  });
+  reactExports.useImperativeHandle(scrollHandlerRef, () => handleScroll2, [handleScroll2]);
+  useOpenChangeComplete({
+    open,
+    ref: popupRef,
+    onComplete() {
+      if (open) {
+        onOpenChangeComplete?.(true);
+      }
+    }
+  });
+  const state = {
+    open,
+    transitionStatus,
+    side,
+    align
+  };
+  useIsoLayoutEffect(() => {
+    if (!positionerElement || !popupRef.current || Object.keys(originalPositionerStylesRef.current).length) {
+      return;
+    }
+    originalPositionerStylesRef.current = {
+      top: positionerElement.style.top || "0",
+      left: positionerElement.style.left || "0",
+      right: positionerElement.style.right,
+      height: positionerElement.style.height,
+      bottom: positionerElement.style.bottom,
+      minHeight: positionerElement.style.minHeight,
+      maxHeight: positionerElement.style.maxHeight,
+      marginTop: positionerElement.style.marginTop,
+      marginBottom: positionerElement.style.marginBottom
+    };
+  }, [popupRef, positionerElement]);
+  useIsoLayoutEffect(() => {
+    if (open || alignItemWithTriggerActive) {
+      return;
+    }
+    initialPlacedRef.current = false;
+    reachedMaxHeightRef.current = false;
+    initialHeightRef.current = 0;
+    maxHeightRef.current = 0;
+    clearStyles(positionerElement, originalPositionerStylesRef.current);
+  }, [open, alignItemWithTriggerActive, positionerElement, popupRef]);
+  useIsoLayoutEffect(() => {
+    const popupElement = popupRef.current;
+    if (!open || !triggerElement || !positionerElement || !popupElement || store.state.transitionStatus === "ending") {
+      return;
+    }
+    if (!alignItemWithTriggerActive) {
+      initialPlacedRef.current = true;
+      scrollArrowFrame.request(handleScrollArrowVisibility);
+      popupElement.style.removeProperty("--transform-origin");
+      return;
+    }
+    queueMicrotask(() => {
+      const restoreTransformStyles = unsetTransformStyles(popupElement);
+      popupElement.style.removeProperty("--transform-origin");
+      try {
+        const positionerStyles = getComputedStyle(positionerElement);
+        const popupStyles = getComputedStyle(popupElement);
+        const doc = ownerDocument(triggerElement);
+        const win = getWindow$1(positionerElement);
+        const triggerRect = triggerElement.getBoundingClientRect();
+        const positionerRect = positionerElement.getBoundingClientRect();
+        const triggerX = triggerRect.left;
+        const triggerHeight = triggerRect.height;
+        const scroller = listElement || popupElement;
+        const scrollHeight = scroller.scrollHeight;
+        const borderBottom = parseFloat(popupStyles.borderBottomWidth);
+        const marginTop = parseFloat(positionerStyles.marginTop) || 10;
+        const marginBottom = parseFloat(positionerStyles.marginBottom) || 10;
+        const minHeight = parseFloat(positionerStyles.minHeight) || 100;
+        const maxPopupHeight = getMaxPopupHeight(popupStyles);
+        const paddingLeft = 5;
+        const paddingRight = 5;
+        const triggerCollisionThreshold = 20;
+        const viewportHeight = doc.documentElement.clientHeight - marginTop - marginBottom;
+        const viewportWidth = doc.documentElement.clientWidth;
+        const availableSpaceBeneathTrigger = viewportHeight - triggerRect.bottom + triggerHeight;
+        const textElement = selectedItemTextRef.current;
+        const valueElement = valueRef.current;
+        let textRect;
+        let offsetX = 0;
+        let offsetY = 0;
+        if (textElement && valueElement) {
+          const valueRect = valueElement.getBoundingClientRect();
+          textRect = textElement.getBoundingClientRect();
+          const valueLeftFromTriggerLeft = valueRect.left - triggerX;
+          const textLeftFromPositionerLeft = textRect.left - positionerRect.left;
+          const valueCenterFromPositionerTop = valueRect.top - triggerRect.top + valueRect.height / 2;
+          const textCenterFromTriggerTop = textRect.top - positionerRect.top + textRect.height / 2;
+          offsetX = valueLeftFromTriggerLeft - textLeftFromPositionerLeft;
+          offsetY = textCenterFromTriggerTop - valueCenterFromPositionerTop;
+        }
+        const idealHeight = availableSpaceBeneathTrigger + offsetY + marginBottom + borderBottom;
+        let height = Math.min(viewportHeight, idealHeight);
+        const maxHeight = viewportHeight - marginTop - marginBottom;
+        const scrollTop = idealHeight - height;
+        const left = Math.max(paddingLeft, triggerX + offsetX);
+        const maxRight = viewportWidth - paddingRight;
+        const rightOverflow = Math.max(0, left + positionerRect.width - maxRight);
+        positionerElement.style.left = `${left - rightOverflow}px`;
+        positionerElement.style.height = `${height}px`;
+        positionerElement.style.maxHeight = "auto";
+        positionerElement.style.marginTop = `${marginTop}px`;
+        positionerElement.style.marginBottom = `${marginBottom}px`;
+        popupElement.style.height = "100%";
+        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+        const isTopPositioned = scrollTop >= maxScrollTop;
+        if (isTopPositioned) {
+          height = Math.min(viewportHeight, positionerRect.height) - (scrollTop - maxScrollTop);
+        }
+        const fallbackToAlignPopupToTrigger = triggerRect.top < triggerCollisionThreshold || triggerRect.bottom > viewportHeight - triggerCollisionThreshold || height < Math.min(scrollHeight, minHeight);
+        const isPinchZoomed = (win.visualViewport?.scale ?? 1) !== 1 && isWebKit;
+        if (fallbackToAlignPopupToTrigger || isPinchZoomed) {
+          initialPlacedRef.current = true;
+          clearStyles(positionerElement, originalPositionerStylesRef.current);
+          reactDomExports.flushSync(() => setControlledAlignItemWithTrigger(false));
+          return;
+        }
+        if (isTopPositioned) {
+          const topOffset = Math.max(0, viewportHeight - idealHeight);
+          positionerElement.style.top = positionerRect.height >= maxHeight ? "0" : `${topOffset}px`;
+          positionerElement.style.height = `${height}px`;
+          scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+          initialHeightRef.current = Math.max(minHeight, height);
+        } else {
+          positionerElement.style.bottom = "0";
+          initialHeightRef.current = Math.max(minHeight, height);
+          scroller.scrollTop = scrollTop;
+        }
+        if (textRect) {
+          const popupTop = positionerRect.top;
+          const popupHeight = positionerRect.height;
+          const textCenterY = textRect.top + textRect.height / 2;
+          const transformOriginY = popupHeight > 0 ? (textCenterY - popupTop) / popupHeight * 100 : 50;
+          const clampedY = clamp(transformOriginY, 0, 100);
+          popupElement.style.setProperty("--transform-origin", `50% ${clampedY}%`);
+        }
+        if (initialHeightRef.current === viewportHeight || height >= maxPopupHeight) {
+          reachedMaxHeightRef.current = true;
+        }
+        handleScrollArrowVisibility();
+        setTimeout(() => {
+          initialPlacedRef.current = true;
+        });
+      } finally {
+        restoreTransformStyles();
+      }
+    });
+  }, [store, open, positionerElement, triggerElement, valueRef, selectedItemTextRef, popupRef, handleScrollArrowVisibility, alignItemWithTriggerActive, setControlledAlignItemWithTrigger, scrollArrowFrame, scrollDownArrowRef, scrollUpArrowRef, listElement]);
+  reactExports.useEffect(() => {
+    if (!alignItemWithTriggerActive || !positionerElement || !open) {
+      return void 0;
+    }
+    const win = getWindow$1(positionerElement);
+    function handleResize(event) {
+      setOpen(false, createChangeEventDetails(windowResize, event));
+    }
+    win.addEventListener("resize", handleResize);
+    return () => {
+      win.removeEventListener("resize", handleResize);
+    };
+  }, [setOpen, alignItemWithTriggerActive, positionerElement, open]);
+  const defaultProps = {
+    ...listElement ? {
+      role: "presentation",
+      "aria-orientation": void 0
+    } : {
+      role: "listbox",
+      "aria-multiselectable": multiple || void 0,
+      id: `${id}-list`
+    },
+    onKeyDown(event) {
+      keyboardActiveRef.current = true;
+      if (insideToolbar && COMPOSITE_KEYS.has(event.key)) {
+        event.stopPropagation();
+      }
+    },
+    onMouseMove() {
+      keyboardActiveRef.current = false;
+    },
+    onPointerLeave(event) {
+      if (!highlightItemOnHover || isMouseWithinBounds(event) || event.pointerType === "touch") {
+        return;
+      }
+      const popup = event.currentTarget;
+      highlightTimeout.start(0, () => {
+        store.set("activeIndex", null);
+        popup.focus({
+          preventScroll: true
+        });
+      });
+    },
+    onScroll(event) {
+      if (listElement) {
+        return;
+      }
+      handleScroll2(event.currentTarget);
+    },
+    ...alignItemWithTriggerActive && {
+      style: listElement ? {
+        height: "100%"
+      } : LIST_FUNCTIONAL_STYLES
+    }
+  };
+  const element = useRenderElement("div", componentProps, {
+    ref: [forwardedRef, popupRef],
+    state,
+    stateAttributesMapping: stateAttributesMapping$4,
+    props: [popupProps, defaultProps, getDisabledMountTransitionStyles(transitionStatus), {
+      className: !listElement && alignItemWithTriggerActive ? styleDisableScrollbar.className : void 0
+    }, elementProps]
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
+    children: [!disableStyleElements && styleDisableScrollbar.getElement(nonce), /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingFocusManager, {
+      context: floatingRootContext,
+      modal: false,
+      disabled: !mounted,
+      returnFocus: finalFocus,
+      restoreFocus: true,
+      children: element
+    })]
+  });
+});
+function getMaxPopupHeight(popupStyles) {
+  const maxHeightStyle = popupStyles.maxHeight || "";
+  return maxHeightStyle.endsWith("px") ? parseFloat(maxHeightStyle) || Infinity : Infinity;
+}
+function getMaxScrollTop(scroller) {
+  return Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+}
+const TRANSFORM_STYLE_RESETS = [["transform", "none"], ["scale", "1"], ["translate", "0 0"]];
+function unsetTransformStyles(popupElement) {
+  const {
+    style
+  } = popupElement;
+  const originalStyles = {};
+  for (const [property, value] of TRANSFORM_STYLE_RESETS) {
+    originalStyles[property] = style.getPropertyValue(property);
+    style.setProperty(property, value, "important");
+  }
+  return () => {
+    for (const [property] of TRANSFORM_STYLE_RESETS) {
+      const originalValue = originalStyles[property];
+      if (originalValue) {
+        style.setProperty(property, originalValue);
+      } else {
+        style.removeProperty(property);
+      }
+    }
+  };
+}
+const SelectList = /* @__PURE__ */ reactExports.forwardRef(function SelectList2(componentProps, forwardedRef) {
+  const {
+    className,
+    render,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    scrollHandlerRef
+  } = useSelectRootContext();
+  const {
+    alignItemWithTriggerActive
+  } = useSelectPositionerContext();
+  const hasScrollArrows = useStore$1(store, selectors$2.hasScrollArrows);
+  const openMethod = useStore$1(store, selectors$2.openMethod);
+  const multiple = useStore$1(store, selectors$2.multiple);
+  const id = useStore$1(store, selectors$2.id);
+  const defaultProps = {
+    id: `${id}-list`,
+    role: "listbox",
+    "aria-multiselectable": multiple || void 0,
+    onScroll(event) {
+      scrollHandlerRef.current?.(event.currentTarget);
+    },
+    ...alignItemWithTriggerActive && {
+      style: LIST_FUNCTIONAL_STYLES
+    },
+    className: hasScrollArrows && openMethod !== "touch" ? styleDisableScrollbar.className : void 0
+  };
+  const setListElement = useStableCallback((element) => {
+    store.set("listElement", element);
+  });
+  return useRenderElement("div", componentProps, {
+    ref: [forwardedRef, setListElement],
+    props: [defaultProps, elementProps]
+  });
+});
+let IndexGuessBehavior = /* @__PURE__ */ (function(IndexGuessBehavior2) {
+  IndexGuessBehavior2[IndexGuessBehavior2["None"] = 0] = "None";
+  IndexGuessBehavior2[IndexGuessBehavior2["GuessFromOrder"] = 1] = "GuessFromOrder";
+  return IndexGuessBehavior2;
+})({});
+function useCompositeListItem(params = {}) {
+  const {
+    label,
+    metadata,
+    textRef,
+    indexGuessBehavior,
+    index: externalIndex
+  } = params;
+  const {
+    register: register2,
+    unregister,
+    subscribeMapChange,
+    elementsRef,
+    labelsRef,
+    nextIndexRef
+  } = useCompositeListContext();
+  const indexRef = reactExports.useRef(-1);
+  const [index2, setIndex] = reactExports.useState(externalIndex ?? (indexGuessBehavior === IndexGuessBehavior.GuessFromOrder ? () => {
+    if (indexRef.current === -1) {
+      const newIndex = nextIndexRef.current;
+      nextIndexRef.current += 1;
+      indexRef.current = newIndex;
+    }
+    return indexRef.current;
+  } : -1));
+  const componentRef = reactExports.useRef(null);
+  const ref = reactExports.useCallback((node) => {
+    componentRef.current = node;
+    if (index2 !== -1 && node !== null) {
+      elementsRef.current[index2] = node;
+      if (labelsRef) {
+        const isLabelDefined = label !== void 0;
+        labelsRef.current[index2] = isLabelDefined ? label : textRef?.current?.textContent ?? node.textContent;
+      }
+    }
+  }, [index2, elementsRef, labelsRef, label, textRef]);
+  useIsoLayoutEffect(() => {
+    if (externalIndex != null) {
+      return void 0;
+    }
+    const node = componentRef.current;
+    if (node) {
+      register2(node, metadata);
+      return () => {
+        unregister(node);
+      };
+    }
+    return void 0;
+  }, [externalIndex, register2, unregister, metadata]);
+  useIsoLayoutEffect(() => {
+    if (externalIndex != null) {
+      return void 0;
+    }
+    return subscribeMapChange((map) => {
+      const i = componentRef.current ? map.get(componentRef.current)?.index : null;
+      if (i != null) {
+        setIndex(i);
+      }
+    });
+  }, [externalIndex, subscribeMapChange, setIndex]);
+  return reactExports.useMemo(() => ({
+    ref,
+    index: index2
+  }), [index2, ref]);
+}
+const SelectItemContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useSelectItemContext() {
+  const context = reactExports.useContext(SelectItemContext);
+  if (!context) {
+    throw new Error(formatErrorMessage(57));
+  }
+  return context;
+}
+const SelectItem$1 = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItem2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    value: itemValue = null,
+    label,
+    disabled: disabled2 = false,
+    nativeButton = false,
+    ...elementProps
+  } = componentProps;
+  const textRef = reactExports.useRef(null);
+  const listItem = useCompositeListItem({
+    label,
+    textRef,
+    indexGuessBehavior: IndexGuessBehavior.GuessFromOrder
+  });
+  const {
+    store,
+    getItemProps,
+    setOpen,
+    setValue,
+    selectionRef,
+    typingRef,
+    valuesRef,
+    keyboardActiveRef,
+    multiple,
+    highlightItemOnHover
+  } = useSelectRootContext();
+  const highlightTimeout = useTimeout();
+  const highlighted = useStore$1(store, selectors$2.isActive, listItem.index);
+  const selected = useStore$1(store, selectors$2.isSelected, listItem.index, itemValue);
+  const selectedByFocus = useStore$1(store, selectors$2.isSelectedByFocus, listItem.index);
+  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
+  const index2 = listItem.index;
+  const hasRegistered = index2 !== -1;
+  const itemRef = reactExports.useRef(null);
+  const indexRef = useValueAsRef(index2);
+  useIsoLayoutEffect(() => {
+    if (!hasRegistered) {
+      return void 0;
+    }
+    const values = valuesRef.current;
+    values[index2] = itemValue;
+    return () => {
+      delete values[index2];
+    };
+  }, [hasRegistered, index2, itemValue, valuesRef]);
+  useIsoLayoutEffect(() => {
+    if (!hasRegistered) {
+      return void 0;
+    }
+    const selectedValue = store.state.value;
+    let selectedCandidate = selectedValue;
+    if (multiple && Array.isArray(selectedValue) && selectedValue.length > 0) {
+      selectedCandidate = selectedValue[selectedValue.length - 1];
+    }
+    if (selectedCandidate !== void 0 && compareItemEquality(itemValue, selectedCandidate, isItemEqualToValue)) {
+      store.set("selectedIndex", index2);
+    }
+    return void 0;
+  }, [hasRegistered, index2, multiple, isItemEqualToValue, store, itemValue]);
+  const state = {
+    disabled: disabled2,
+    selected,
+    highlighted
+  };
+  const rootProps = getItemProps({
+    active: highlighted,
+    selected
+  });
+  rootProps.onFocus = void 0;
+  rootProps.id = void 0;
+  const lastKeyRef = reactExports.useRef(null);
+  const pointerTypeRef = reactExports.useRef("mouse");
+  const didPointerDownRef = reactExports.useRef(false);
+  const {
+    getButtonProps,
+    buttonRef
+  } = useButton({
+    disabled: disabled2,
+    focusableWhenDisabled: true,
+    native: nativeButton
+  });
+  function commitSelection(event) {
+    const selectedValue = store.state.value;
+    if (multiple) {
+      const currentValue = Array.isArray(selectedValue) ? selectedValue : [];
+      const nextValue = selected ? removeItem(currentValue, itemValue, isItemEqualToValue) : [...currentValue, itemValue];
+      setValue(nextValue, createChangeEventDetails(itemPress, event));
+    } else {
+      setValue(itemValue, createChangeEventDetails(itemPress, event));
+      setOpen(false, createChangeEventDetails(itemPress, event));
+    }
+  }
+  const defaultProps = {
+    role: "option",
+    "aria-selected": selected,
+    tabIndex: highlighted ? 0 : -1,
+    onFocus() {
+      store.set("activeIndex", index2);
+    },
+    onMouseEnter() {
+      if (!keyboardActiveRef.current && store.state.selectedIndex === null && highlightItemOnHover) {
+        store.set("activeIndex", index2);
+      }
+    },
+    onMouseMove() {
+      if (highlightItemOnHover) {
+        store.set("activeIndex", index2);
+      }
+    },
+    onMouseLeave(event) {
+      if (!highlightItemOnHover || keyboardActiveRef.current || isMouseWithinBounds(event)) {
+        return;
+      }
+      highlightTimeout.start(0, () => {
+        if (store.state.activeIndex === index2) {
+          store.set("activeIndex", null);
+        }
+      });
+    },
+    onTouchStart() {
+      selectionRef.current = {
+        allowSelectedMouseUp: false,
+        allowUnselectedMouseUp: false
+      };
+    },
+    onKeyDown(event) {
+      lastKeyRef.current = event.key;
+      store.set("activeIndex", index2);
+    },
+    onClick(event) {
+      didPointerDownRef.current = false;
+      if (event.type === "keydown" && lastKeyRef.current === null) {
+        return;
+      }
+      if (disabled2 || lastKeyRef.current === " " && typingRef.current || pointerTypeRef.current !== "touch" && !highlighted) {
+        return;
+      }
+      lastKeyRef.current = null;
+      commitSelection(event.nativeEvent);
+    },
+    onPointerEnter(event) {
+      pointerTypeRef.current = event.pointerType;
+    },
+    onPointerDown(event) {
+      pointerTypeRef.current = event.pointerType;
+      didPointerDownRef.current = true;
+    },
+    onMouseUp(event) {
+      if (disabled2) {
+        return;
+      }
+      if (didPointerDownRef.current) {
+        didPointerDownRef.current = false;
+        return;
+      }
+      const disallowSelectedMouseUp = !selectionRef.current.allowSelectedMouseUp && selected;
+      const disallowUnselectedMouseUp = !selectionRef.current.allowUnselectedMouseUp && !selected;
+      if (disallowSelectedMouseUp || disallowUnselectedMouseUp || pointerTypeRef.current !== "touch" && !highlighted) {
+        return;
+      }
+      commitSelection(event.nativeEvent);
+    }
+  };
+  const element = useRenderElement("div", componentProps, {
+    ref: [buttonRef, forwardedRef, listItem.ref, itemRef],
+    state,
+    props: [rootProps, defaultProps, elementProps, getButtonProps]
+  });
+  const contextValue = reactExports.useMemo(() => ({
+    selected,
+    indexRef,
+    textRef,
+    selectedByFocus,
+    hasRegistered
+  }), [selected, indexRef, textRef, selectedByFocus, hasRegistered]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemContext.Provider, {
+    value: contextValue,
+    children: element
+  });
+}));
+const SelectItemIndicator = /* @__PURE__ */ reactExports.forwardRef(function SelectItemIndicator2(componentProps, forwardedRef) {
+  const keepMounted = componentProps.keepMounted ?? false;
+  const {
+    selected
+  } = useSelectItemContext();
+  const shouldRender = keepMounted || selected;
+  if (!shouldRender) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Inner, {
+    ...componentProps,
+    ref: forwardedRef
+  });
+});
+const Inner = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef((componentProps, forwardedRef) => {
+  const {
+    render,
+    className,
+    keepMounted,
+    ...elementProps
+  } = componentProps;
+  const {
+    selected
+  } = useSelectItemContext();
+  const indicatorRef = reactExports.useRef(null);
+  const {
+    transitionStatus,
+    setMounted
+  } = useTransitionStatus(selected);
+  const state = {
+    selected,
+    transitionStatus
+  };
+  const element = useRenderElement("span", componentProps, {
+    ref: [forwardedRef, indicatorRef],
+    state,
+    props: [{
+      "aria-hidden": true,
+      children: "✔️"
+    }, elementProps],
+    stateAttributesMapping: transitionStatusMapping
+  });
+  useOpenChangeComplete({
+    open: selected,
+    ref: indicatorRef,
+    onComplete() {
+      if (!selected) {
+        setMounted(false);
+      }
+    }
+  });
+  return element;
+}));
+const SelectItemText = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItemText2(componentProps, forwardedRef) {
+  const {
+    indexRef,
+    textRef,
+    selectedByFocus,
+    hasRegistered
+  } = useSelectItemContext();
+  const {
+    selectedItemTextRef
+  } = useSelectRootContext();
+  const {
+    className,
+    render,
+    ...elementProps
+  } = componentProps;
+  const localRef = reactExports.useCallback((node) => {
+    if (!node || !hasRegistered) {
+      return;
+    }
+    const hasNoSelectedItemText = selectedItemTextRef.current === null || !selectedItemTextRef.current.isConnected;
+    if (selectedByFocus || hasNoSelectedItemText && indexRef.current === 0) {
+      selectedItemTextRef.current = node;
+    }
+  }, [selectedItemTextRef, indexRef, selectedByFocus, hasRegistered]);
+  const element = useRenderElement("div", componentProps, {
+    ref: [localRef, forwardedRef, textRef],
+    props: elementProps
+  });
+  return element;
+}));
+const SelectScrollArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollArrow2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    direction,
+    keepMounted = false,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    popupRef,
+    listRef,
+    handleScrollArrowVisibility,
+    scrollArrowsMountedCountRef
+  } = useSelectRootContext();
+  const {
+    side,
+    scrollDownArrowRef,
+    scrollUpArrowRef
+  } = useSelectPositionerContext();
+  const visibleSelector = direction === "up" ? selectors$2.scrollUpArrowVisible : selectors$2.scrollDownArrowVisible;
+  const stateVisible = useStore$1(store, visibleSelector);
+  const openMethod = useStore$1(store, selectors$2.openMethod);
+  const visible = stateVisible && openMethod !== "touch";
+  const timeout = useTimeout();
+  const scrollArrowRef = direction === "up" ? scrollUpArrowRef : scrollDownArrowRef;
+  const {
+    transitionStatus,
+    setMounted
+  } = useTransitionStatus(visible);
+  useIsoLayoutEffect(() => {
+    scrollArrowsMountedCountRef.current += 1;
+    if (!store.state.hasScrollArrows) {
+      store.set("hasScrollArrows", true);
+    }
+    return () => {
+      scrollArrowsMountedCountRef.current = Math.max(0, scrollArrowsMountedCountRef.current - 1);
+      if (scrollArrowsMountedCountRef.current === 0 && store.state.hasScrollArrows) {
+        store.set("hasScrollArrows", false);
+      }
+    };
+  }, [store, scrollArrowsMountedCountRef]);
+  useOpenChangeComplete({
+    open: visible,
+    ref: scrollArrowRef,
+    onComplete() {
+      if (!visible) {
+        setMounted(false);
+      }
+    }
+  });
+  const state = {
+    direction,
+    visible,
+    side,
+    transitionStatus
+  };
+  const defaultProps = {
+    "aria-hidden": true,
+    children: direction === "up" ? "▲" : "▼",
+    style: {
+      position: "absolute"
+    },
+    onMouseMove(event) {
+      if (event.movementX === 0 && event.movementY === 0 || timeout.isStarted()) {
+        return;
+      }
+      store.set("activeIndex", null);
+      function scrollNextItem() {
+        const scroller = store.state.listElement ?? popupRef.current;
+        if (!scroller) {
+          return;
+        }
+        store.set("activeIndex", null);
+        handleScrollArrowVisibility();
+        const isScrolledToTop = scroller.scrollTop === 0;
+        const isScrolledToBottom = Math.round(scroller.scrollTop + scroller.clientHeight) >= scroller.scrollHeight;
+        const list = listRef.current;
+        if (list.length === 0) {
+          if (direction === "up") {
+            store.set("scrollUpArrowVisible", !isScrolledToTop);
+          } else {
+            store.set("scrollDownArrowVisible", !isScrolledToBottom);
+          }
+        }
+        if (direction === "up" && isScrolledToTop || direction === "down" && isScrolledToBottom) {
+          timeout.clear();
+          return;
+        }
+        if ((store.state.listElement || popupRef.current) && listRef.current && listRef.current.length > 0) {
+          const items = listRef.current;
+          const scrollArrowHeight = scrollArrowRef.current?.offsetHeight || 0;
+          if (direction === "up") {
+            let firstVisibleIndex = 0;
+            const scrollTop = scroller.scrollTop + scrollArrowHeight;
+            for (let i = 0; i < items.length; i += 1) {
+              const item = items[i];
+              if (item) {
+                const itemTop = item.offsetTop;
+                if (itemTop >= scrollTop) {
+                  firstVisibleIndex = i;
+                  break;
+                }
+              }
+            }
+            const targetIndex = Math.max(0, firstVisibleIndex - 1);
+            if (targetIndex < firstVisibleIndex) {
+              const targetItem = items[targetIndex];
+              if (targetItem) {
+                scroller.scrollTop = Math.max(0, targetItem.offsetTop - scrollArrowHeight);
+              }
+            } else {
+              scroller.scrollTop = 0;
+            }
+          } else {
+            let lastVisibleIndex = items.length - 1;
+            const scrollBottom = scroller.scrollTop + scroller.clientHeight - scrollArrowHeight;
+            for (let i = 0; i < items.length; i += 1) {
+              const item = items[i];
+              if (item) {
+                const itemBottom = item.offsetTop + item.offsetHeight;
+                if (itemBottom > scrollBottom) {
+                  lastVisibleIndex = Math.max(0, i - 1);
+                  break;
+                }
+              }
+            }
+            const targetIndex = Math.min(items.length - 1, lastVisibleIndex + 1);
+            if (targetIndex > lastVisibleIndex) {
+              const targetItem = items[targetIndex];
+              if (targetItem) {
+                scroller.scrollTop = targetItem.offsetTop + targetItem.offsetHeight - scroller.clientHeight + scrollArrowHeight;
+              }
+            } else {
+              scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+            }
+          }
+        }
+        timeout.start(40, scrollNextItem);
+      }
+      timeout.start(40, scrollNextItem);
+    },
+    onMouseLeave() {
+      timeout.clear();
+    }
+  };
+  const element = useRenderElement("div", componentProps, {
+    ref: [forwardedRef, scrollArrowRef],
+    state,
+    props: [defaultProps, elementProps]
+  });
+  const shouldRender = visible || keepMounted;
+  if (!shouldRender) {
+    return null;
+  }
+  return element;
+});
+const SelectScrollDownArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollDownArrow2(props, forwardedRef) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
+    ...props,
+    ref: forwardedRef,
+    direction: "down"
+  });
+});
+const SelectScrollUpArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollUpArrow2(props, forwardedRef) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
+    ...props,
+    ref: forwardedRef,
+    direction: "up"
+  });
+});
+const Select = SelectRoot;
+function SelectValue({ className, ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectValue$1,
+    {
+      "data-slot": "select-value",
+      className: cn$2("flex flex-1 text-left", className),
+      ...props
+    }
+  );
+}
+function SelectTrigger({
+  className,
+  size: size2 = "default",
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    SelectTrigger$1,
+    {
+      "data-slot": "select-trigger",
+      "data-size": size2,
+      className: cn$2(
+        "border-input data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4 flex w-fit items-center justify-between whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className
+      ),
+      ...props,
+      children: [
+        children,
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SelectIcon,
+          {
+            render: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "text-muted-foreground size-4 pointer-events-none" })
+          }
+        )
+      ]
+    }
+  );
+}
+function SelectContent({
+  className,
+  children,
+  side = "bottom",
+  sideOffset = 4,
+  align = "center",
+  alignOffset = 0,
+  alignItemWithTrigger = true,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectPositioner,
+    {
+      side,
+      sideOffset,
+      align,
+      alignOffset,
+      alignItemWithTrigger,
+      className: "isolate z-50",
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        SelectPopup,
+        {
+          "data-slot": "select-content",
+          "data-align-trigger": alignItemWithTrigger,
+          className: cn$2("bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 min-w-36 rounded-lg shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 relative isolate z-50 max-h-(--available-height) w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto data-[align-trigger=true]:animate-none", className),
+          ...props,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollUpButton, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectList, { children }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollDownButton, {})
+          ]
+        }
+      )
+    }
+  ) });
+}
+function SelectItem({
+  className,
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    SelectItem$1,
+    {
+      "data-slot": "select-item",
+      className: cn$2(
+        "focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className
+      ),
+      ...props,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemText, { className: "flex flex-1 gap-2 shrink-0 whitespace-nowrap", children }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SelectItemIndicator,
+          {
+            render: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "pointer-events-none absolute right-2 flex size-4 items-center justify-center" }),
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { className: "pointer-events-none" })
+          }
+        )
+      ]
+    }
+  );
+}
+function SelectScrollUpButton({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectScrollUpArrow,
+    {
+      "data-slot": "select-scroll-up-button",
+      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 top-0 w-full", className),
+      ...props,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ChevronUp,
+        {}
+      )
+    }
+  );
+}
+function SelectScrollDownButton({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectScrollDownArrow,
+    {
+      "data-slot": "select-scroll-down-button",
+      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 bottom-0 w-full", className),
+      ...props,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ChevronDown,
+        {}
+      )
+    }
+  );
+}
+function WorkspaceSwitcher() {
+  const { workspaces, activeWorkspace, setActiveWorkspace } = useWorkspaceStore();
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    Select,
+    {
+      value: activeWorkspace?.id ?? "",
+      onValueChange: setActiveWorkspace,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectTrigger, { className: "w-full", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SelectValue, { placeholder: "Select workspace", children: activeWorkspace?.name ?? "Select workspace" }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectContent, { children: workspaces.map((workspace) => /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: workspace.id, children: workspace.name }, workspace.id)) })
+      ]
+    }
+  );
+}
+function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, activeView }) {
+  const [user, setUser] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+  }, []);
+  const userName = user?.user_metadata?.name || "User";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipProvider, { delay: 300, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full px-1 mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceSwitcher, {}) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Server, label: "Hosts", active: activeView === "hosts", onClick: onGoHome }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: KeyRound, label: "SSH Keys", active: activeView === "keys", onClick: onGoKeys }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Building2, label: "Workspace", active: activeView === "workspace", onClick: onGoWorkspace }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1" }),
+    user && /* @__PURE__ */ jsxRuntimeExports.jsxs(Tooltip, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        TooltipTrigger,
+        {
+          className: cn$2(
+            "inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors",
+            "hover:bg-accent hover:text-accent-foreground",
+            activeView === "profile" && "bg-accent text-accent-foreground"
+          ),
+          onClick: onOpenProfile,
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: userName, size: "sm" })
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipContent, { side: "right", sideOffset: 8, children: "Profile" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Settings, label: "Settings", active: activeView === "settings", onClick: onOpenSettings })
+  ] }) });
+}
+function NavButton({
+  icon: Icon2,
+  label,
+  active,
+  onClick
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(Tooltip, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      TooltipTrigger,
+      {
+        className: cn$2(
+          "inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors",
+          "hover:bg-accent hover:text-accent-foreground",
+          active && "bg-accent text-accent-foreground"
+        ),
+        onClick,
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Icon2, { className: "h-5 w-5" })
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipContent, { side: "right", sideOffset: 8, children: label })
+  ] });
+}
 const useSessionStore = create((set) => ({
   tabs: /* @__PURE__ */ new Map([
     ["hosts", { tabId: "hosts", tabType: "hosts", label: "Hosts", closable: false }]
@@ -32309,10 +37412,10 @@ const useSessionStore = create((set) => ({
     set((state) => {
       const newTabs = new Map(state.tabs);
       const closable = tab.closable ?? true;
-      const isStaticTab = tab.tabType === "hosts" || tab.tabType === "keys" || tab.tabType === "team" || tab.tabType === "settings";
+      const isStaticTab = tab.tabType === "hosts" || tab.tabType === "keys" || tab.tabType === "team" || tab.tabType === "workspace" || tab.tabType === "settings" || tab.tabType === "profile";
       if (isStaticTab) {
         for (const [id, t] of newTabs.entries()) {
-          if ((t.tabType === "hosts" || t.tabType === "keys" || t.tabType === "team" || t.tabType === "settings") && t.tabType !== tab.tabType) {
+          if ((t.tabType === "hosts" || t.tabType === "keys" || t.tabType === "team" || t.tabType === "workspace" || t.tabType === "settings" || t.tabType === "profile") && t.tabType !== tab.tabType) {
             newTabs.delete(id);
           }
         }
@@ -44215,2770 +49318,6 @@ const useKeyStore = create((set) => ({
     set((state) => ({ keys: state.keys.filter((k2) => k2.id !== id) }));
   }
 }));
-const SelectRootContext = /* @__PURE__ */ reactExports.createContext(null);
-const SelectFloatingContext = /* @__PURE__ */ reactExports.createContext(null);
-function useSelectRootContext() {
-  const context = reactExports.useContext(SelectRootContext);
-  if (context === null) {
-    throw new Error(formatErrorMessage(60));
-  }
-  return context;
-}
-function useSelectFloatingContext() {
-  const context = reactExports.useContext(SelectFloatingContext);
-  if (context === null) {
-    throw new Error(formatErrorMessage(61));
-  }
-  return context;
-}
-const defaultItemEquality = (itemValue, selectedValue) => Object.is(itemValue, selectedValue);
-function compareItemEquality(itemValue, selectedValue, comparer) {
-  if (itemValue == null || selectedValue == null) {
-    return Object.is(itemValue, selectedValue);
-  }
-  return comparer(itemValue, selectedValue);
-}
-function selectedValueIncludes(selectedValues, itemValue, comparer) {
-  if (!selectedValues || selectedValues.length === 0) {
-    return false;
-  }
-  return selectedValues.some((selectedValue) => {
-    if (selectedValue === void 0) {
-      return false;
-    }
-    return compareItemEquality(itemValue, selectedValue, comparer);
-  });
-}
-function findItemIndex(itemValues, selectedValue, comparer) {
-  if (!itemValues || itemValues.length === 0) {
-    return -1;
-  }
-  return itemValues.findIndex((itemValue) => {
-    if (itemValue === void 0) {
-      return false;
-    }
-    return compareItemEquality(itemValue, selectedValue, comparer);
-  });
-}
-function removeItem(selectedValues, itemValue, comparer) {
-  return selectedValues.filter((selectedValue) => !compareItemEquality(itemValue, selectedValue, comparer));
-}
-function serializeValue(value) {
-  if (value == null) {
-    return "";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-function isGroupedItems(items) {
-  return items != null && items.length > 0 && typeof items[0] === "object" && items[0] != null && "items" in items[0];
-}
-function hasNullItemLabel(items) {
-  if (!Array.isArray(items)) {
-    return items != null && !("null" in items);
-  }
-  if (isGroupedItems(items)) {
-    for (const group of items) {
-      for (const item of group.items) {
-        if (item && item.value == null && item.label != null) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  for (const item of items) {
-    if (item && item.value == null && item.label != null) {
-      return true;
-    }
-  }
-  return false;
-}
-function stringifyAsLabel(item, itemToStringLabel) {
-  if (itemToStringLabel && item != null) {
-    return itemToStringLabel(item) ?? "";
-  }
-  if (item && typeof item === "object") {
-    if ("label" in item && item.label != null) {
-      return String(item.label);
-    }
-    if ("value" in item) {
-      return String(item.value);
-    }
-  }
-  return serializeValue(item);
-}
-function stringifyAsValue(item, itemToStringValue) {
-  if (itemToStringValue && item != null) {
-    return itemToStringValue(item) ?? "";
-  }
-  if (item && typeof item === "object" && "value" in item && "label" in item) {
-    return serializeValue(item.value);
-  }
-  return serializeValue(item);
-}
-function resolveSelectedLabel(value, items, itemToStringLabel) {
-  function fallback() {
-    return stringifyAsLabel(value, itemToStringLabel);
-  }
-  if (itemToStringLabel && value != null) {
-    return itemToStringLabel(value);
-  }
-  if (value && typeof value === "object" && "label" in value && value.label != null) {
-    return value.label;
-  }
-  if (items && !Array.isArray(items)) {
-    return items[value] ?? fallback();
-  }
-  if (Array.isArray(items)) {
-    const flatItems = isGroupedItems(items) ? items.flatMap((g2) => g2.items) : items;
-    if (value == null || typeof value !== "object") {
-      const match = flatItems.find((item) => item.value === value);
-      if (match && match.label != null) {
-        return match.label;
-      }
-      return fallback();
-    }
-    if ("value" in value) {
-      const match = flatItems.find((item) => item && item.value === value.value);
-      if (match && match.label != null) {
-        return match.label;
-      }
-    }
-  }
-  return fallback();
-}
-function resolveMultipleLabels(values, items, itemToStringLabel) {
-  return values.reduce((acc, value, index2) => {
-    if (index2 > 0) {
-      acc.push(", ");
-    }
-    acc.push(/* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
-      children: resolveSelectedLabel(value, items, itemToStringLabel)
-    }, index2));
-    return acc;
-  }, []);
-}
-const selectors$2 = {
-  id: createSelector((state) => state.id),
-  modal: createSelector((state) => state.modal),
-  multiple: createSelector((state) => state.multiple),
-  items: createSelector((state) => state.items),
-  itemToStringLabel: createSelector((state) => state.itemToStringLabel),
-  itemToStringValue: createSelector((state) => state.itemToStringValue),
-  isItemEqualToValue: createSelector((state) => state.isItemEqualToValue),
-  value: createSelector((state) => state.value),
-  hasSelectedValue: createSelector((state) => {
-    const {
-      value,
-      multiple,
-      itemToStringValue
-    } = state;
-    if (value == null) {
-      return false;
-    }
-    if (multiple && Array.isArray(value)) {
-      return value.length > 0;
-    }
-    return stringifyAsValue(value, itemToStringValue) !== "";
-  }),
-  hasNullItemLabel: createSelector((state, enabled) => {
-    return enabled ? hasNullItemLabel(state.items) : false;
-  }),
-  open: createSelector((state) => state.open),
-  mounted: createSelector((state) => state.mounted),
-  forceMount: createSelector((state) => state.forceMount),
-  transitionStatus: createSelector((state) => state.transitionStatus),
-  openMethod: createSelector((state) => state.openMethod),
-  activeIndex: createSelector((state) => state.activeIndex),
-  selectedIndex: createSelector((state) => state.selectedIndex),
-  isActive: createSelector((state, index2) => state.activeIndex === index2),
-  isSelected: createSelector((state, index2, itemValue) => {
-    const comparer = state.isItemEqualToValue;
-    const storeValue = state.value;
-    if (state.multiple) {
-      return Array.isArray(storeValue) && storeValue.some((selectedItem) => compareItemEquality(itemValue, selectedItem, comparer));
-    }
-    if (state.selectedIndex === index2 && state.selectedIndex !== null) {
-      return true;
-    }
-    return compareItemEquality(itemValue, storeValue, comparer);
-  }),
-  isSelectedByFocus: createSelector((state, index2) => {
-    return state.selectedIndex === index2;
-  }),
-  popupProps: createSelector((state) => state.popupProps),
-  triggerProps: createSelector((state) => state.triggerProps),
-  triggerElement: createSelector((state) => state.triggerElement),
-  positionerElement: createSelector((state) => state.positionerElement),
-  listElement: createSelector((state) => state.listElement),
-  scrollUpArrowVisible: createSelector((state) => state.scrollUpArrowVisible),
-  scrollDownArrowVisible: createSelector((state) => state.scrollDownArrowVisible),
-  hasScrollArrows: createSelector((state) => state.hasScrollArrows)
-};
-function useValueChanged(value, onChange) {
-  const valueRef = reactExports.useRef(value);
-  const onChangeCallback = useStableCallback(onChange);
-  useIsoLayoutEffect(() => {
-    if (valueRef.current === value) {
-      return;
-    }
-    onChangeCallback(valueRef.current);
-  }, [value, onChangeCallback]);
-  useIsoLayoutEffect(() => {
-    valueRef.current = value;
-  }, [value]);
-}
-function useEnhancedClickHandler(handler) {
-  const lastClickInteractionTypeRef = reactExports.useRef("");
-  const handlePointerDown = reactExports.useCallback((event) => {
-    if (event.defaultPrevented) {
-      return;
-    }
-    lastClickInteractionTypeRef.current = event.pointerType;
-    handler(event, event.pointerType);
-  }, [handler]);
-  const handleClick = reactExports.useCallback((event) => {
-    if (event.detail === 0) {
-      handler(event, "keyboard");
-      return;
-    }
-    if ("pointerType" in event) {
-      handler(event, event.pointerType);
-    } else {
-      handler(event, lastClickInteractionTypeRef.current);
-    }
-    lastClickInteractionTypeRef.current = "";
-  }, [handler]);
-  return {
-    onClick: handleClick,
-    onPointerDown: handlePointerDown
-  };
-}
-function useOpenInteractionType(open) {
-  const [openMethod, setOpenMethod] = reactExports.useState(null);
-  const handleTriggerClick = useStableCallback((_2, interactionType) => {
-    if (!open) {
-      setOpenMethod(interactionType || // On iOS Safari, the hitslop around touch targets means tapping outside an element's
-      // bounds does not fire `pointerdown` but does fire `mousedown`. The `interactionType`
-      // will be "" in that case.
-      (isIOS ? "touch" : ""));
-    }
-  });
-  const reset = reactExports.useCallback(() => {
-    setOpenMethod(null);
-  }, []);
-  const {
-    onClick,
-    onPointerDown
-  } = useEnhancedClickHandler(handleTriggerClick);
-  return reactExports.useMemo(() => ({
-    openMethod,
-    reset,
-    triggerProps: {
-      onClick,
-      onPointerDown
-    }
-  }), [openMethod, reset, onClick, onPointerDown]);
-}
-function SelectRoot(props) {
-  const {
-    id,
-    value: valueProp,
-    defaultValue: defaultValue2 = null,
-    onValueChange,
-    open: openProp,
-    defaultOpen = false,
-    onOpenChange,
-    name: nameProp,
-    autoComplete,
-    disabled: disabledProp = false,
-    readOnly = false,
-    required = false,
-    modal = true,
-    actionsRef,
-    inputRef,
-    onOpenChangeComplete,
-    items,
-    multiple = false,
-    itemToStringLabel,
-    itemToStringValue,
-    isItemEqualToValue = defaultItemEquality,
-    highlightItemOnHover = true,
-    children
-  } = props;
-  const {
-    clearErrors
-  } = useFormContext();
-  const {
-    setDirty,
-    setTouched,
-    setFocused,
-    shouldValidateOnChange,
-    validityData,
-    setFilled,
-    name: fieldName,
-    disabled: fieldDisabled,
-    validation,
-    validationMode
-  } = useFieldRootContext();
-  const generatedId = useLabelableId({
-    id
-  });
-  const disabled2 = fieldDisabled || disabledProp;
-  const name = fieldName ?? nameProp;
-  const [value, setValueUnwrapped] = useControlled({
-    controlled: valueProp,
-    default: multiple ? defaultValue2 ?? EMPTY_ARRAY$1 : defaultValue2,
-    name: "Select",
-    state: "value"
-  });
-  const [open, setOpenUnwrapped] = useControlled({
-    controlled: openProp,
-    default: defaultOpen,
-    name: "Select",
-    state: "open"
-  });
-  const listRef = reactExports.useRef([]);
-  const labelsRef = reactExports.useRef([]);
-  const popupRef = reactExports.useRef(null);
-  const scrollHandlerRef = reactExports.useRef(null);
-  const scrollArrowsMountedCountRef = reactExports.useRef(0);
-  const valueRef = reactExports.useRef(null);
-  const valuesRef = reactExports.useRef([]);
-  const typingRef = reactExports.useRef(false);
-  const keyboardActiveRef = reactExports.useRef(false);
-  const selectedItemTextRef = reactExports.useRef(null);
-  const selectionRef = reactExports.useRef({
-    allowSelectedMouseUp: false,
-    allowUnselectedMouseUp: false
-  });
-  const alignItemWithTriggerActiveRef = reactExports.useRef(false);
-  const {
-    mounted,
-    setMounted,
-    transitionStatus
-  } = useTransitionStatus(open);
-  const {
-    openMethod,
-    triggerProps: interactionTypeProps,
-    reset: resetOpenInteractionType
-  } = useOpenInteractionType(open);
-  const store = useRefWithInit(() => new Store({
-    id: generatedId,
-    modal,
-    multiple,
-    itemToStringLabel,
-    itemToStringValue,
-    isItemEqualToValue,
-    value,
-    open,
-    mounted,
-    transitionStatus,
-    items,
-    forceMount: false,
-    openMethod: null,
-    activeIndex: null,
-    selectedIndex: null,
-    popupProps: {},
-    triggerProps: {},
-    triggerElement: null,
-    positionerElement: null,
-    listElement: null,
-    scrollUpArrowVisible: false,
-    scrollDownArrowVisible: false,
-    hasScrollArrows: false
-  })).current;
-  const activeIndex = useStore$1(store, selectors$2.activeIndex);
-  const selectedIndex = useStore$1(store, selectors$2.selectedIndex);
-  const triggerElement = useStore$1(store, selectors$2.triggerElement);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const serializedValue = reactExports.useMemo(() => {
-    if (multiple && Array.isArray(value) && value.length === 0) {
-      return "";
-    }
-    return stringifyAsValue(value, itemToStringValue);
-  }, [multiple, value, itemToStringValue]);
-  const fieldStringValue = reactExports.useMemo(() => {
-    if (multiple && Array.isArray(value)) {
-      return value.map((currentValue) => stringifyAsValue(currentValue, itemToStringValue));
-    }
-    return stringifyAsValue(value, itemToStringValue);
-  }, [multiple, value, itemToStringValue]);
-  const controlRef = useValueAsRef(store.state.triggerElement);
-  useField({
-    id: generatedId,
-    commit: validation.commit,
-    value,
-    controlRef,
-    name,
-    getValue: () => fieldStringValue
-  });
-  const initialValueRef = reactExports.useRef(value);
-  useIsoLayoutEffect(() => {
-    if (value !== initialValueRef.current) {
-      store.set("forceMount", true);
-    }
-  }, [store, value]);
-  useIsoLayoutEffect(() => {
-    setFilled(multiple ? Array.isArray(value) && value.length > 0 : value != null);
-  }, [multiple, value, setFilled]);
-  useIsoLayoutEffect(function syncSelectedIndex() {
-    if (open) {
-      return;
-    }
-    const registry = valuesRef.current;
-    if (multiple) {
-      const currentValue = Array.isArray(value) ? value : [];
-      if (currentValue.length === 0) {
-        store.set("selectedIndex", null);
-        return;
-      }
-      const lastValue = currentValue[currentValue.length - 1];
-      const lastIndex = findItemIndex(registry, lastValue, isItemEqualToValue);
-      store.set("selectedIndex", lastIndex === -1 ? null : lastIndex);
-      return;
-    }
-    const index2 = findItemIndex(registry, value, isItemEqualToValue);
-    store.set("selectedIndex", index2 === -1 ? null : index2);
-  }, [multiple, open, value, valuesRef, isItemEqualToValue, store]);
-  useValueChanged(value, () => {
-    clearErrors(name);
-    setDirty(value !== validityData.initialValue);
-    if (shouldValidateOnChange()) {
-      validation.commit(value);
-    } else {
-      validation.commit(value, true);
-    }
-  });
-  const setOpen = useStableCallback((nextOpen, eventDetails) => {
-    onOpenChange?.(nextOpen, eventDetails);
-    if (eventDetails.isCanceled) {
-      return;
-    }
-    setOpenUnwrapped(nextOpen);
-    if (!nextOpen && (eventDetails.reason === focusOut || eventDetails.reason === outsidePress)) {
-      setTouched(true);
-      setFocused(false);
-      if (validationMode === "onBlur") {
-        validation.commit(value);
-      }
-    }
-    if (!nextOpen && store.state.activeIndex !== null) {
-      const activeOption = listRef.current[store.state.activeIndex];
-      queueMicrotask(() => {
-        activeOption?.setAttribute("tabindex", "-1");
-      });
-    }
-  });
-  const handleUnmount = useStableCallback(() => {
-    setMounted(false);
-    store.set("activeIndex", null);
-    resetOpenInteractionType();
-    onOpenChangeComplete?.(false);
-  });
-  useOpenChangeComplete({
-    enabled: !actionsRef,
-    open,
-    ref: popupRef,
-    onComplete() {
-      if (!open) {
-        handleUnmount();
-      }
-    }
-  });
-  reactExports.useImperativeHandle(actionsRef, () => ({
-    unmount: handleUnmount
-  }), [handleUnmount]);
-  const setValue = useStableCallback((nextValue, eventDetails) => {
-    onValueChange?.(nextValue, eventDetails);
-    if (eventDetails.isCanceled) {
-      return;
-    }
-    setValueUnwrapped(nextValue);
-  });
-  const handleScrollArrowVisibility = useStableCallback(() => {
-    const scroller = store.state.listElement || popupRef.current;
-    if (!scroller) {
-      return;
-    }
-    const viewportTop = scroller.scrollTop;
-    const viewportBottom = scroller.scrollTop + scroller.clientHeight;
-    const shouldShowUp = viewportTop > 1;
-    const shouldShowDown = viewportBottom < scroller.scrollHeight - 1;
-    if (store.state.scrollUpArrowVisible !== shouldShowUp) {
-      store.set("scrollUpArrowVisible", shouldShowUp);
-    }
-    if (store.state.scrollDownArrowVisible !== shouldShowDown) {
-      store.set("scrollDownArrowVisible", shouldShowDown);
-    }
-  });
-  const floatingContext = useFloatingRootContext({
-    open,
-    onOpenChange: setOpen,
-    elements: {
-      reference: triggerElement,
-      floating: positionerElement
-    }
-  });
-  const click = useClick(floatingContext, {
-    enabled: !readOnly && !disabled2,
-    event: "mousedown"
-  });
-  const dismiss = useDismiss(floatingContext, {
-    bubbles: false
-  });
-  const listNavigation2 = useListNavigation(floatingContext, {
-    enabled: !readOnly && !disabled2,
-    listRef,
-    activeIndex,
-    selectedIndex,
-    disabledIndices: EMPTY_ARRAY$1,
-    onNavigate(nextActiveIndex) {
-      if (nextActiveIndex === null && !open) {
-        return;
-      }
-      store.set("activeIndex", nextActiveIndex);
-    },
-    // Implement our own listeners since `onPointerLeave` on each option fires while scrolling with
-    // the `alignItemWithTrigger=true`, causing a performance issue on Chrome.
-    focusItemOnHover: false
-  });
-  const typeahead = useTypeahead(floatingContext, {
-    enabled: !readOnly && !disabled2 && (open || !multiple),
-    listRef: labelsRef,
-    activeIndex,
-    selectedIndex,
-    onMatch(index2) {
-      if (open) {
-        store.set("activeIndex", index2);
-      } else {
-        setValue(valuesRef.current[index2], createChangeEventDetails("none"));
-      }
-    },
-    onTypingChange(typing) {
-      typingRef.current = typing;
-    }
-  });
-  const {
-    getReferenceProps,
-    getFloatingProps,
-    getItemProps
-  } = useInteractions([click, dismiss, listNavigation2, typeahead]);
-  const mergedTriggerProps = reactExports.useMemo(() => {
-    return mergeProps$2(getReferenceProps(), interactionTypeProps, generatedId ? {
-      id: generatedId
-    } : EMPTY_OBJECT);
-  }, [getReferenceProps, interactionTypeProps, generatedId]);
-  useOnFirstRender(() => {
-    store.update({
-      popupProps: getFloatingProps(),
-      triggerProps: mergedTriggerProps
-    });
-  });
-  useIsoLayoutEffect(() => {
-    store.update({
-      id: generatedId,
-      modal,
-      multiple,
-      value,
-      open,
-      mounted,
-      transitionStatus,
-      popupProps: getFloatingProps(),
-      triggerProps: mergedTriggerProps,
-      items,
-      itemToStringLabel,
-      itemToStringValue,
-      isItemEqualToValue,
-      openMethod
-    });
-  }, [store, generatedId, modal, multiple, value, open, mounted, transitionStatus, getFloatingProps, mergedTriggerProps, items, itemToStringLabel, itemToStringValue, isItemEqualToValue, openMethod]);
-  const contextValue = reactExports.useMemo(() => ({
-    store,
-    name,
-    required,
-    disabled: disabled2,
-    readOnly,
-    multiple,
-    itemToStringLabel,
-    itemToStringValue,
-    highlightItemOnHover,
-    setValue,
-    setOpen,
-    listRef,
-    popupRef,
-    scrollHandlerRef,
-    handleScrollArrowVisibility,
-    scrollArrowsMountedCountRef,
-    getItemProps,
-    events: floatingContext.context.events,
-    valueRef,
-    valuesRef,
-    labelsRef,
-    typingRef,
-    selectionRef,
-    selectedItemTextRef,
-    validation,
-    onOpenChangeComplete,
-    keyboardActiveRef,
-    alignItemWithTriggerActiveRef,
-    initialValueRef
-  }), [store, name, required, disabled2, readOnly, multiple, itemToStringLabel, itemToStringValue, highlightItemOnHover, setValue, setOpen, getItemProps, floatingContext.context.events, validation, onOpenChangeComplete, handleScrollArrowVisibility]);
-  const ref = useMergedRefs(inputRef, validation.inputRef);
-  const hasMultipleSelection = multiple && Array.isArray(value) && value.length > 0;
-  const hiddenInputs = reactExports.useMemo(() => {
-    if (!multiple || !Array.isArray(value) || !name) {
-      return null;
-    }
-    return value.map((v3) => {
-      const currentSerializedValue = stringifyAsValue(v3, itemToStringValue);
-      return /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
-        type: "hidden",
-        name,
-        value: currentSerializedValue
-      }, currentSerializedValue);
-    });
-  }, [multiple, value, name, itemToStringValue]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectRootContext.Provider, {
-    value: contextValue,
-    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectFloatingContext.Provider, {
-      value: floatingContext,
-      children: [children, /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
-        ...validation.getInputValidationProps({
-          onFocus() {
-            store.state.triggerElement?.focus({
-              // Supported in Chrome from 144 (January 2026)
-              // @ts-expect-error - focusVisible is not yet in the lib.dom.d.ts
-              focusVisible: true
-            });
-          },
-          // Handle browser autofill.
-          onChange(event) {
-            if (event.nativeEvent.defaultPrevented) {
-              return;
-            }
-            const nextValue = event.target.value;
-            const details = createChangeEventDetails(none, event.nativeEvent);
-            function handleChange() {
-              if (multiple) {
-                return;
-              }
-              const matchingValue = valuesRef.current.find((v3) => {
-                const candidate = stringifyAsValue(v3, itemToStringValue);
-                if (candidate.toLowerCase() === nextValue.toLowerCase()) {
-                  return true;
-                }
-                return false;
-              });
-              if (matchingValue != null) {
-                setDirty(matchingValue !== validityData.initialValue);
-                setValue(matchingValue, details);
-                if (shouldValidateOnChange()) {
-                  validation.commit(matchingValue);
-                }
-              }
-            }
-            store.set("forceMount", true);
-            queueMicrotask(handleChange);
-          }
-        }),
-        name: multiple ? void 0 : name,
-        autoComplete,
-        value: serializedValue,
-        disabled: disabled2,
-        required: required && !hasMultipleSelection,
-        readOnly,
-        ref,
-        style: name ? visuallyHiddenInput : visuallyHidden,
-        tabIndex: -1,
-        "aria-hidden": true
-      }), hiddenInputs]
-    })
-  });
-}
-function getPseudoElementBounds(element) {
-  const elementRect = element.getBoundingClientRect();
-  const beforeStyles = window.getComputedStyle(element, "::before");
-  const afterStyles = window.getComputedStyle(element, "::after");
-  const hasPseudoElements = beforeStyles.content !== "none" || afterStyles.content !== "none";
-  if (!hasPseudoElements) {
-    return elementRect;
-  }
-  const beforeWidth = parseFloat(beforeStyles.width) || 0;
-  const beforeHeight = parseFloat(beforeStyles.height) || 0;
-  const afterWidth = parseFloat(afterStyles.width) || 0;
-  const afterHeight = parseFloat(afterStyles.height) || 0;
-  const totalWidth = Math.max(elementRect.width, beforeWidth, afterWidth);
-  const totalHeight = Math.max(elementRect.height, beforeHeight, afterHeight);
-  const widthDiff = totalWidth - elementRect.width;
-  const heightDiff = totalHeight - elementRect.height;
-  return {
-    left: elementRect.left - widthDiff / 2,
-    right: elementRect.right + widthDiff / 2,
-    top: elementRect.top - heightDiff / 2,
-    bottom: elementRect.bottom + heightDiff / 2
-  };
-}
-const BOUNDARY_OFFSET$1 = 2;
-const SELECTED_DELAY = 400;
-const UNSELECTED_DELAY = 200;
-const stateAttributesMapping$6 = {
-  ...pressableTriggerOpenStateMapping,
-  ...fieldValidityMapping,
-  value: () => null
-};
-const SelectTrigger$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectTrigger2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    id: idProp,
-    disabled: disabledProp = false,
-    nativeButton = true,
-    ...elementProps
-  } = componentProps;
-  const {
-    setTouched,
-    setFocused,
-    validationMode,
-    state: fieldState,
-    disabled: fieldDisabled
-  } = useFieldRootContext();
-  const {
-    labelId
-  } = useLabelableContext();
-  const {
-    store,
-    setOpen,
-    selectionRef,
-    validation,
-    readOnly,
-    required,
-    alignItemWithTriggerActiveRef,
-    disabled: selectDisabled,
-    keyboardActiveRef
-  } = useSelectRootContext();
-  const disabled2 = fieldDisabled || selectDisabled || disabledProp;
-  const open = useStore$1(store, selectors$2.open);
-  const value = useStore$1(store, selectors$2.value);
-  const triggerProps = useStore$1(store, selectors$2.triggerProps);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const listElement = useStore$1(store, selectors$2.listElement);
-  const rootId = useStore$1(store, selectors$2.id);
-  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
-  const shouldCheckNullItemLabel = !hasSelectedValue && open;
-  const hasNullItemLabel2 = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
-  const id = idProp ?? rootId;
-  useLabelableId({
-    id
-  });
-  const positionerRef = useValueAsRef(positionerElement);
-  const triggerRef = reactExports.useRef(null);
-  const {
-    getButtonProps,
-    buttonRef
-  } = useButton({
-    disabled: disabled2,
-    native: nativeButton
-  });
-  const setTriggerElement = useStableCallback((element) => {
-    store.set("triggerElement", element);
-  });
-  const mergedRef = useMergedRefs(forwardedRef, triggerRef, buttonRef, setTriggerElement);
-  const timeoutFocus = useTimeout();
-  const timeoutMouseDown = useTimeout();
-  const selectedDelayTimeout = useTimeout();
-  const unselectedDelayTimeout = useTimeout();
-  reactExports.useEffect(() => {
-    if (open) {
-      const hasSelectedItemInList = hasSelectedValue || hasNullItemLabel2;
-      const shouldDelayUnselectedMouseUpLonger = !hasSelectedItemInList;
-      if (shouldDelayUnselectedMouseUpLonger) {
-        selectedDelayTimeout.start(SELECTED_DELAY, () => {
-          selectionRef.current.allowUnselectedMouseUp = true;
-          selectionRef.current.allowSelectedMouseUp = true;
-        });
-      } else {
-        unselectedDelayTimeout.start(UNSELECTED_DELAY, () => {
-          selectionRef.current.allowUnselectedMouseUp = true;
-          selectedDelayTimeout.start(UNSELECTED_DELAY, () => {
-            selectionRef.current.allowSelectedMouseUp = true;
-          });
-        });
-      }
-      return () => {
-        selectedDelayTimeout.clear();
-        unselectedDelayTimeout.clear();
-      };
-    }
-    selectionRef.current = {
-      allowSelectedMouseUp: false,
-      allowUnselectedMouseUp: false
-    };
-    timeoutMouseDown.clear();
-    return void 0;
-  }, [open, hasSelectedValue, hasNullItemLabel2, selectionRef, timeoutMouseDown, selectedDelayTimeout, unselectedDelayTimeout]);
-  const ariaControlsId = reactExports.useMemo(() => {
-    return listElement?.id ?? getFloatingFocusElement(positionerElement)?.id;
-  }, [listElement, positionerElement]);
-  const props = mergeProps$2(triggerProps, {
-    id,
-    role: "combobox",
-    "aria-expanded": open ? "true" : "false",
-    "aria-haspopup": "listbox",
-    "aria-controls": open ? ariaControlsId : void 0,
-    "aria-labelledby": labelId,
-    "aria-readonly": readOnly || void 0,
-    "aria-required": required || void 0,
-    tabIndex: disabled2 ? -1 : 0,
-    ref: mergedRef,
-    onFocus(event) {
-      setFocused(true);
-      if (open && alignItemWithTriggerActiveRef.current) {
-        setOpen(false, createChangeEventDetails(none, event.nativeEvent));
-      }
-      timeoutFocus.start(0, () => {
-        store.set("forceMount", true);
-      });
-    },
-    onBlur(event) {
-      if (contains(positionerElement, event.relatedTarget)) {
-        return;
-      }
-      setTouched(true);
-      setFocused(false);
-      if (validationMode === "onBlur") {
-        validation.commit(value);
-      }
-    },
-    onPointerMove() {
-      keyboardActiveRef.current = false;
-    },
-    onKeyDown() {
-      keyboardActiveRef.current = true;
-    },
-    onMouseDown(event) {
-      if (open) {
-        return;
-      }
-      const doc = ownerDocument(event.currentTarget);
-      function handleMouseUp(mouseEvent) {
-        if (!triggerRef.current) {
-          return;
-        }
-        const mouseUpTarget = mouseEvent.target;
-        if (contains(triggerRef.current, mouseUpTarget) || contains(positionerRef.current, mouseUpTarget) || mouseUpTarget === triggerRef.current) {
-          return;
-        }
-        const bounds = getPseudoElementBounds(triggerRef.current);
-        if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET$1 && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET$1 && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET$1 && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET$1) {
-          return;
-        }
-        setOpen(false, createChangeEventDetails(cancelOpen, mouseEvent));
-      }
-      timeoutMouseDown.start(0, () => {
-        doc.addEventListener("mouseup", handleMouseUp, {
-          once: true
-        });
-      });
-    }
-  }, validation.getValidationProps, elementProps, getButtonProps);
-  props.role = "combobox";
-  const state = {
-    ...fieldState,
-    open,
-    disabled: disabled2,
-    value,
-    readOnly,
-    placeholder: !hasSelectedValue
-  };
-  return useRenderElement("button", componentProps, {
-    ref: [forwardedRef, triggerRef],
-    state,
-    stateAttributesMapping: stateAttributesMapping$6,
-    props
-  });
-});
-const stateAttributesMapping$5 = {
-  value: () => null
-};
-const SelectValue$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectValue2(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    children: childrenProp,
-    placeholder,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    valueRef
-  } = useSelectRootContext();
-  const value = useStore$1(store, selectors$2.value);
-  const items = useStore$1(store, selectors$2.items);
-  const itemToStringLabel = useStore$1(store, selectors$2.itemToStringLabel);
-  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
-  const shouldCheckNullItemLabel = !hasSelectedValue && placeholder != null && childrenProp == null;
-  const hasNullLabel = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
-  const state = {
-    value,
-    placeholder: !hasSelectedValue
-  };
-  let children = null;
-  if (typeof childrenProp === "function") {
-    children = childrenProp(value);
-  } else if (childrenProp != null) {
-    children = childrenProp;
-  } else if (!hasSelectedValue && placeholder != null && !hasNullLabel) {
-    children = placeholder;
-  } else if (Array.isArray(value)) {
-    children = resolveMultipleLabels(value, items, itemToStringLabel);
-  } else {
-    children = resolveSelectedLabel(value, items, itemToStringLabel);
-  }
-  const element = useRenderElement("span", componentProps, {
-    state,
-    ref: [forwardedRef, valueRef],
-    props: [{
-      children
-    }, elementProps],
-    stateAttributesMapping: stateAttributesMapping$5
-  });
-  return element;
-});
-const SelectIcon = /* @__PURE__ */ reactExports.forwardRef(function SelectIcon2(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    ...elementProps
-  } = componentProps;
-  const {
-    store
-  } = useSelectRootContext();
-  const open = useStore$1(store, selectors$2.open);
-  const state = {
-    open
-  };
-  const element = useRenderElement("span", componentProps, {
-    state,
-    ref: forwardedRef,
-    props: [{
-      "aria-hidden": true,
-      children: "▼"
-    }, elementProps],
-    stateAttributesMapping: triggerOpenStateMapping
-  });
-  return element;
-});
-const SelectPortalContext = /* @__PURE__ */ reactExports.createContext(void 0);
-const SelectPortal = /* @__PURE__ */ reactExports.forwardRef(function SelectPortal2(portalProps, forwardedRef) {
-  const {
-    store
-  } = useSelectRootContext();
-  const mounted = useStore$1(store, selectors$2.mounted);
-  const forceMount = useStore$1(store, selectors$2.forceMount);
-  const shouldRender = mounted || forceMount;
-  if (!shouldRender) {
-    return null;
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortalContext.Provider, {
-    value: true,
-    children: /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingPortal, {
-      ref: forwardedRef,
-      ...portalProps
-    })
-  });
-});
-let originalHtmlStyles = {};
-let originalBodyStyles = {};
-let originalHtmlScrollBehavior = "";
-function hasInsetScrollbars(referenceElement) {
-  if (typeof document === "undefined") {
-    return false;
-  }
-  const doc = ownerDocument(referenceElement);
-  const win = getWindow$1(doc);
-  return win.innerWidth - doc.documentElement.clientWidth > 0;
-}
-function supportsStableScrollbarGutter(referenceElement) {
-  const supported = typeof CSS !== "undefined" && CSS.supports && CSS.supports("scrollbar-gutter", "stable");
-  if (!supported || typeof document === "undefined") {
-    return false;
-  }
-  const doc = ownerDocument(referenceElement);
-  const html = doc.documentElement;
-  const body = doc.body;
-  const scrollContainer = isOverflowElement(html) ? html : body;
-  const originalScrollContainerOverflowY = scrollContainer.style.overflowY;
-  const originalHtmlStyleGutter = html.style.scrollbarGutter;
-  html.style.scrollbarGutter = "stable";
-  scrollContainer.style.overflowY = "scroll";
-  const before = scrollContainer.offsetWidth;
-  scrollContainer.style.overflowY = "hidden";
-  const after = scrollContainer.offsetWidth;
-  scrollContainer.style.overflowY = originalScrollContainerOverflowY;
-  html.style.scrollbarGutter = originalHtmlStyleGutter;
-  return before === after;
-}
-function preventScrollOverlayScrollbars(referenceElement) {
-  const doc = ownerDocument(referenceElement);
-  const html = doc.documentElement;
-  const body = doc.body;
-  const elementToLock = isOverflowElement(html) ? html : body;
-  const originalElementToLockStyles = {
-    overflowY: elementToLock.style.overflowY,
-    overflowX: elementToLock.style.overflowX
-  };
-  Object.assign(elementToLock.style, {
-    overflowY: "hidden",
-    overflowX: "hidden"
-  });
-  return () => {
-    Object.assign(elementToLock.style, originalElementToLockStyles);
-  };
-}
-function preventScrollInsetScrollbars(referenceElement) {
-  const doc = ownerDocument(referenceElement);
-  const html = doc.documentElement;
-  const body = doc.body;
-  const win = getWindow$1(html);
-  let scrollTop = 0;
-  let scrollLeft = 0;
-  let updateGutterOnly = false;
-  const resizeFrame = AnimationFrame.create();
-  if (isWebKit && (win.visualViewport?.scale ?? 1) !== 1) {
-    return () => {
-    };
-  }
-  function lockScroll() {
-    const htmlStyles = win.getComputedStyle(html);
-    const bodyStyles = win.getComputedStyle(body);
-    const htmlScrollbarGutterValue = htmlStyles.scrollbarGutter || "";
-    const hasBothEdges = htmlScrollbarGutterValue.includes("both-edges");
-    const scrollbarGutterValue = hasBothEdges ? "stable both-edges" : "stable";
-    scrollTop = html.scrollTop;
-    scrollLeft = html.scrollLeft;
-    originalHtmlStyles = {
-      scrollbarGutter: html.style.scrollbarGutter,
-      overflowY: html.style.overflowY,
-      overflowX: html.style.overflowX
-    };
-    originalHtmlScrollBehavior = html.style.scrollBehavior;
-    originalBodyStyles = {
-      position: body.style.position,
-      height: body.style.height,
-      width: body.style.width,
-      boxSizing: body.style.boxSizing,
-      overflowY: body.style.overflowY,
-      overflowX: body.style.overflowX,
-      scrollBehavior: body.style.scrollBehavior
-    };
-    const isScrollableY = html.scrollHeight > html.clientHeight;
-    const isScrollableX = html.scrollWidth > html.clientWidth;
-    const hasConstantOverflowY = htmlStyles.overflowY === "scroll" || bodyStyles.overflowY === "scroll";
-    const hasConstantOverflowX = htmlStyles.overflowX === "scroll" || bodyStyles.overflowX === "scroll";
-    const scrollbarWidth = Math.max(0, win.innerWidth - body.clientWidth);
-    const scrollbarHeight = Math.max(0, win.innerHeight - body.clientHeight);
-    const marginY = parseFloat(bodyStyles.marginTop) + parseFloat(bodyStyles.marginBottom);
-    const marginX = parseFloat(bodyStyles.marginLeft) + parseFloat(bodyStyles.marginRight);
-    const elementToLock = isOverflowElement(html) ? html : body;
-    updateGutterOnly = supportsStableScrollbarGutter(referenceElement);
-    if (updateGutterOnly) {
-      html.style.scrollbarGutter = scrollbarGutterValue;
-      elementToLock.style.overflowY = "hidden";
-      elementToLock.style.overflowX = "hidden";
-      return;
-    }
-    Object.assign(html.style, {
-      scrollbarGutter: scrollbarGutterValue,
-      overflowY: "hidden",
-      overflowX: "hidden"
-    });
-    if (isScrollableY || hasConstantOverflowY) {
-      html.style.overflowY = "scroll";
-    }
-    if (isScrollableX || hasConstantOverflowX) {
-      html.style.overflowX = "scroll";
-    }
-    Object.assign(body.style, {
-      position: "relative",
-      height: marginY || scrollbarHeight ? `calc(100dvh - ${marginY + scrollbarHeight}px)` : "100dvh",
-      width: marginX || scrollbarWidth ? `calc(100vw - ${marginX + scrollbarWidth}px)` : "100vw",
-      boxSizing: "border-box",
-      overflow: "hidden",
-      scrollBehavior: "unset"
-    });
-    body.scrollTop = scrollTop;
-    body.scrollLeft = scrollLeft;
-    html.setAttribute("data-base-ui-scroll-locked", "");
-    html.style.scrollBehavior = "unset";
-  }
-  function cleanup() {
-    Object.assign(html.style, originalHtmlStyles);
-    Object.assign(body.style, originalBodyStyles);
-    if (!updateGutterOnly) {
-      html.scrollTop = scrollTop;
-      html.scrollLeft = scrollLeft;
-      html.removeAttribute("data-base-ui-scroll-locked");
-      html.style.scrollBehavior = originalHtmlScrollBehavior;
-    }
-  }
-  function handleResize() {
-    cleanup();
-    resizeFrame.request(lockScroll);
-  }
-  lockScroll();
-  win.addEventListener("resize", handleResize);
-  return () => {
-    resizeFrame.cancel();
-    cleanup();
-    if (typeof win.removeEventListener === "function") {
-      win.removeEventListener("resize", handleResize);
-    }
-  };
-}
-class ScrollLocker {
-  lockCount = 0;
-  restore = null;
-  timeoutLock = Timeout.create();
-  timeoutUnlock = Timeout.create();
-  acquire(referenceElement) {
-    this.lockCount += 1;
-    if (this.lockCount === 1 && this.restore === null) {
-      this.timeoutLock.start(0, () => this.lock(referenceElement));
-    }
-    return this.release;
-  }
-  release = () => {
-    this.lockCount -= 1;
-    if (this.lockCount === 0 && this.restore) {
-      this.timeoutUnlock.start(0, this.unlock);
-    }
-  };
-  unlock = () => {
-    if (this.lockCount === 0 && this.restore) {
-      this.restore?.();
-      this.restore = null;
-    }
-  };
-  lock(referenceElement) {
-    if (this.lockCount === 0 || this.restore !== null) {
-      return;
-    }
-    const doc = ownerDocument(referenceElement);
-    const html = doc.documentElement;
-    const htmlOverflowY = getWindow$1(html).getComputedStyle(html).overflowY;
-    if (htmlOverflowY === "hidden" || htmlOverflowY === "clip") {
-      this.restore = NOOP;
-      return;
-    }
-    const hasOverlayScrollbars = isIOS || !hasInsetScrollbars(referenceElement);
-    this.restore = hasOverlayScrollbars ? preventScrollOverlayScrollbars(referenceElement) : preventScrollInsetScrollbars(referenceElement);
-  }
-}
-const SCROLL_LOCKER = new ScrollLocker();
-function useScrollLock(enabled = true, referenceElement = null) {
-  useIsoLayoutEffect(() => {
-    if (!enabled) {
-      return void 0;
-    }
-    return SCROLL_LOCKER.acquire(referenceElement);
-  }, [enabled, referenceElement]);
-}
-const CompositeListContext = /* @__PURE__ */ reactExports.createContext({
-  register: () => {
-  },
-  unregister: () => {
-  },
-  subscribeMapChange: () => {
-    return () => {
-    };
-  },
-  elementsRef: {
-    current: []
-  },
-  nextIndexRef: {
-    current: 0
-  }
-});
-function useCompositeListContext() {
-  return reactExports.useContext(CompositeListContext);
-}
-function CompositeList(props) {
-  const {
-    children,
-    elementsRef,
-    labelsRef,
-    onMapChange: onMapChangeProp
-  } = props;
-  const onMapChange = useStableCallback(onMapChangeProp);
-  const nextIndexRef = reactExports.useRef(0);
-  const listeners = useRefWithInit(createListeners).current;
-  const map = useRefWithInit(createMap).current;
-  const [mapTick, setMapTick] = reactExports.useState(0);
-  const lastTickRef = reactExports.useRef(mapTick);
-  const register2 = useStableCallback((node, metadata) => {
-    map.set(node, metadata ?? null);
-    lastTickRef.current += 1;
-    setMapTick(lastTickRef.current);
-  });
-  const unregister = useStableCallback((node) => {
-    map.delete(node);
-    lastTickRef.current += 1;
-    setMapTick(lastTickRef.current);
-  });
-  const sortedMap = reactExports.useMemo(() => {
-    const newMap = /* @__PURE__ */ new Map();
-    const sortedNodes = Array.from(map.keys()).filter((node) => node.isConnected).sort(sortByDocumentPosition);
-    sortedNodes.forEach((node, index2) => {
-      const metadata = map.get(node) ?? {};
-      newMap.set(node, {
-        ...metadata,
-        index: index2
-      });
-    });
-    return newMap;
-  }, [map, mapTick]);
-  useIsoLayoutEffect(() => {
-    if (typeof MutationObserver !== "function" || sortedMap.size === 0) {
-      return void 0;
-    }
-    const mutationObserver = new MutationObserver((entries) => {
-      const diff = /* @__PURE__ */ new Set();
-      const updateDiff = (node) => diff.has(node) ? diff.delete(node) : diff.add(node);
-      entries.forEach((entry) => {
-        entry.removedNodes.forEach(updateDiff);
-        entry.addedNodes.forEach(updateDiff);
-      });
-      if (diff.size === 0) {
-        lastTickRef.current += 1;
-        setMapTick(lastTickRef.current);
-      }
-    });
-    sortedMap.forEach((_2, node) => {
-      if (node.parentElement) {
-        mutationObserver.observe(node.parentElement, {
-          childList: true
-        });
-      }
-    });
-    return () => {
-      mutationObserver.disconnect();
-    };
-  }, [sortedMap]);
-  useIsoLayoutEffect(() => {
-    const shouldUpdateLengths = lastTickRef.current === mapTick;
-    if (shouldUpdateLengths) {
-      if (elementsRef.current.length !== sortedMap.size) {
-        elementsRef.current.length = sortedMap.size;
-      }
-      if (labelsRef && labelsRef.current.length !== sortedMap.size) {
-        labelsRef.current.length = sortedMap.size;
-      }
-      nextIndexRef.current = sortedMap.size;
-    }
-    onMapChange(sortedMap);
-  }, [onMapChange, sortedMap, elementsRef, labelsRef, mapTick]);
-  useIsoLayoutEffect(() => {
-    return () => {
-      elementsRef.current = [];
-    };
-  }, [elementsRef]);
-  useIsoLayoutEffect(() => {
-    return () => {
-      if (labelsRef) {
-        labelsRef.current = [];
-      }
-    };
-  }, [labelsRef]);
-  const subscribeMapChange = useStableCallback((fn2) => {
-    listeners.add(fn2);
-    return () => {
-      listeners.delete(fn2);
-    };
-  });
-  useIsoLayoutEffect(() => {
-    listeners.forEach((l2) => l2(sortedMap));
-  }, [listeners, sortedMap]);
-  const contextValue = reactExports.useMemo(() => ({
-    register: register2,
-    unregister,
-    subscribeMapChange,
-    elementsRef,
-    labelsRef,
-    nextIndexRef
-  }), [register2, unregister, subscribeMapChange, elementsRef, labelsRef, nextIndexRef]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeListContext.Provider, {
-    value: contextValue,
-    children
-  });
-}
-function createMap() {
-  return /* @__PURE__ */ new Map();
-}
-function createListeners() {
-  return /* @__PURE__ */ new Set();
-}
-function sortByDocumentPosition(a, b2) {
-  const position = a.compareDocumentPosition(b2);
-  if (position & Node.DOCUMENT_POSITION_FOLLOWING || position & Node.DOCUMENT_POSITION_CONTAINED_BY) {
-    return -1;
-  }
-  if (position & Node.DOCUMENT_POSITION_PRECEDING || position & Node.DOCUMENT_POSITION_CONTAINS) {
-    return 1;
-  }
-  return 0;
-}
-const SelectPositionerContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useSelectPositionerContext() {
-  const context = reactExports.useContext(SelectPositionerContext);
-  if (!context) {
-    throw new Error(formatErrorMessage(59));
-  }
-  return context;
-}
-const InternalBackdrop = /* @__PURE__ */ reactExports.forwardRef(function InternalBackdrop2(props, ref) {
-  const {
-    cutout,
-    ...otherProps
-  } = props;
-  let clipPath;
-  if (cutout) {
-    const rect = cutout?.getBoundingClientRect();
-    clipPath = `polygon(
-      0% 0%,
-      100% 0%,
-      100% 100%,
-      0% 100%,
-      0% 0%,
-      ${rect.left}px ${rect.top}px,
-      ${rect.left}px ${rect.bottom}px,
-      ${rect.right}px ${rect.bottom}px,
-      ${rect.right}px ${rect.top}px,
-      ${rect.left}px ${rect.top}px
-    )`;
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
-    ref,
-    role: "presentation",
-    "data-base-ui-inert": "",
-    ...otherProps,
-    style: {
-      position: "fixed",
-      inset: 0,
-      userSelect: "none",
-      WebkitUserSelect: "none",
-      clipPath
-    }
-  });
-});
-function clearStyles(element, originalStyles) {
-  if (element) {
-    Object.assign(element.style, originalStyles);
-  }
-}
-const LIST_FUNCTIONAL_STYLES = {
-  position: "relative",
-  maxHeight: "100%",
-  overflowX: "hidden",
-  overflowY: "auto"
-};
-const FIXED = {
-  position: "fixed"
-};
-const SelectPositioner = /* @__PURE__ */ reactExports.forwardRef(function SelectPositioner2(componentProps, forwardedRef) {
-  const {
-    anchor,
-    positionMethod = "absolute",
-    className,
-    render,
-    side = "bottom",
-    align = "center",
-    sideOffset = 0,
-    alignOffset = 0,
-    collisionBoundary = "clipping-ancestors",
-    collisionPadding,
-    arrowPadding = 5,
-    sticky = false,
-    disableAnchorTracking,
-    alignItemWithTrigger = true,
-    collisionAvoidance = DROPDOWN_COLLISION_AVOIDANCE,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    listRef,
-    labelsRef,
-    alignItemWithTriggerActiveRef,
-    selectedItemTextRef,
-    valuesRef,
-    initialValueRef,
-    popupRef,
-    setValue
-  } = useSelectRootContext();
-  const floatingRootContext = useSelectFloatingContext();
-  const open = useStore$1(store, selectors$2.open);
-  const mounted = useStore$1(store, selectors$2.mounted);
-  const modal = useStore$1(store, selectors$2.modal);
-  const value = useStore$1(store, selectors$2.value);
-  const openMethod = useStore$1(store, selectors$2.openMethod);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const triggerElement = useStore$1(store, selectors$2.triggerElement);
-  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
-  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
-  const scrollUpArrowRef = reactExports.useRef(null);
-  const scrollDownArrowRef = reactExports.useRef(null);
-  const [controlledAlignItemWithTrigger, setControlledAlignItemWithTrigger] = reactExports.useState(alignItemWithTrigger);
-  const alignItemWithTriggerActive = mounted && controlledAlignItemWithTrigger && openMethod !== "touch";
-  if (!mounted && controlledAlignItemWithTrigger !== alignItemWithTrigger) {
-    setControlledAlignItemWithTrigger(alignItemWithTrigger);
-  }
-  useIsoLayoutEffect(() => {
-    if (!mounted) {
-      if (selectors$2.scrollUpArrowVisible(store.state)) {
-        store.set("scrollUpArrowVisible", false);
-      }
-      if (selectors$2.scrollDownArrowVisible(store.state)) {
-        store.set("scrollDownArrowVisible", false);
-      }
-    }
-  }, [store, mounted]);
-  reactExports.useImperativeHandle(alignItemWithTriggerActiveRef, () => alignItemWithTriggerActive);
-  useScrollLock((alignItemWithTriggerActive || modal) && open && openMethod !== "touch", triggerElement);
-  const positioning = useAnchorPositioning({
-    anchor,
-    floatingRootContext,
-    positionMethod,
-    mounted,
-    side,
-    sideOffset,
-    align,
-    alignOffset,
-    arrowPadding,
-    collisionBoundary,
-    collisionPadding,
-    sticky,
-    disableAnchorTracking: disableAnchorTracking ?? alignItemWithTriggerActive,
-    collisionAvoidance,
-    keepMounted: true
-  });
-  const renderedSide = alignItemWithTriggerActive ? "none" : positioning.side;
-  const positionerStyles = alignItemWithTriggerActive ? FIXED : positioning.positionerStyles;
-  const defaultProps = reactExports.useMemo(() => {
-    const hiddenStyles2 = {};
-    if (!open) {
-      hiddenStyles2.pointerEvents = "none";
-    }
-    return {
-      role: "presentation",
-      hidden: !mounted,
-      style: {
-        ...positionerStyles,
-        ...hiddenStyles2
-      }
-    };
-  }, [open, mounted, positionerStyles]);
-  const state = {
-    open,
-    side: renderedSide,
-    align: positioning.align,
-    anchorHidden: positioning.anchorHidden
-  };
-  const setPositionerElement = useStableCallback((element2) => {
-    store.set("positionerElement", element2);
-  });
-  const element = useRenderElement("div", componentProps, {
-    ref: [forwardedRef, setPositionerElement],
-    state,
-    stateAttributesMapping: popupStateMapping,
-    props: [defaultProps, getDisabledMountTransitionStyles(transitionStatus), elementProps]
-  });
-  const prevMapSizeRef = reactExports.useRef(0);
-  const onMapChange = useStableCallback((map) => {
-    if (map.size === 0 && prevMapSizeRef.current === 0) {
-      return;
-    }
-    if (valuesRef.current.length === 0) {
-      return;
-    }
-    const prevSize = prevMapSizeRef.current;
-    prevMapSizeRef.current = map.size;
-    if (map.size === prevSize) {
-      return;
-    }
-    const eventDetails = createChangeEventDetails(none);
-    if (prevSize !== 0 && !store.state.multiple && value !== null) {
-      const selectedValueIndex = findItemIndex(valuesRef.current, value, isItemEqualToValue);
-      if (selectedValueIndex === -1) {
-        const initialSelectedValue = initialValueRef.current;
-        const hasInitial = initialSelectedValue != null && findItemIndex(valuesRef.current, initialSelectedValue, isItemEqualToValue) !== -1;
-        const nextValue = hasInitial ? initialSelectedValue : null;
-        setValue(nextValue, eventDetails);
-        if (nextValue === null) {
-          store.set("selectedIndex", null);
-          selectedItemTextRef.current = null;
-        }
-      }
-    }
-    if (prevSize !== 0 && store.state.multiple && Array.isArray(value)) {
-      const hasVisibleItem = (selectedItemValue) => findItemIndex(valuesRef.current, selectedItemValue, isItemEqualToValue) !== -1;
-      const nextValue = value.filter((selectedItemValue) => hasVisibleItem(selectedItemValue));
-      if (nextValue.length !== value.length || nextValue.some((selectedItemValue) => !selectedValueIncludes(value, selectedItemValue, isItemEqualToValue))) {
-        setValue(nextValue, eventDetails);
-        if (nextValue.length === 0) {
-          store.set("selectedIndex", null);
-          selectedItemTextRef.current = null;
-        }
-      }
-    }
-    if (open && alignItemWithTriggerActive) {
-      store.update({
-        scrollUpArrowVisible: false,
-        scrollDownArrowVisible: false
-      });
-      const stylesToClear = {
-        height: ""
-      };
-      clearStyles(positionerElement, stylesToClear);
-      clearStyles(popupRef.current, stylesToClear);
-    }
-  });
-  const contextValue = reactExports.useMemo(() => ({
-    ...positioning,
-    side: renderedSide,
-    alignItemWithTriggerActive,
-    setControlledAlignItemWithTrigger,
-    scrollUpArrowRef,
-    scrollDownArrowRef
-  }), [positioning, renderedSide, alignItemWithTriggerActive, setControlledAlignItemWithTrigger]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeList, {
-    elementsRef: listRef,
-    labelsRef,
-    onMapChange,
-    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectPositionerContext.Provider, {
-      value: contextValue,
-      children: [mounted && modal && /* @__PURE__ */ jsxRuntimeExports.jsx(InternalBackdrop, {
-        inert: inertValue(!open),
-        cutout: triggerElement
-      }), element]
-    })
-  });
-});
-function isMouseWithinBounds(event) {
-  const targetRect = event.currentTarget.getBoundingClientRect();
-  const isWithinBounds = targetRect.top + 1 <= event.clientY && event.clientY <= targetRect.bottom - 1 && targetRect.left + 1 <= event.clientX && event.clientX <= targetRect.right - 1;
-  return isWithinBounds;
-}
-const DISABLE_SCROLLBAR_CLASS_NAME = "base-ui-disable-scrollbar";
-const styleDisableScrollbar = {
-  className: DISABLE_SCROLLBAR_CLASS_NAME,
-  getElement(nonce) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("style", {
-      nonce,
-      href: DISABLE_SCROLLBAR_CLASS_NAME,
-      precedence: "base-ui:low",
-      children: `.${DISABLE_SCROLLBAR_CLASS_NAME}{scrollbar-width:none}.${DISABLE_SCROLLBAR_CLASS_NAME}::-webkit-scrollbar{display:none}`
-    });
-  }
-};
-const ToolbarRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useToolbarRootContext(optional) {
-  const context = reactExports.useContext(ToolbarRootContext);
-  return context;
-}
-const ARROW_UP = "ArrowUp";
-const ARROW_DOWN = "ArrowDown";
-const ARROW_LEFT = "ArrowLeft";
-const ARROW_RIGHT = "ArrowRight";
-const HOME = "Home";
-const END = "End";
-const HORIZONTAL_KEYS = /* @__PURE__ */ new Set([ARROW_LEFT, ARROW_RIGHT]);
-const HORIZONTAL_KEYS_WITH_EXTRA_KEYS = /* @__PURE__ */ new Set([ARROW_LEFT, ARROW_RIGHT, HOME, END]);
-const VERTICAL_KEYS = /* @__PURE__ */ new Set([ARROW_UP, ARROW_DOWN]);
-const VERTICAL_KEYS_WITH_EXTRA_KEYS = /* @__PURE__ */ new Set([ARROW_UP, ARROW_DOWN, HOME, END]);
-const ARROW_KEYS = /* @__PURE__ */ new Set([...HORIZONTAL_KEYS, ...VERTICAL_KEYS]);
-const ALL_KEYS = /* @__PURE__ */ new Set([...ARROW_KEYS, HOME, END]);
-const COMPOSITE_KEYS = /* @__PURE__ */ new Set([ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END]);
-const SHIFT = "Shift";
-const CONTROL = "Control";
-const ALT = "Alt";
-const META = "Meta";
-const MODIFIER_KEYS = /* @__PURE__ */ new Set([SHIFT, CONTROL, ALT, META]);
-function isInputElement(element) {
-  return isHTMLElement$1(element) && element.tagName === "INPUT";
-}
-function isNativeInput(element) {
-  if (isInputElement(element) && element.selectionStart != null) {
-    return true;
-  }
-  if (isHTMLElement$1(element) && element.tagName === "TEXTAREA") {
-    return true;
-  }
-  return false;
-}
-function scrollIntoViewIfNeeded$1(scrollContainer, element, direction, orientation) {
-  if (!scrollContainer || !element || !element.scrollTo) {
-    return;
-  }
-  let targetX = scrollContainer.scrollLeft;
-  let targetY = scrollContainer.scrollTop;
-  const isOverflowingX = scrollContainer.clientWidth < scrollContainer.scrollWidth;
-  const isOverflowingY = scrollContainer.clientHeight < scrollContainer.scrollHeight;
-  if (isOverflowingX && orientation !== "vertical") {
-    const elementOffsetLeft = getOffset$1(scrollContainer, element, "left");
-    const containerStyles = getStyles$1(scrollContainer);
-    const elementStyles = getStyles$1(element);
-    if (direction === "ltr") {
-      if (elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight > scrollContainer.scrollLeft + scrollContainer.clientWidth - containerStyles.scrollPaddingRight) {
-        targetX = elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight - scrollContainer.clientWidth + containerStyles.scrollPaddingRight;
-      } else if (elementOffsetLeft - elementStyles.scrollMarginLeft < scrollContainer.scrollLeft + containerStyles.scrollPaddingLeft) {
-        targetX = elementOffsetLeft - elementStyles.scrollMarginLeft - containerStyles.scrollPaddingLeft;
-      }
-    }
-    if (direction === "rtl") {
-      if (elementOffsetLeft - elementStyles.scrollMarginRight < scrollContainer.scrollLeft + containerStyles.scrollPaddingLeft) {
-        targetX = elementOffsetLeft - elementStyles.scrollMarginLeft - containerStyles.scrollPaddingLeft;
-      } else if (elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight > scrollContainer.scrollLeft + scrollContainer.clientWidth - containerStyles.scrollPaddingRight) {
-        targetX = elementOffsetLeft + element.offsetWidth + elementStyles.scrollMarginRight - scrollContainer.clientWidth + containerStyles.scrollPaddingRight;
-      }
-    }
-  }
-  if (isOverflowingY && orientation !== "horizontal") {
-    const elementOffsetTop = getOffset$1(scrollContainer, element, "top");
-    const containerStyles = getStyles$1(scrollContainer);
-    const elementStyles = getStyles$1(element);
-    if (elementOffsetTop - elementStyles.scrollMarginTop < scrollContainer.scrollTop + containerStyles.scrollPaddingTop) {
-      targetY = elementOffsetTop - elementStyles.scrollMarginTop - containerStyles.scrollPaddingTop;
-    } else if (elementOffsetTop + element.offsetHeight + elementStyles.scrollMarginBottom > scrollContainer.scrollTop + scrollContainer.clientHeight - containerStyles.scrollPaddingBottom) {
-      targetY = elementOffsetTop + element.offsetHeight + elementStyles.scrollMarginBottom - scrollContainer.clientHeight + containerStyles.scrollPaddingBottom;
-    }
-  }
-  scrollContainer.scrollTo({
-    left: targetX,
-    top: targetY,
-    behavior: "auto"
-  });
-}
-function getOffset$1(ancestor, element, side) {
-  const propName = side === "left" ? "offsetLeft" : "offsetTop";
-  let result = 0;
-  while (element.offsetParent) {
-    result += element[propName];
-    if (element.offsetParent === ancestor) {
-      break;
-    }
-    element = element.offsetParent;
-  }
-  return result;
-}
-function getStyles$1(element) {
-  const styles = getComputedStyle(element);
-  return {
-    scrollMarginTop: parseFloat(styles.scrollMarginTop) || 0,
-    scrollMarginRight: parseFloat(styles.scrollMarginRight) || 0,
-    scrollMarginBottom: parseFloat(styles.scrollMarginBottom) || 0,
-    scrollMarginLeft: parseFloat(styles.scrollMarginLeft) || 0,
-    scrollPaddingTop: parseFloat(styles.scrollPaddingTop) || 0,
-    scrollPaddingRight: parseFloat(styles.scrollPaddingRight) || 0,
-    scrollPaddingBottom: parseFloat(styles.scrollPaddingBottom) || 0,
-    scrollPaddingLeft: parseFloat(styles.scrollPaddingLeft) || 0
-  };
-}
-function clamp(val, min2 = Number.MIN_SAFE_INTEGER, max2 = Number.MAX_SAFE_INTEGER) {
-  return Math.max(min2, Math.min(val, max2));
-}
-const CSPContext = /* @__PURE__ */ reactExports.createContext(void 0);
-const DEFAULT_CSP_CONTEXT_VALUE = {
-  disableStyleElements: false
-};
-function useCSPContext() {
-  return reactExports.useContext(CSPContext) ?? DEFAULT_CSP_CONTEXT_VALUE;
-}
-const SCROLL_EPS_PX = 1;
-const stateAttributesMapping$4 = {
-  ...popupStateMapping,
-  ...transitionStatusMapping
-};
-const SelectPopup = /* @__PURE__ */ reactExports.forwardRef(function SelectPopup2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    finalFocus,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    popupRef,
-    onOpenChangeComplete,
-    setOpen,
-    valueRef,
-    selectedItemTextRef,
-    keyboardActiveRef,
-    multiple,
-    handleScrollArrowVisibility,
-    scrollHandlerRef,
-    highlightItemOnHover
-  } = useSelectRootContext();
-  const {
-    side,
-    align,
-    alignItemWithTriggerActive,
-    setControlledAlignItemWithTrigger,
-    scrollDownArrowRef,
-    scrollUpArrowRef
-  } = useSelectPositionerContext();
-  const insideToolbar = useToolbarRootContext() != null;
-  const floatingRootContext = useSelectFloatingContext();
-  const {
-    nonce,
-    disableStyleElements
-  } = useCSPContext();
-  const highlightTimeout = useTimeout();
-  const id = useStore$1(store, selectors$2.id);
-  const open = useStore$1(store, selectors$2.open);
-  const mounted = useStore$1(store, selectors$2.mounted);
-  const popupProps = useStore$1(store, selectors$2.popupProps);
-  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
-  const triggerElement = useStore$1(store, selectors$2.triggerElement);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const listElement = useStore$1(store, selectors$2.listElement);
-  const initialHeightRef = reactExports.useRef(0);
-  const reachedMaxHeightRef = reactExports.useRef(false);
-  const maxHeightRef = reactExports.useRef(0);
-  const initialPlacedRef = reactExports.useRef(false);
-  const originalPositionerStylesRef = reactExports.useRef({});
-  const scrollArrowFrame = useAnimationFrame();
-  const handleScroll2 = useStableCallback((scroller) => {
-    if (!positionerElement || !popupRef.current || !initialPlacedRef.current) {
-      return;
-    }
-    if (reachedMaxHeightRef.current || !alignItemWithTriggerActive) {
-      handleScrollArrowVisibility();
-      return;
-    }
-    const isTopPositioned = positionerElement.style.top === "0px";
-    const isBottomPositioned = positionerElement.style.bottom === "0px";
-    const currentHeight = positionerElement.getBoundingClientRect().height;
-    const doc = ownerDocument(positionerElement);
-    const positionerStyles = getComputedStyle(positionerElement);
-    const marginTop = parseFloat(positionerStyles.marginTop);
-    const marginBottom = parseFloat(positionerStyles.marginBottom);
-    const maxPopupHeight = getMaxPopupHeight(getComputedStyle(popupRef.current));
-    const maxAvailableHeight = Math.min(doc.documentElement.clientHeight - marginTop - marginBottom, maxPopupHeight);
-    const scrollTop = scroller.scrollTop;
-    const maxScrollTop = getMaxScrollTop(scroller);
-    let nextPositionerHeight = 0;
-    let nextScrollTop = null;
-    let setReachedMax = false;
-    let scrollToMax = false;
-    const setHeight = (height) => {
-      positionerElement.style.height = `${height}px`;
-    };
-    const handleSmallDiff = (diff, targetScrollTop) => {
-      const heightDelta = clamp(diff, 0, maxAvailableHeight - currentHeight);
-      if (heightDelta > 0) {
-        setHeight(currentHeight + heightDelta);
-      }
-      scroller.scrollTop = targetScrollTop;
-      if (maxAvailableHeight - (currentHeight + heightDelta) <= SCROLL_EPS_PX) {
-        reachedMaxHeightRef.current = true;
-      }
-      handleScrollArrowVisibility();
-    };
-    if (isTopPositioned) {
-      const diff = maxScrollTop - scrollTop;
-      const idealHeight = currentHeight + diff;
-      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
-      nextPositionerHeight = nextHeight;
-      if (diff <= SCROLL_EPS_PX) {
-        handleSmallDiff(diff, maxScrollTop);
-        return;
-      }
-      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
-        scrollToMax = true;
-      } else {
-        setReachedMax = true;
-      }
-    } else if (isBottomPositioned) {
-      const diff = scrollTop;
-      const idealHeight = currentHeight + diff;
-      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
-      const overshoot = idealHeight - maxAvailableHeight;
-      nextPositionerHeight = nextHeight;
-      if (diff <= SCROLL_EPS_PX) {
-        handleSmallDiff(diff, 0);
-        return;
-      }
-      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
-        nextScrollTop = 0;
-      } else {
-        setReachedMax = true;
-        if (scrollTop < maxScrollTop) {
-          nextScrollTop = scrollTop - (diff - overshoot);
-        }
-      }
-    }
-    nextPositionerHeight = Math.ceil(nextPositionerHeight);
-    if (nextPositionerHeight !== 0) {
-      setHeight(nextPositionerHeight);
-    }
-    if (scrollToMax || nextScrollTop != null) {
-      const nextMaxScrollTop = getMaxScrollTop(scroller);
-      const target = scrollToMax ? nextMaxScrollTop : clamp(nextScrollTop, 0, nextMaxScrollTop);
-      if (Math.abs(scroller.scrollTop - target) > SCROLL_EPS_PX) {
-        scroller.scrollTop = target;
-      }
-    }
-    if (setReachedMax || nextPositionerHeight >= maxAvailableHeight - SCROLL_EPS_PX) {
-      reachedMaxHeightRef.current = true;
-    }
-    handleScrollArrowVisibility();
-  });
-  reactExports.useImperativeHandle(scrollHandlerRef, () => handleScroll2, [handleScroll2]);
-  useOpenChangeComplete({
-    open,
-    ref: popupRef,
-    onComplete() {
-      if (open) {
-        onOpenChangeComplete?.(true);
-      }
-    }
-  });
-  const state = {
-    open,
-    transitionStatus,
-    side,
-    align
-  };
-  useIsoLayoutEffect(() => {
-    if (!positionerElement || !popupRef.current || Object.keys(originalPositionerStylesRef.current).length) {
-      return;
-    }
-    originalPositionerStylesRef.current = {
-      top: positionerElement.style.top || "0",
-      left: positionerElement.style.left || "0",
-      right: positionerElement.style.right,
-      height: positionerElement.style.height,
-      bottom: positionerElement.style.bottom,
-      minHeight: positionerElement.style.minHeight,
-      maxHeight: positionerElement.style.maxHeight,
-      marginTop: positionerElement.style.marginTop,
-      marginBottom: positionerElement.style.marginBottom
-    };
-  }, [popupRef, positionerElement]);
-  useIsoLayoutEffect(() => {
-    if (open || alignItemWithTriggerActive) {
-      return;
-    }
-    initialPlacedRef.current = false;
-    reachedMaxHeightRef.current = false;
-    initialHeightRef.current = 0;
-    maxHeightRef.current = 0;
-    clearStyles(positionerElement, originalPositionerStylesRef.current);
-  }, [open, alignItemWithTriggerActive, positionerElement, popupRef]);
-  useIsoLayoutEffect(() => {
-    const popupElement = popupRef.current;
-    if (!open || !triggerElement || !positionerElement || !popupElement || store.state.transitionStatus === "ending") {
-      return;
-    }
-    if (!alignItemWithTriggerActive) {
-      initialPlacedRef.current = true;
-      scrollArrowFrame.request(handleScrollArrowVisibility);
-      popupElement.style.removeProperty("--transform-origin");
-      return;
-    }
-    queueMicrotask(() => {
-      const restoreTransformStyles = unsetTransformStyles(popupElement);
-      popupElement.style.removeProperty("--transform-origin");
-      try {
-        const positionerStyles = getComputedStyle(positionerElement);
-        const popupStyles = getComputedStyle(popupElement);
-        const doc = ownerDocument(triggerElement);
-        const win = getWindow$1(positionerElement);
-        const triggerRect = triggerElement.getBoundingClientRect();
-        const positionerRect = positionerElement.getBoundingClientRect();
-        const triggerX = triggerRect.left;
-        const triggerHeight = triggerRect.height;
-        const scroller = listElement || popupElement;
-        const scrollHeight = scroller.scrollHeight;
-        const borderBottom = parseFloat(popupStyles.borderBottomWidth);
-        const marginTop = parseFloat(positionerStyles.marginTop) || 10;
-        const marginBottom = parseFloat(positionerStyles.marginBottom) || 10;
-        const minHeight = parseFloat(positionerStyles.minHeight) || 100;
-        const maxPopupHeight = getMaxPopupHeight(popupStyles);
-        const paddingLeft = 5;
-        const paddingRight = 5;
-        const triggerCollisionThreshold = 20;
-        const viewportHeight = doc.documentElement.clientHeight - marginTop - marginBottom;
-        const viewportWidth = doc.documentElement.clientWidth;
-        const availableSpaceBeneathTrigger = viewportHeight - triggerRect.bottom + triggerHeight;
-        const textElement = selectedItemTextRef.current;
-        const valueElement = valueRef.current;
-        let textRect;
-        let offsetX = 0;
-        let offsetY = 0;
-        if (textElement && valueElement) {
-          const valueRect = valueElement.getBoundingClientRect();
-          textRect = textElement.getBoundingClientRect();
-          const valueLeftFromTriggerLeft = valueRect.left - triggerX;
-          const textLeftFromPositionerLeft = textRect.left - positionerRect.left;
-          const valueCenterFromPositionerTop = valueRect.top - triggerRect.top + valueRect.height / 2;
-          const textCenterFromTriggerTop = textRect.top - positionerRect.top + textRect.height / 2;
-          offsetX = valueLeftFromTriggerLeft - textLeftFromPositionerLeft;
-          offsetY = textCenterFromTriggerTop - valueCenterFromPositionerTop;
-        }
-        const idealHeight = availableSpaceBeneathTrigger + offsetY + marginBottom + borderBottom;
-        let height = Math.min(viewportHeight, idealHeight);
-        const maxHeight = viewportHeight - marginTop - marginBottom;
-        const scrollTop = idealHeight - height;
-        const left = Math.max(paddingLeft, triggerX + offsetX);
-        const maxRight = viewportWidth - paddingRight;
-        const rightOverflow = Math.max(0, left + positionerRect.width - maxRight);
-        positionerElement.style.left = `${left - rightOverflow}px`;
-        positionerElement.style.height = `${height}px`;
-        positionerElement.style.maxHeight = "auto";
-        positionerElement.style.marginTop = `${marginTop}px`;
-        positionerElement.style.marginBottom = `${marginBottom}px`;
-        popupElement.style.height = "100%";
-        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
-        const isTopPositioned = scrollTop >= maxScrollTop;
-        if (isTopPositioned) {
-          height = Math.min(viewportHeight, positionerRect.height) - (scrollTop - maxScrollTop);
-        }
-        const fallbackToAlignPopupToTrigger = triggerRect.top < triggerCollisionThreshold || triggerRect.bottom > viewportHeight - triggerCollisionThreshold || height < Math.min(scrollHeight, minHeight);
-        const isPinchZoomed = (win.visualViewport?.scale ?? 1) !== 1 && isWebKit;
-        if (fallbackToAlignPopupToTrigger || isPinchZoomed) {
-          initialPlacedRef.current = true;
-          clearStyles(positionerElement, originalPositionerStylesRef.current);
-          reactDomExports.flushSync(() => setControlledAlignItemWithTrigger(false));
-          return;
-        }
-        if (isTopPositioned) {
-          const topOffset = Math.max(0, viewportHeight - idealHeight);
-          positionerElement.style.top = positionerRect.height >= maxHeight ? "0" : `${topOffset}px`;
-          positionerElement.style.height = `${height}px`;
-          scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
-          initialHeightRef.current = Math.max(minHeight, height);
-        } else {
-          positionerElement.style.bottom = "0";
-          initialHeightRef.current = Math.max(minHeight, height);
-          scroller.scrollTop = scrollTop;
-        }
-        if (textRect) {
-          const popupTop = positionerRect.top;
-          const popupHeight = positionerRect.height;
-          const textCenterY = textRect.top + textRect.height / 2;
-          const transformOriginY = popupHeight > 0 ? (textCenterY - popupTop) / popupHeight * 100 : 50;
-          const clampedY = clamp(transformOriginY, 0, 100);
-          popupElement.style.setProperty("--transform-origin", `50% ${clampedY}%`);
-        }
-        if (initialHeightRef.current === viewportHeight || height >= maxPopupHeight) {
-          reachedMaxHeightRef.current = true;
-        }
-        handleScrollArrowVisibility();
-        setTimeout(() => {
-          initialPlacedRef.current = true;
-        });
-      } finally {
-        restoreTransformStyles();
-      }
-    });
-  }, [store, open, positionerElement, triggerElement, valueRef, selectedItemTextRef, popupRef, handleScrollArrowVisibility, alignItemWithTriggerActive, setControlledAlignItemWithTrigger, scrollArrowFrame, scrollDownArrowRef, scrollUpArrowRef, listElement]);
-  reactExports.useEffect(() => {
-    if (!alignItemWithTriggerActive || !positionerElement || !open) {
-      return void 0;
-    }
-    const win = getWindow$1(positionerElement);
-    function handleResize(event) {
-      setOpen(false, createChangeEventDetails(windowResize, event));
-    }
-    win.addEventListener("resize", handleResize);
-    return () => {
-      win.removeEventListener("resize", handleResize);
-    };
-  }, [setOpen, alignItemWithTriggerActive, positionerElement, open]);
-  const defaultProps = {
-    ...listElement ? {
-      role: "presentation",
-      "aria-orientation": void 0
-    } : {
-      role: "listbox",
-      "aria-multiselectable": multiple || void 0,
-      id: `${id}-list`
-    },
-    onKeyDown(event) {
-      keyboardActiveRef.current = true;
-      if (insideToolbar && COMPOSITE_KEYS.has(event.key)) {
-        event.stopPropagation();
-      }
-    },
-    onMouseMove() {
-      keyboardActiveRef.current = false;
-    },
-    onPointerLeave(event) {
-      if (!highlightItemOnHover || isMouseWithinBounds(event) || event.pointerType === "touch") {
-        return;
-      }
-      const popup = event.currentTarget;
-      highlightTimeout.start(0, () => {
-        store.set("activeIndex", null);
-        popup.focus({
-          preventScroll: true
-        });
-      });
-    },
-    onScroll(event) {
-      if (listElement) {
-        return;
-      }
-      handleScroll2(event.currentTarget);
-    },
-    ...alignItemWithTriggerActive && {
-      style: listElement ? {
-        height: "100%"
-      } : LIST_FUNCTIONAL_STYLES
-    }
-  };
-  const element = useRenderElement("div", componentProps, {
-    ref: [forwardedRef, popupRef],
-    state,
-    stateAttributesMapping: stateAttributesMapping$4,
-    props: [popupProps, defaultProps, getDisabledMountTransitionStyles(transitionStatus), {
-      className: !listElement && alignItemWithTriggerActive ? styleDisableScrollbar.className : void 0
-    }, elementProps]
-  });
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
-    children: [!disableStyleElements && styleDisableScrollbar.getElement(nonce), /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingFocusManager, {
-      context: floatingRootContext,
-      modal: false,
-      disabled: !mounted,
-      returnFocus: finalFocus,
-      restoreFocus: true,
-      children: element
-    })]
-  });
-});
-function getMaxPopupHeight(popupStyles) {
-  const maxHeightStyle = popupStyles.maxHeight || "";
-  return maxHeightStyle.endsWith("px") ? parseFloat(maxHeightStyle) || Infinity : Infinity;
-}
-function getMaxScrollTop(scroller) {
-  return Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-}
-const TRANSFORM_STYLE_RESETS = [["transform", "none"], ["scale", "1"], ["translate", "0 0"]];
-function unsetTransformStyles(popupElement) {
-  const {
-    style
-  } = popupElement;
-  const originalStyles = {};
-  for (const [property, value] of TRANSFORM_STYLE_RESETS) {
-    originalStyles[property] = style.getPropertyValue(property);
-    style.setProperty(property, value, "important");
-  }
-  return () => {
-    for (const [property] of TRANSFORM_STYLE_RESETS) {
-      const originalValue = originalStyles[property];
-      if (originalValue) {
-        style.setProperty(property, originalValue);
-      } else {
-        style.removeProperty(property);
-      }
-    }
-  };
-}
-const SelectList = /* @__PURE__ */ reactExports.forwardRef(function SelectList2(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    scrollHandlerRef
-  } = useSelectRootContext();
-  const {
-    alignItemWithTriggerActive
-  } = useSelectPositionerContext();
-  const hasScrollArrows = useStore$1(store, selectors$2.hasScrollArrows);
-  const openMethod = useStore$1(store, selectors$2.openMethod);
-  const multiple = useStore$1(store, selectors$2.multiple);
-  const id = useStore$1(store, selectors$2.id);
-  const defaultProps = {
-    id: `${id}-list`,
-    role: "listbox",
-    "aria-multiselectable": multiple || void 0,
-    onScroll(event) {
-      scrollHandlerRef.current?.(event.currentTarget);
-    },
-    ...alignItemWithTriggerActive && {
-      style: LIST_FUNCTIONAL_STYLES
-    },
-    className: hasScrollArrows && openMethod !== "touch" ? styleDisableScrollbar.className : void 0
-  };
-  const setListElement = useStableCallback((element) => {
-    store.set("listElement", element);
-  });
-  return useRenderElement("div", componentProps, {
-    ref: [forwardedRef, setListElement],
-    props: [defaultProps, elementProps]
-  });
-});
-let IndexGuessBehavior = /* @__PURE__ */ (function(IndexGuessBehavior2) {
-  IndexGuessBehavior2[IndexGuessBehavior2["None"] = 0] = "None";
-  IndexGuessBehavior2[IndexGuessBehavior2["GuessFromOrder"] = 1] = "GuessFromOrder";
-  return IndexGuessBehavior2;
-})({});
-function useCompositeListItem(params = {}) {
-  const {
-    label,
-    metadata,
-    textRef,
-    indexGuessBehavior,
-    index: externalIndex
-  } = params;
-  const {
-    register: register2,
-    unregister,
-    subscribeMapChange,
-    elementsRef,
-    labelsRef,
-    nextIndexRef
-  } = useCompositeListContext();
-  const indexRef = reactExports.useRef(-1);
-  const [index2, setIndex] = reactExports.useState(externalIndex ?? (indexGuessBehavior === IndexGuessBehavior.GuessFromOrder ? () => {
-    if (indexRef.current === -1) {
-      const newIndex = nextIndexRef.current;
-      nextIndexRef.current += 1;
-      indexRef.current = newIndex;
-    }
-    return indexRef.current;
-  } : -1));
-  const componentRef = reactExports.useRef(null);
-  const ref = reactExports.useCallback((node) => {
-    componentRef.current = node;
-    if (index2 !== -1 && node !== null) {
-      elementsRef.current[index2] = node;
-      if (labelsRef) {
-        const isLabelDefined = label !== void 0;
-        labelsRef.current[index2] = isLabelDefined ? label : textRef?.current?.textContent ?? node.textContent;
-      }
-    }
-  }, [index2, elementsRef, labelsRef, label, textRef]);
-  useIsoLayoutEffect(() => {
-    if (externalIndex != null) {
-      return void 0;
-    }
-    const node = componentRef.current;
-    if (node) {
-      register2(node, metadata);
-      return () => {
-        unregister(node);
-      };
-    }
-    return void 0;
-  }, [externalIndex, register2, unregister, metadata]);
-  useIsoLayoutEffect(() => {
-    if (externalIndex != null) {
-      return void 0;
-    }
-    return subscribeMapChange((map) => {
-      const i = componentRef.current ? map.get(componentRef.current)?.index : null;
-      if (i != null) {
-        setIndex(i);
-      }
-    });
-  }, [externalIndex, subscribeMapChange, setIndex]);
-  return reactExports.useMemo(() => ({
-    ref,
-    index: index2
-  }), [index2, ref]);
-}
-const SelectItemContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useSelectItemContext() {
-  const context = reactExports.useContext(SelectItemContext);
-  if (!context) {
-    throw new Error(formatErrorMessage(57));
-  }
-  return context;
-}
-const SelectItem$1 = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItem2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    value: itemValue = null,
-    label,
-    disabled: disabled2 = false,
-    nativeButton = false,
-    ...elementProps
-  } = componentProps;
-  const textRef = reactExports.useRef(null);
-  const listItem = useCompositeListItem({
-    label,
-    textRef,
-    indexGuessBehavior: IndexGuessBehavior.GuessFromOrder
-  });
-  const {
-    store,
-    getItemProps,
-    setOpen,
-    setValue,
-    selectionRef,
-    typingRef,
-    valuesRef,
-    keyboardActiveRef,
-    multiple,
-    highlightItemOnHover
-  } = useSelectRootContext();
-  const highlightTimeout = useTimeout();
-  const highlighted = useStore$1(store, selectors$2.isActive, listItem.index);
-  const selected = useStore$1(store, selectors$2.isSelected, listItem.index, itemValue);
-  const selectedByFocus = useStore$1(store, selectors$2.isSelectedByFocus, listItem.index);
-  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
-  const index2 = listItem.index;
-  const hasRegistered = index2 !== -1;
-  const itemRef = reactExports.useRef(null);
-  const indexRef = useValueAsRef(index2);
-  useIsoLayoutEffect(() => {
-    if (!hasRegistered) {
-      return void 0;
-    }
-    const values = valuesRef.current;
-    values[index2] = itemValue;
-    return () => {
-      delete values[index2];
-    };
-  }, [hasRegistered, index2, itemValue, valuesRef]);
-  useIsoLayoutEffect(() => {
-    if (!hasRegistered) {
-      return void 0;
-    }
-    const selectedValue = store.state.value;
-    let selectedCandidate = selectedValue;
-    if (multiple && Array.isArray(selectedValue) && selectedValue.length > 0) {
-      selectedCandidate = selectedValue[selectedValue.length - 1];
-    }
-    if (selectedCandidate !== void 0 && compareItemEquality(itemValue, selectedCandidate, isItemEqualToValue)) {
-      store.set("selectedIndex", index2);
-    }
-    return void 0;
-  }, [hasRegistered, index2, multiple, isItemEqualToValue, store, itemValue]);
-  const state = {
-    disabled: disabled2,
-    selected,
-    highlighted
-  };
-  const rootProps = getItemProps({
-    active: highlighted,
-    selected
-  });
-  rootProps.onFocus = void 0;
-  rootProps.id = void 0;
-  const lastKeyRef = reactExports.useRef(null);
-  const pointerTypeRef = reactExports.useRef("mouse");
-  const didPointerDownRef = reactExports.useRef(false);
-  const {
-    getButtonProps,
-    buttonRef
-  } = useButton({
-    disabled: disabled2,
-    focusableWhenDisabled: true,
-    native: nativeButton
-  });
-  function commitSelection(event) {
-    const selectedValue = store.state.value;
-    if (multiple) {
-      const currentValue = Array.isArray(selectedValue) ? selectedValue : [];
-      const nextValue = selected ? removeItem(currentValue, itemValue, isItemEqualToValue) : [...currentValue, itemValue];
-      setValue(nextValue, createChangeEventDetails(itemPress, event));
-    } else {
-      setValue(itemValue, createChangeEventDetails(itemPress, event));
-      setOpen(false, createChangeEventDetails(itemPress, event));
-    }
-  }
-  const defaultProps = {
-    role: "option",
-    "aria-selected": selected,
-    tabIndex: highlighted ? 0 : -1,
-    onFocus() {
-      store.set("activeIndex", index2);
-    },
-    onMouseEnter() {
-      if (!keyboardActiveRef.current && store.state.selectedIndex === null && highlightItemOnHover) {
-        store.set("activeIndex", index2);
-      }
-    },
-    onMouseMove() {
-      if (highlightItemOnHover) {
-        store.set("activeIndex", index2);
-      }
-    },
-    onMouseLeave(event) {
-      if (!highlightItemOnHover || keyboardActiveRef.current || isMouseWithinBounds(event)) {
-        return;
-      }
-      highlightTimeout.start(0, () => {
-        if (store.state.activeIndex === index2) {
-          store.set("activeIndex", null);
-        }
-      });
-    },
-    onTouchStart() {
-      selectionRef.current = {
-        allowSelectedMouseUp: false,
-        allowUnselectedMouseUp: false
-      };
-    },
-    onKeyDown(event) {
-      lastKeyRef.current = event.key;
-      store.set("activeIndex", index2);
-    },
-    onClick(event) {
-      didPointerDownRef.current = false;
-      if (event.type === "keydown" && lastKeyRef.current === null) {
-        return;
-      }
-      if (disabled2 || lastKeyRef.current === " " && typingRef.current || pointerTypeRef.current !== "touch" && !highlighted) {
-        return;
-      }
-      lastKeyRef.current = null;
-      commitSelection(event.nativeEvent);
-    },
-    onPointerEnter(event) {
-      pointerTypeRef.current = event.pointerType;
-    },
-    onPointerDown(event) {
-      pointerTypeRef.current = event.pointerType;
-      didPointerDownRef.current = true;
-    },
-    onMouseUp(event) {
-      if (disabled2) {
-        return;
-      }
-      if (didPointerDownRef.current) {
-        didPointerDownRef.current = false;
-        return;
-      }
-      const disallowSelectedMouseUp = !selectionRef.current.allowSelectedMouseUp && selected;
-      const disallowUnselectedMouseUp = !selectionRef.current.allowUnselectedMouseUp && !selected;
-      if (disallowSelectedMouseUp || disallowUnselectedMouseUp || pointerTypeRef.current !== "touch" && !highlighted) {
-        return;
-      }
-      commitSelection(event.nativeEvent);
-    }
-  };
-  const element = useRenderElement("div", componentProps, {
-    ref: [buttonRef, forwardedRef, listItem.ref, itemRef],
-    state,
-    props: [rootProps, defaultProps, elementProps, getButtonProps]
-  });
-  const contextValue = reactExports.useMemo(() => ({
-    selected,
-    indexRef,
-    textRef,
-    selectedByFocus,
-    hasRegistered
-  }), [selected, indexRef, textRef, selectedByFocus, hasRegistered]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemContext.Provider, {
-    value: contextValue,
-    children: element
-  });
-}));
-const SelectItemIndicator = /* @__PURE__ */ reactExports.forwardRef(function SelectItemIndicator2(componentProps, forwardedRef) {
-  const keepMounted = componentProps.keepMounted ?? false;
-  const {
-    selected
-  } = useSelectItemContext();
-  const shouldRender = keepMounted || selected;
-  if (!shouldRender) {
-    return null;
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(Inner, {
-    ...componentProps,
-    ref: forwardedRef
-  });
-});
-const Inner = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef((componentProps, forwardedRef) => {
-  const {
-    render,
-    className,
-    keepMounted,
-    ...elementProps
-  } = componentProps;
-  const {
-    selected
-  } = useSelectItemContext();
-  const indicatorRef = reactExports.useRef(null);
-  const {
-    transitionStatus,
-    setMounted
-  } = useTransitionStatus(selected);
-  const state = {
-    selected,
-    transitionStatus
-  };
-  const element = useRenderElement("span", componentProps, {
-    ref: [forwardedRef, indicatorRef],
-    state,
-    props: [{
-      "aria-hidden": true,
-      children: "✔️"
-    }, elementProps],
-    stateAttributesMapping: transitionStatusMapping
-  });
-  useOpenChangeComplete({
-    open: selected,
-    ref: indicatorRef,
-    onComplete() {
-      if (!selected) {
-        setMounted(false);
-      }
-    }
-  });
-  return element;
-}));
-const SelectItemText = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItemText2(componentProps, forwardedRef) {
-  const {
-    indexRef,
-    textRef,
-    selectedByFocus,
-    hasRegistered
-  } = useSelectItemContext();
-  const {
-    selectedItemTextRef
-  } = useSelectRootContext();
-  const {
-    className,
-    render,
-    ...elementProps
-  } = componentProps;
-  const localRef = reactExports.useCallback((node) => {
-    if (!node || !hasRegistered) {
-      return;
-    }
-    const hasNoSelectedItemText = selectedItemTextRef.current === null || !selectedItemTextRef.current.isConnected;
-    if (selectedByFocus || hasNoSelectedItemText && indexRef.current === 0) {
-      selectedItemTextRef.current = node;
-    }
-  }, [selectedItemTextRef, indexRef, selectedByFocus, hasRegistered]);
-  const element = useRenderElement("div", componentProps, {
-    ref: [localRef, forwardedRef, textRef],
-    props: elementProps
-  });
-  return element;
-}));
-const SelectScrollArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollArrow2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    direction,
-    keepMounted = false,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    popupRef,
-    listRef,
-    handleScrollArrowVisibility,
-    scrollArrowsMountedCountRef
-  } = useSelectRootContext();
-  const {
-    side,
-    scrollDownArrowRef,
-    scrollUpArrowRef
-  } = useSelectPositionerContext();
-  const visibleSelector = direction === "up" ? selectors$2.scrollUpArrowVisible : selectors$2.scrollDownArrowVisible;
-  const stateVisible = useStore$1(store, visibleSelector);
-  const openMethod = useStore$1(store, selectors$2.openMethod);
-  const visible = stateVisible && openMethod !== "touch";
-  const timeout = useTimeout();
-  const scrollArrowRef = direction === "up" ? scrollUpArrowRef : scrollDownArrowRef;
-  const {
-    transitionStatus,
-    setMounted
-  } = useTransitionStatus(visible);
-  useIsoLayoutEffect(() => {
-    scrollArrowsMountedCountRef.current += 1;
-    if (!store.state.hasScrollArrows) {
-      store.set("hasScrollArrows", true);
-    }
-    return () => {
-      scrollArrowsMountedCountRef.current = Math.max(0, scrollArrowsMountedCountRef.current - 1);
-      if (scrollArrowsMountedCountRef.current === 0 && store.state.hasScrollArrows) {
-        store.set("hasScrollArrows", false);
-      }
-    };
-  }, [store, scrollArrowsMountedCountRef]);
-  useOpenChangeComplete({
-    open: visible,
-    ref: scrollArrowRef,
-    onComplete() {
-      if (!visible) {
-        setMounted(false);
-      }
-    }
-  });
-  const state = {
-    direction,
-    visible,
-    side,
-    transitionStatus
-  };
-  const defaultProps = {
-    "aria-hidden": true,
-    children: direction === "up" ? "▲" : "▼",
-    style: {
-      position: "absolute"
-    },
-    onMouseMove(event) {
-      if (event.movementX === 0 && event.movementY === 0 || timeout.isStarted()) {
-        return;
-      }
-      store.set("activeIndex", null);
-      function scrollNextItem() {
-        const scroller = store.state.listElement ?? popupRef.current;
-        if (!scroller) {
-          return;
-        }
-        store.set("activeIndex", null);
-        handleScrollArrowVisibility();
-        const isScrolledToTop = scroller.scrollTop === 0;
-        const isScrolledToBottom = Math.round(scroller.scrollTop + scroller.clientHeight) >= scroller.scrollHeight;
-        const list = listRef.current;
-        if (list.length === 0) {
-          if (direction === "up") {
-            store.set("scrollUpArrowVisible", !isScrolledToTop);
-          } else {
-            store.set("scrollDownArrowVisible", !isScrolledToBottom);
-          }
-        }
-        if (direction === "up" && isScrolledToTop || direction === "down" && isScrolledToBottom) {
-          timeout.clear();
-          return;
-        }
-        if ((store.state.listElement || popupRef.current) && listRef.current && listRef.current.length > 0) {
-          const items = listRef.current;
-          const scrollArrowHeight = scrollArrowRef.current?.offsetHeight || 0;
-          if (direction === "up") {
-            let firstVisibleIndex = 0;
-            const scrollTop = scroller.scrollTop + scrollArrowHeight;
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (item) {
-                const itemTop = item.offsetTop;
-                if (itemTop >= scrollTop) {
-                  firstVisibleIndex = i;
-                  break;
-                }
-              }
-            }
-            const targetIndex = Math.max(0, firstVisibleIndex - 1);
-            if (targetIndex < firstVisibleIndex) {
-              const targetItem = items[targetIndex];
-              if (targetItem) {
-                scroller.scrollTop = Math.max(0, targetItem.offsetTop - scrollArrowHeight);
-              }
-            } else {
-              scroller.scrollTop = 0;
-            }
-          } else {
-            let lastVisibleIndex = items.length - 1;
-            const scrollBottom = scroller.scrollTop + scroller.clientHeight - scrollArrowHeight;
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (item) {
-                const itemBottom = item.offsetTop + item.offsetHeight;
-                if (itemBottom > scrollBottom) {
-                  lastVisibleIndex = Math.max(0, i - 1);
-                  break;
-                }
-              }
-            }
-            const targetIndex = Math.min(items.length - 1, lastVisibleIndex + 1);
-            if (targetIndex > lastVisibleIndex) {
-              const targetItem = items[targetIndex];
-              if (targetItem) {
-                scroller.scrollTop = targetItem.offsetTop + targetItem.offsetHeight - scroller.clientHeight + scrollArrowHeight;
-              }
-            } else {
-              scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
-            }
-          }
-        }
-        timeout.start(40, scrollNextItem);
-      }
-      timeout.start(40, scrollNextItem);
-    },
-    onMouseLeave() {
-      timeout.clear();
-    }
-  };
-  const element = useRenderElement("div", componentProps, {
-    ref: [forwardedRef, scrollArrowRef],
-    state,
-    props: [defaultProps, elementProps]
-  });
-  const shouldRender = visible || keepMounted;
-  if (!shouldRender) {
-    return null;
-  }
-  return element;
-});
-const SelectScrollDownArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollDownArrow2(props, forwardedRef) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
-    ...props,
-    ref: forwardedRef,
-    direction: "down"
-  });
-});
-const SelectScrollUpArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollUpArrow2(props, forwardedRef) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
-    ...props,
-    ref: forwardedRef,
-    direction: "up"
-  });
-});
-const Select = SelectRoot;
-function SelectValue({ className, ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectValue$1,
-    {
-      "data-slot": "select-value",
-      className: cn$2("flex flex-1 text-left", className),
-      ...props
-    }
-  );
-}
-function SelectTrigger({
-  className,
-  size: size2 = "default",
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    SelectTrigger$1,
-    {
-      "data-slot": "select-trigger",
-      "data-size": size2,
-      className: cn$2(
-        "border-input data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4 flex w-fit items-center justify-between whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
-      ),
-      ...props,
-      children: [
-        children,
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          SelectIcon,
-          {
-            render: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "text-muted-foreground size-4 pointer-events-none" })
-          }
-        )
-      ]
-    }
-  );
-}
-function SelectContent({
-  className,
-  children,
-  side = "bottom",
-  sideOffset = 4,
-  align = "center",
-  alignOffset = 0,
-  alignItemWithTrigger = true,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectPositioner,
-    {
-      side,
-      sideOffset,
-      align,
-      alignOffset,
-      alignItemWithTrigger,
-      className: "isolate z-50",
-      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        SelectPopup,
-        {
-          "data-slot": "select-content",
-          "data-align-trigger": alignItemWithTrigger,
-          className: cn$2("bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 min-w-36 rounded-lg shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 relative isolate z-50 max-h-(--available-height) w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto data-[align-trigger=true]:animate-none", className),
-          ...props,
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollUpButton, {}),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectList, { children }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollDownButton, {})
-          ]
-        }
-      )
-    }
-  ) });
-}
-function SelectItem({
-  className,
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    SelectItem$1,
-    {
-      "data-slot": "select-item",
-      className: cn$2(
-        "focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
-      ),
-      ...props,
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemText, { className: "flex flex-1 gap-2 shrink-0 whitespace-nowrap", children }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          SelectItemIndicator,
-          {
-            render: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "pointer-events-none absolute right-2 flex size-4 items-center justify-center" }),
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { className: "pointer-events-none" })
-          }
-        )
-      ]
-    }
-  );
-}
-function SelectScrollUpButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectScrollUpArrow,
-    {
-      "data-slot": "select-scroll-up-button",
-      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 top-0 w-full", className),
-      ...props,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        ChevronUp,
-        {}
-      )
-    }
-  );
-}
-function SelectScrollDownButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectScrollDownArrow,
-    {
-      "data-slot": "select-scroll-down-button",
-      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 bottom-0 w-full", className),
-      ...props,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        ChevronDown,
-        {}
-      )
-    }
-  );
-}
 function HostForm({ onClose, workspaceId, host }) {
   const { createHost, updateHost } = useHostStore();
   const { keys, fetchKeys } = useKeyStore();
@@ -47194,6 +49533,14 @@ function HostForm({ onClose, workspaceId, host }) {
     ] })
   ] });
 }
+const ContextMenuRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useContextMenuRootContext(optional = true) {
+  const context = reactExports.useContext(ContextMenuRootContext);
+  if (context === void 0 && !optional) {
+    throw new Error(formatErrorMessage(25));
+  }
+  return context;
+}
 const MenuPositionerContext = /* @__PURE__ */ reactExports.createContext(void 0);
 function useMenuPositionerContext(optional) {
   const context = reactExports.useContext(MenuPositionerContext);
@@ -47207,14 +49554,6 @@ function useMenuRootContext(optional) {
   const context = reactExports.useContext(MenuRootContext);
   if (context === void 0 && !optional) {
     throw new Error(formatErrorMessage(36));
-  }
-  return context;
-}
-const ContextMenuRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useContextMenuRootContext(optional = true) {
-  const context = reactExports.useContext(ContextMenuRootContext);
-  if (context === void 0 && !optional) {
-    throw new Error(formatErrorMessage(25));
   }
   return context;
 }
@@ -47323,63 +49662,6 @@ function useMenuItem(params) {
     itemRef: mergedRef
   }), [getItemProps, mergedRef]);
 }
-const MenuGroupContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useMenuGroupRootContext() {
-  const context = reactExports.useContext(MenuGroupContext);
-  if (context === void 0) {
-    throw new Error(formatErrorMessage(31));
-  }
-  return context;
-}
-const MenuGroup = /* @__PURE__ */ reactExports.forwardRef(function MenuGroup2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    ...elementProps
-  } = componentProps;
-  const [labelId, setLabelId] = reactExports.useState(void 0);
-  const context = reactExports.useMemo(() => ({
-    setLabelId
-  }), [setLabelId]);
-  const element = useRenderElement("div", componentProps, {
-    ref: forwardedRef,
-    props: {
-      role: "group",
-      "aria-labelledby": labelId,
-      ...elementProps
-    }
-  });
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuGroupContext.Provider, {
-    value: context,
-    children: element
-  });
-});
-const MenuGroupLabel = /* @__PURE__ */ reactExports.forwardRef(function MenuGroupLabelComponent(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    id: idProp,
-    ...elementProps
-  } = componentProps;
-  const id = useBaseUiId(idProp);
-  const {
-    setLabelId
-  } = useMenuGroupRootContext();
-  useIsoLayoutEffect(() => {
-    setLabelId(id);
-    return () => {
-      setLabelId(void 0);
-    };
-  }, [setLabelId, id]);
-  return useRenderElement("div", componentProps, {
-    ref: forwardedRef,
-    props: {
-      id,
-      role: "presentation",
-      ...elementProps
-    }
-  });
-});
 const MenuItem = /* @__PURE__ */ reactExports.forwardRef(function MenuItem2(componentProps, forwardedRef) {
   const {
     render,
@@ -48277,31 +50559,6 @@ function useCompositeItem(params = {}) {
     index: index2
   };
 }
-function CompositeItem(componentProps) {
-  const {
-    render,
-    className,
-    state = EMPTY_OBJECT,
-    props = EMPTY_ARRAY$1,
-    refs = EMPTY_ARRAY$1,
-    metadata,
-    stateAttributesMapping: stateAttributesMapping2,
-    tag = "div",
-    ...elementProps
-  } = componentProps;
-  const {
-    compositeProps,
-    compositeRef
-  } = useCompositeItem({
-    metadata
-  });
-  return useRenderElement(tag, componentProps, {
-    state,
-    ref: [...refs, compositeRef],
-    props: [compositeProps, ...props, elementProps],
-    stateAttributesMapping: stateAttributesMapping2
-  });
-}
 function findRootOwnerId(node) {
   if (isHTMLElement$1(node) && node.hasAttribute("data-rootownerid")) {
     return node.getAttribute("data-rootownerid") ?? void 0;
@@ -48310,288 +50567,6 @@ function findRootOwnerId(node) {
     return void 0;
   }
   return findRootOwnerId(getParentNode(node));
-}
-function useMixedToggleClickHandler(params) {
-  const {
-    enabled = true,
-    mouseDownAction,
-    open
-  } = params;
-  const ignoreClickRef = reactExports.useRef(false);
-  return reactExports.useMemo(() => {
-    if (!enabled) {
-      return EMPTY_OBJECT;
-    }
-    return {
-      onMouseDown: (event) => {
-        if (mouseDownAction === "open" && !open || mouseDownAction === "close" && open) {
-          ignoreClickRef.current = true;
-          ownerDocument(event.currentTarget).addEventListener("click", () => {
-            ignoreClickRef.current = false;
-          }, {
-            once: true
-          });
-        }
-      },
-      onClick: (event) => {
-        if (ignoreClickRef.current) {
-          ignoreClickRef.current = false;
-          event.preventBaseUIHandler();
-        }
-      }
-    };
-  }, [enabled, mouseDownAction, open]);
-}
-const BOUNDARY_OFFSET = 2;
-const MenuTrigger = fastComponentRef(function MenuTrigger2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    disabled: disabledProp = false,
-    nativeButton = true,
-    id: idProp,
-    openOnHover: openOnHoverProp,
-    delay = 100,
-    closeDelay = 0,
-    handle,
-    payload,
-    ...elementProps
-  } = componentProps;
-  const rootContext = useMenuRootContext(true);
-  const store = handle?.store ?? rootContext?.store;
-  if (!store) {
-    throw new Error(formatErrorMessage(85));
-  }
-  const thisTriggerId = useBaseUiId(idProp);
-  const isTriggerActive = store.useState("isTriggerActive", thisTriggerId);
-  const floatingRootContext = store.useState("floatingRootContext");
-  const isOpenedByThisTrigger = store.useState("isOpenedByTrigger", thisTriggerId);
-  const triggerElementRef = reactExports.useRef(null);
-  const parent = useMenuParent();
-  const compositeRootContext = useCompositeRootContext(true);
-  const floatingTreeRootFromContext = useFloatingTree();
-  const floatingTreeRoot = reactExports.useMemo(() => {
-    return floatingTreeRootFromContext ?? new FloatingTreeStore();
-  }, [floatingTreeRootFromContext]);
-  const floatingNodeId = useFloatingNodeId(floatingTreeRoot);
-  const floatingParentNodeId = useFloatingParentNodeId();
-  const {
-    registerTrigger,
-    isMountedByThisTrigger
-  } = useTriggerDataForwarding(thisTriggerId, triggerElementRef, store, {
-    payload,
-    closeDelay,
-    parent,
-    floatingTreeRoot,
-    floatingNodeId,
-    floatingParentNodeId,
-    keyboardEventRelay: compositeRootContext?.relayKeyboardEvent
-  });
-  const isInMenubar = parent.type === "menubar";
-  const rootDisabled = store.useState("disabled");
-  const disabled2 = disabledProp || rootDisabled || isInMenubar && parent.context.disabled;
-  const {
-    getButtonProps,
-    buttonRef
-  } = useButton({
-    disabled: disabled2,
-    native: nativeButton
-  });
-  reactExports.useEffect(() => {
-    if (!isOpenedByThisTrigger && parent.type === void 0) {
-      store.context.allowMouseUpTriggerRef.current = false;
-    }
-  }, [store, isOpenedByThisTrigger, parent.type]);
-  const triggerRef = reactExports.useRef(null);
-  const allowMouseUpTriggerTimeout = useTimeout();
-  const handleDocumentMouseUp = useStableCallback((mouseEvent) => {
-    if (!triggerRef.current) {
-      return;
-    }
-    allowMouseUpTriggerTimeout.clear();
-    store.context.allowMouseUpTriggerRef.current = false;
-    const mouseUpTarget = mouseEvent.target;
-    if (contains(triggerRef.current, mouseUpTarget) || contains(store.select("positionerElement"), mouseUpTarget) || mouseUpTarget === triggerRef.current) {
-      return;
-    }
-    if (mouseUpTarget != null && findRootOwnerId(mouseUpTarget) === store.select("rootId")) {
-      return;
-    }
-    const bounds = getPseudoElementBounds(triggerRef.current);
-    if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET) {
-      return;
-    }
-    floatingTreeRoot.events.emit("close", {
-      domEvent: mouseEvent,
-      reason: cancelOpen
-    });
-  });
-  reactExports.useEffect(() => {
-    if (isOpenedByThisTrigger && store.select("lastOpenChangeReason") === triggerHover) {
-      const doc = ownerDocument(triggerRef.current);
-      doc.addEventListener("mouseup", handleDocumentMouseUp, {
-        once: true
-      });
-    }
-  }, [isOpenedByThisTrigger, handleDocumentMouseUp, store]);
-  const parentMenubarHasSubmenuOpen = isInMenubar && parent.context.hasSubmenuOpen;
-  const openOnHover = openOnHoverProp ?? parentMenubarHasSubmenuOpen;
-  const hoverProps = useHoverReferenceInteraction(floatingRootContext, {
-    enabled: openOnHover && !disabled2 && parent.type !== "context-menu" && (!isInMenubar || parentMenubarHasSubmenuOpen && !isMountedByThisTrigger),
-    handleClose: safePolygon({
-      blockPointerEvents: !isInMenubar
-    }),
-    mouseOnly: true,
-    move: false,
-    restMs: parent.type === void 0 ? delay : void 0,
-    delay: {
-      close: closeDelay
-    },
-    triggerElementRef,
-    externalTree: floatingTreeRoot,
-    isActiveTrigger: isTriggerActive
-  });
-  const stickIfOpen = useStickIfOpen(isOpenedByThisTrigger, store.select("lastOpenChangeReason"));
-  const click = useClick(floatingRootContext, {
-    enabled: !disabled2 && parent.type !== "context-menu",
-    event: isOpenedByThisTrigger && isInMenubar ? "click" : "mousedown",
-    toggle: true,
-    ignoreMouse: false,
-    stickIfOpen: parent.type === void 0 ? stickIfOpen : false
-  });
-  const focus2 = useFocus(floatingRootContext, {
-    enabled: !disabled2 && parentMenubarHasSubmenuOpen
-  });
-  const mixedToggleHandlers = useMixedToggleClickHandler({
-    open: isOpenedByThisTrigger,
-    enabled: isInMenubar,
-    mouseDownAction: "open"
-  });
-  const localInteractionProps = useInteractions([click, focus2]);
-  const state = {
-    disabled: disabled2,
-    open: isOpenedByThisTrigger
-  };
-  const rootTriggerProps = store.useState("triggerProps", isMountedByThisTrigger);
-  const ref = [triggerRef, forwardedRef, buttonRef, registerTrigger, triggerElementRef];
-  const props = [localInteractionProps.getReferenceProps(), hoverProps ?? EMPTY_OBJECT, rootTriggerProps, {
-    "aria-haspopup": "menu",
-    id: thisTriggerId,
-    onMouseDown: (event) => {
-      if (store.select("open")) {
-        return;
-      }
-      allowMouseUpTriggerTimeout.start(200, () => {
-        store.context.allowMouseUpTriggerRef.current = true;
-      });
-      const doc = ownerDocument(event.currentTarget);
-      doc.addEventListener("mouseup", handleDocumentMouseUp, {
-        once: true
-      });
-    }
-  }, isInMenubar ? {
-    role: "menuitem"
-  } : {}, mixedToggleHandlers, elementProps, getButtonProps];
-  const preFocusGuardRef = reactExports.useRef(null);
-  const handlePreFocusGuardFocus = useStableCallback((event) => {
-    reactDomExports.flushSync(() => {
-      store.setOpen(false, createChangeEventDetails(focusOut, event.nativeEvent, event.currentTarget));
-    });
-    const previousTabbable = getTabbableBeforeElement(preFocusGuardRef.current);
-    previousTabbable?.focus();
-  });
-  const handleFocusTargetFocus = useStableCallback((event) => {
-    const currentPositionerElement = store.select("positionerElement");
-    if (currentPositionerElement && isOutsideEvent(event, currentPositionerElement)) {
-      store.context.beforeContentFocusGuardRef.current?.focus();
-    } else {
-      reactDomExports.flushSync(() => {
-        store.setOpen(false, createChangeEventDetails(focusOut, event.nativeEvent, event.currentTarget));
-      });
-      let nextTabbable = getTabbableAfterElement(store.context.triggerFocusTargetRef.current || triggerElementRef.current);
-      while (nextTabbable !== null && contains(currentPositionerElement, nextTabbable)) {
-        const prevTabbable = nextTabbable;
-        nextTabbable = getNextTabbable(nextTabbable);
-        if (nextTabbable === prevTabbable) {
-          break;
-        }
-      }
-      nextTabbable?.focus();
-    }
-  });
-  const element = useRenderElement("button", componentProps, {
-    enabled: !isInMenubar,
-    stateAttributesMapping: pressableTriggerOpenStateMapping,
-    state,
-    ref,
-    props
-  });
-  if (isInMenubar) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeItem, {
-      tag: "button",
-      render,
-      className,
-      state,
-      refs: ref,
-      props,
-      stateAttributesMapping: pressableTriggerOpenStateMapping
-    });
-  }
-  if (isOpenedByThisTrigger) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
-      children: [/* @__PURE__ */ jsxRuntimeExports.jsx(FocusGuard, {
-        ref: preFocusGuardRef,
-        onFocus: handlePreFocusGuardFocus
-      }, `${thisTriggerId}-pre-focus-guard`), /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
-        children: element
-      }, thisTriggerId), /* @__PURE__ */ jsxRuntimeExports.jsx(FocusGuard, {
-        ref: store.context.triggerFocusTargetRef,
-        onFocus: handleFocusTargetFocus
-      }, `${thisTriggerId}-post-focus-guard`)]
-    });
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
-    children: element
-  }, thisTriggerId);
-});
-function useStickIfOpen(open, openReason) {
-  const stickIfOpenTimeout = useTimeout();
-  const [stickIfOpen, setStickIfOpen] = reactExports.useState(false);
-  useIsoLayoutEffect(() => {
-    if (open && openReason === "trigger-hover") {
-      setStickIfOpen(true);
-      stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
-        setStickIfOpen(false);
-      });
-    } else if (!open) {
-      stickIfOpenTimeout.clear();
-      setStickIfOpen(false);
-    }
-  }, [open, openReason, stickIfOpenTimeout]);
-  return stickIfOpen;
-}
-function useMenuParent() {
-  const contextMenuContext = useContextMenuRootContext(true);
-  const parentContext = useMenuRootContext(true);
-  const menubarContext = useMenubarContext();
-  const parent = reactExports.useMemo(() => {
-    if (menubarContext) {
-      return {
-        type: "menubar",
-        context: menubarContext
-      };
-    }
-    if (contextMenuContext && !parentContext) {
-      return {
-        type: "context-menu",
-        context: contextMenuContext
-      };
-    }
-    return {
-      type: void 0
-    };
-  }, [contextMenuContext, parentContext, menubarContext]);
-  return parent;
 }
 const MenuSubmenuTrigger = /* @__PURE__ */ reactExports.forwardRef(function SubmenuTriggerComponent(componentProps, forwardedRef) {
   const {
@@ -48708,169 +50683,6 @@ const MenuSubmenuTrigger = /* @__PURE__ */ reactExports.forwardRef(function Subm
   });
   return element;
 });
-function DropdownMenu({ ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuRoot, { "data-slot": "dropdown-menu", ...props });
-}
-function DropdownMenuTrigger({ ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuTrigger, { "data-slot": "dropdown-menu-trigger", ...props });
-}
-function DropdownMenuContent({
-  align = "start",
-  alignOffset = 0,
-  side = "bottom",
-  sideOffset = 4,
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-    MenuPositioner,
-    {
-      className: "isolate z-50 outline-none",
-      align,
-      alignOffset,
-      side,
-      sideOffset,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        MenuPopup,
-        {
-          "data-slot": "dropdown-menu-content",
-          className: cn$2("data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 bg-popover text-popover-foreground min-w-32 rounded-lg p-1 shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 z-50 max-h-(--available-height) w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto outline-none data-closed:overflow-hidden", className),
-          ...props
-        }
-      )
-    }
-  ) });
-}
-function DropdownMenuGroup({ ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuGroup, { "data-slot": "dropdown-menu-group", ...props });
-}
-function DropdownMenuLabel({
-  className,
-  inset,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    MenuGroupLabel,
-    {
-      "data-slot": "dropdown-menu-label",
-      "data-inset": inset,
-      className: cn$2("text-muted-foreground px-1.5 py-1 text-xs font-medium data-inset:pl-7", className),
-      ...props
-    }
-  );
-}
-function DropdownMenuItem({
-  className,
-  inset,
-  variant = "default",
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    MenuItem,
-    {
-      "data-slot": "dropdown-menu-item",
-      "data-inset": inset,
-      "data-variant": variant,
-      className: cn$2(
-        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:text-destructive not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 group/dropdown-menu-item relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
-      ),
-      ...props
-    }
-  );
-}
-function DropdownMenuSeparator({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    Separator$1,
-    {
-      "data-slot": "dropdown-menu-separator",
-      className: cn$2("bg-border -mx-1 my-1 h-px", className),
-      ...props
-    }
-  );
-}
-function WorkspaceSwitcher({ onWorkspaceChange }) {
-  const [context, setContext] = reactExports.useState(null);
-  const [workspaces, setWorkspaces] = reactExports.useState([]);
-  reactExports.useEffect(() => {
-    loadWorkspaces();
-  }, []);
-  async function loadWorkspaces() {
-    try {
-      const [ctx, wsList] = await Promise.all([
-        window.workspaceApi.getActiveContext(),
-        window.workspaceApi.listMine()
-      ]);
-      setContext(ctx);
-      setWorkspaces(wsList ?? []);
-      return wsList ?? [];
-    } catch (e) {
-      console.error("Failed to load workspaces:", e);
-      return [];
-    }
-  }
-  async function switchWorkspace(id) {
-    try {
-      await window.workspaceApi.switchActive(id);
-      const fresh = await loadWorkspaces();
-      const ws2 = fresh.find((w2) => w2.id === id);
-      if (ws2) onWorkspaceChange?.(ws2);
-    } catch (e) {
-      console.error("Failed to switch workspace:", e);
-    }
-  }
-  async function createWorkspace() {
-    const name = window.prompt("New workspace name:");
-    if (!name?.trim()) return;
-    try {
-      await window.workspaceApi.create({ name: name.trim() });
-      await loadWorkspaces();
-    } catch (e) {
-      console.error("Failed to create workspace:", e);
-    }
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenu, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      DropdownMenuTrigger,
-      {
-        className: cn$2(
-          "flex w-full items-center justify-between px-2 h-8 rounded-md text-sm",
-          "hover:bg-accent transition-colors outline-none"
-        ),
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate font-medium", children: context?.workspace.name ?? "Select workspace" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronsUpDown, { className: "h-3 w-3 text-muted-foreground shrink-0 ml-1" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuContent, { className: "w-52", side: "bottom", align: "start", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuGroup, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuLabel, { children: "Workspaces" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuSeparator, {}),
-        workspaces.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuItem, { disabled: true, children: "No workspaces found" }) : workspaces.map((ws2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuItem, { onClick: () => switchWorkspace(ws2.id), children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            Check,
-            {
-              className: cn$2(
-                "h-3.5 w-3.5 mr-2 shrink-0",
-                context?.workspace.id === ws2.id ? "opacity-100" : "opacity-0"
-              )
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate", children: ws2.name })
-        ] }, ws2.id))
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuSeparator, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuItem, { onClick: createWorkspace, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-2" }),
-        "New workspace"
-      ] })
-    ] })
-  ] });
-}
 function ContextMenuRoot(props) {
   const [anchor, setAnchor] = reactExports.useState({
     getBoundingClientRect() {
@@ -53115,7 +54927,6 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
         /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-lg font-semibold", children: "Hosts" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage and connect to your servers" })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-48", children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceSwitcher, { onWorkspaceChange }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", variant: "outline", onClick: handleCreateFolder, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(FolderOpen, { className: "h-4 w-4 mr-1.5" }),
         "New Folder"
@@ -55758,14 +57569,205 @@ const Toaster$1 = /* @__PURE__ */ React.forwardRef(function Toaster(props, ref) 
     }))
   );
 });
+function useDataExport() {
+  const [isExporting, setIsExporting] = reactExports.useState(false);
+  const exportData = async () => {
+    setIsExporting(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error("Failed to fetch user data");
+      }
+      const userId = authData.user.id;
+      const [hostsResult, keysResult, settingsResult] = await Promise.all([
+        supabase.from("hosts").select("*").eq("user_id", userId),
+        supabase.from("keys").select("*").eq("user_id", userId),
+        supabase.from("settings").select("*").eq("user_id", userId)
+      ]);
+      if (hostsResult.error) throw hostsResult.error;
+      if (keysResult.error) throw keysResult.error;
+      if (settingsResult.error) throw settingsResult.error;
+      const exportedData = {
+        user: authData.user,
+        hosts: hostsResult.data || [],
+        keys: keysResult.data || [],
+        settings: settingsResult.data?.[0] || null
+      };
+      return exportedData;
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  const downloadData = async () => {
+    try {
+      const data = await exportData();
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `export-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  return {
+    exportData,
+    downloadData,
+    isExporting
+  };
+}
+const alertVariants = cva("grid gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4 w-full relative group/alert", {
+  variants: {
+    variant: {
+      default: "bg-card text-card-foreground",
+      destructive: "text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current"
+    }
+  },
+  defaultVariants: {
+    variant: "default"
+  }
+});
+function Alert({
+  className,
+  variant,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-slot": "alert",
+      role: "alert",
+      className: cn$2(alertVariants({ variant }), className),
+      ...props
+    }
+  );
+}
+function AlertDescription({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-slot": "alert-description",
+      className: cn$2(
+        "text-muted-foreground text-sm text-balance md:text-pretty [&_p:not(:last-child)]:mb-4 [&_a]:hover:text-foreground [&_a]:underline [&_a]:underline-offset-3",
+        className
+      ),
+      ...props
+    }
+  );
+}
+const AccountSettingsTab = () => {
+  const [user, setUser] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [error, setError] = reactExports.useState(null);
+  const { exportData, isExporting } = useDataExport();
+  reactExports.useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data, error: fetchError } = await supabase.auth.getUser();
+        if (fetchError) {
+          setError("Failed to load user data");
+          return;
+        }
+        if (data.user) {
+          setUser(data.user);
+        } else {
+          setError("Failed to load user data");
+        }
+      } catch (err) {
+        setError("Failed to load user data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
+  const handleExportData = async () => {
+    await exportData();
+  };
+  if (loading) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center p-8", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-muted-foreground", children: "Loading..." }) });
+  }
+  if (error) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDescription, { children: error }) }) });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-5 w-5" }),
+          "Profile Summary"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Your account information" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-5 w-5 text-muted-foreground" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium", children: "Name" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: user?.user_metadata?.full_name || "Not set" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Mail, { className: "h-5 w-5 text-muted-foreground" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium", children: "Email" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: user?.email })
+          ] })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Download, { className: "h-5 w-5" }),
+          "Export Your Data"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Download a copy of all your data in JSON format" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        Button,
+        {
+          onClick: handleExportData,
+          disabled: isExporting,
+          className: "w-full sm:w-auto",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Download, { className: "mr-2 h-4 w-4" }),
+            isExporting ? "Exporting..." : "Download Data"
+          ]
+        }
+      ) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-5 w-5" }),
+          "Manage Account"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "View and update your profile settings" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { asChild: true, variant: "outline", className: "w-full sm:w-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("a", { href: "/profile", className: "flex items-center gap-2", children: [
+        "Go to Profile",
+        /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { className: "h-4 w-4" })
+      ] }) }) })
+    ] })
+  ] });
+};
 function SettingsPage({ activeTab, onTabChange, workspaceId }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col flex-1 h-full bg-background overflow-hidden", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-1 overflow-hidden", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Tabs, { value: activeTab, onValueChange: onTabChange, orientation: "vertical", className: "flex flex-1 overflow-hidden", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-44 shrink-0 border-r bg-muted/10 flex flex-col", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(TabsList, { className: "flex flex-col w-full rounded-none bg-transparent p-2 gap-0.5 justify-start", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TabsTrigger, { value: "account", className: "w-full justify-start px-3 py-1.5 text-sm", children: "Account" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsTrigger, { value: "terminal", className: "w-full justify-start px-3 py-1.5 text-sm", children: "Terminal" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsTrigger, { value: "appearance", className: "w-full justify-start px-3 py-1.5 text-sm", children: "Appearance" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsTrigger, { value: "ai", className: "w-full justify-start px-3 py-1.5 text-sm", children: "AI" })
     ] }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "account", className: "p-6 m-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AccountSettingsTab, {}) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "terminal", className: "p-6 m-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TerminalTab, {}) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "appearance", className: "p-6 m-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AppearanceTab, {}) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "ai", className: "p-6 m-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AiTab, {}) })
@@ -58645,13 +60647,8 @@ function CommandItem({
     }
   );
 }
-function CommandPalette({ onOpenSettings, onOpenKeys }) {
+function useCommandPalette() {
   const [open, setOpen] = reactExports.useState(false);
-  const { hosts } = useHostStore();
-  const tabs = useSessionStore((s15) => s15.tabs);
-  const openTab = useSessionStore((s15) => s15.openTab);
-  const closeTab = useSessionStore((s15) => s15.closeTab);
-  const setActiveTab = useSessionStore((s15) => s15.setActiveTab);
   reactExports.useEffect(() => {
     function handleKeyDown(e) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -58662,6 +60659,58 @@ function CommandPalette({ onOpenSettings, onOpenKeys }) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+  return { open, setOpen };
+}
+function getHostActions({ hosts, onConnectHost }) {
+  return hosts.map((host) => ({
+    id: `connect-${host.id}`,
+    label: `Connect to ${host.label}`,
+    description: host.hostname,
+    icon: Terminal,
+    onSelect: () => onConnectHost(host.id),
+    keywords: [host.label, host.hostname, host.username, "connect", "ssh"]
+  }));
+}
+function getNavigationActions({
+  onOpenSettings,
+  onOpenKeys,
+  hasActiveSessions,
+  onDisconnectAll
+}) {
+  const actions = [
+    {
+      id: "open-settings",
+      label: "Open Settings",
+      icon: Settings,
+      onSelect: onOpenSettings,
+      keywords: ["settings", "preferences", "config"]
+    },
+    {
+      id: "manage-keys",
+      label: "Manage SSH Keys",
+      icon: Key,
+      onSelect: onOpenKeys,
+      keywords: ["ssh", "keys", "manage", "key"]
+    }
+  ];
+  if (hasActiveSessions && onDisconnectAll) {
+    actions.push({
+      id: "disconnect-all",
+      label: "Disconnect All",
+      icon: X$2,
+      onSelect: onDisconnectAll,
+      keywords: ["disconnect", "close", "all", "sessions"]
+    });
+  }
+  return actions;
+}
+function CommandPalette({ onOpenSettings, onOpenKeys }) {
+  const { open, setOpen } = useCommandPalette();
+  const { hosts } = useHostStore();
+  const tabs = useSessionStore((s15) => s15.tabs);
+  const openTab = useSessionStore((s15) => s15.openTab);
+  const closeTab = useSessionStore((s15) => s15.closeTab);
+  const setActiveTab = useSessionStore((s15) => s15.setActiveTab);
   function connectHost(hostId) {
     const host = hosts.find((h2) => h2.id === hostId);
     if (!host) return;
@@ -58703,46 +60752,58 @@ function CommandPalette({ onOpenSettings, onOpenKeys }) {
     setOpen(false);
   }
   const terminalTabs = [...tabs.values()].filter((t) => t.tabType === "terminal" || t.tabType === "sftp");
+  const hasActiveSessions = terminalTabs.length > 0;
+  const hostActions = getHostActions({ hosts, onConnectHost: connectHost });
+  const navigationActions = getNavigationActions({
+    onOpenSettings: () => {
+      onOpenSettings();
+      setOpen(false);
+    },
+    onOpenKeys: () => {
+      onOpenKeys();
+      setOpen(false);
+    },
+    hasActiveSessions,
+    onDisconnectAll: disconnectAll
+  });
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(CommandDialog, { open, onOpenChange: setOpen, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(CommandInput, { placeholder: "Type a command or search hosts..." }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(CommandList, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(CommandEmpty, { children: "No results found." }),
-      hosts.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(CommandGroup, { heading: "Hosts", children: hosts.map((host) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        CommandItem,
-        {
-          onSelect: () => connectHost(host.id),
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Terminal, { className: "h-4 w-4 mr-2" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-              "Connect to ",
-              host.label
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2 text-xs text-muted-foreground", children: host.hostname })
-          ]
-        },
-        host.id
-      )) }),
+      hostActions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(CommandGroup, { heading: "Hosts", children: hostActions.map((action) => {
+        const Icon2 = action.icon;
+        return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          CommandItem,
+          {
+            onSelect: action.onSelect,
+            keywords: action.keywords,
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Icon2, { className: "h-4 w-4 mr-2" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: action.label }),
+              action.description && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2 text-xs text-muted-foreground", children: action.description })
+            ]
+          },
+          action.id
+        );
+      }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(CommandSeparator, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CommandGroup, { heading: "Actions", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(CommandItem, { onSelect: () => {
-          onOpenSettings();
-          setOpen(false);
-        }, children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Settings, { className: "h-4 w-4 mr-2" }),
-          "Open Settings"
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(CommandItem, { onSelect: () => {
-          onOpenKeys();
-          setOpen(false);
-        }, children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Key, { className: "h-4 w-4 mr-2" }),
-          "Manage SSH Keys"
-        ] }),
-        terminalTabs.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(CommandItem, { onSelect: disconnectAll, className: "text-destructive", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(X$2, { className: "h-4 w-4 mr-2" }),
-          "Disconnect All"
-        ] })
-      ] })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CommandGroup, { heading: "Actions", children: navigationActions.map((action) => {
+        const Icon2 = action.icon;
+        const isDestructive = action.id === "disconnect-all";
+        return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          CommandItem,
+          {
+            onSelect: action.onSelect,
+            keywords: action.keywords,
+            className: isDestructive ? "text-destructive" : void 0,
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Icon2, { className: "h-4 w-4 mr-2" }),
+              action.label
+            ]
+          },
+          action.id
+        );
+      }) })
     ] })
   ] });
 }
@@ -58806,6 +60867,7 @@ const Toaster2 = ({ ...props }) => {
   );
 };
 function AppShell() {
+  const location = useLocation();
   const [workspaceId, setWorkspaceId] = reactExports.useState("");
   const [activePanel, setActivePanel] = reactExports.useState(null);
   const [editingHost, setEditingHost] = reactExports.useState(null);
@@ -58815,6 +60877,7 @@ function AppShell() {
   const activeTabId = useSessionStore((s15) => s15.activeTabId);
   const openTab = useSessionStore((s15) => s15.openTab);
   useSessionStore((s15) => s15.setActiveTab);
+  location.pathname === "/profile";
   reactExports.useEffect(() => {
     window.workspaceApi.getActiveContext().then((ctx) => {
       if (ctx) setWorkspaceId(ctx.workspace.id);
@@ -58839,8 +60902,8 @@ function AppShell() {
   function handleGoKeys() {
     openTab({ tabId: "keys", tabType: "keys", label: "SSH Keys" });
   }
-  function handleGoTeam() {
-    openTab({ tabId: "team", tabType: "team", label: "Team" });
+  function handleGoWorkspace() {
+    openTab({ tabId: "workspace", tabType: "workspace", label: "Workspace" });
   }
   function handleGoSettings() {
     openTab({ tabId: "settings", tabType: "settings", label: "Settings", settingsTab: "terminal" });
@@ -58866,7 +60929,7 @@ function AppShell() {
   if (!workspaceId) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-screen bg-background flex items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted-foreground text-sm", children: "Loading workspace..." }) });
   }
-  const sidebarView = activeTab?.tabType === "settings" ? "settings" : activeTab?.tabType === "keys" ? "keys" : activeTab?.tabType === "team" ? "team" : "hosts";
+  const sidebarView = activeTab?.tabType === "settings" ? "settings" : activeTab?.tabType === "keys" ? "keys" : activeTab?.tabType === "workspace" ? "workspace" : "hosts";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-screen bg-background text-foreground overflow-hidden", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-1 overflow-hidden", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -58875,7 +60938,7 @@ function AppShell() {
           onOpenSettings: handleGoSettings,
           onGoHome: handleGoHome,
           onGoKeys: handleGoKeys,
-          onGoTeam: handleGoTeam,
+          onGoWorkspace: handleGoWorkspace,
           activeView: sidebarView
         }
       ),
@@ -58900,7 +60963,7 @@ function AppShell() {
               onCloseImport: handleClosePanel
             }
           ),
-          activeTab?.tabType === "team" && /* @__PURE__ */ jsxRuntimeExports.jsx(TeamPage, { workspaceId }),
+          activeTab?.tabType === "workspace" && /* @__PURE__ */ jsxRuntimeExports.jsx(TeamPage, { workspaceId }),
           activeTab?.tabType === "settings" && /* @__PURE__ */ jsxRuntimeExports.jsx(
             SettingsPage,
             {
@@ -58932,8 +60995,406 @@ function AppShell() {
     /* @__PURE__ */ jsxRuntimeExports.jsx(Toaster2, {})
   ] });
 }
+function AlertDialogRoot(props) {
+  const {
+    children,
+    open: openProp,
+    defaultOpen = false,
+    onOpenChange,
+    onOpenChangeComplete,
+    actionsRef,
+    handle,
+    triggerId: triggerIdProp,
+    defaultTriggerId: defaultTriggerIdProp = null
+  } = props;
+  const parentDialogRootContext = useDialogRootContext();
+  const nested = Boolean(parentDialogRootContext);
+  const store = useRefWithInit(() => {
+    return handle?.store ?? new DialogStore({
+      open: defaultOpen,
+      openProp,
+      activeTriggerId: defaultTriggerIdProp,
+      triggerIdProp,
+      modal: true,
+      disablePointerDismissal: true,
+      nested,
+      role: "alertdialog"
+    });
+  }).current;
+  store.useControlledProp("openProp", openProp);
+  store.useControlledProp("triggerIdProp", triggerIdProp);
+  store.useSyncedValue("nested", nested);
+  store.useContextCallback("onOpenChange", onOpenChange);
+  store.useContextCallback("onOpenChangeComplete", onOpenChangeComplete);
+  const payload = store.useState("payload");
+  useDialogRoot({
+    store,
+    actionsRef,
+    parentContext: parentDialogRootContext?.store.context
+  });
+  const contextValue = reactExports.useMemo(() => ({
+    store
+  }), [store]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(DialogRootContext.Provider, {
+    value: contextValue,
+    children: typeof children === "function" ? children({
+      payload
+    }) : children
+  });
+}
+function AlertDialog({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogRoot, { "data-slot": "alert-dialog", ...props });
+}
+function AlertDialogPortal({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(DialogPortal$2, { "data-slot": "alert-dialog-portal", ...props });
+}
+function AlertDialogOverlay({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogBackdrop,
+    {
+      "data-slot": "alert-dialog-overlay",
+      className: cn$2(
+        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50",
+        className
+      ),
+      ...props
+    }
+  );
+}
+function AlertDialogContent({
+  className,
+  size: size2 = "default",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogPortal, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogOverlay, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      DialogPopup,
+      {
+        "data-slot": "alert-dialog-content",
+        "data-size": size2,
+        className: cn$2(
+          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 bg-background ring-foreground/10 gap-4 rounded-xl p-4 ring-1 duration-100 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none",
+          className
+        ),
+        ...props
+      }
+    )
+  ] });
+}
+function AlertDialogHeader({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-slot": "alert-dialog-header",
+      className: cn$2("grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-4 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]", className),
+      ...props
+    }
+  );
+}
+function AlertDialogFooter({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-slot": "alert-dialog-footer",
+      className: cn$2(
+        "bg-muted/50 -mx-4 -mb-4 rounded-b-xl border-t p-4 flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
+        className
+      ),
+      ...props
+    }
+  );
+}
+function AlertDialogTitle({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogTitle$2,
+    {
+      "data-slot": "alert-dialog-title",
+      className: cn$2("text-base font-medium sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2", className),
+      ...props
+    }
+  );
+}
+function AlertDialogDescription({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogDescription$2,
+    {
+      "data-slot": "alert-dialog-description",
+      className: cn$2("text-muted-foreground *:[a]:hover:text-foreground text-sm text-balance md:text-pretty *:[a]:underline *:[a]:underline-offset-3", className),
+      ...props
+    }
+  );
+}
+function AlertDialogAction({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Button,
+    {
+      "data-slot": "alert-dialog-action",
+      className: cn$2(className),
+      ...props
+    }
+  );
+}
+function AlertDialogCancel({
+  className,
+  variant = "outline",
+  size: size2 = "default",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogClose$1,
+    {
+      "data-slot": "alert-dialog-cancel",
+      className: cn$2(className),
+      render: /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant, size: size2 }),
+      ...props
+    }
+  );
+}
+function ProfilePage() {
+  const [user, setUser] = reactExports.useState(null);
+  const [name, setName] = reactExports.useState("");
+  const [currentPassword, setCurrentPassword] = reactExports.useState("");
+  const [newPassword, setNewPassword] = reactExports.useState("");
+  const [confirmPassword, setConfirmPassword] = reactExports.useState("");
+  const [deletePassword, setDeletePassword] = reactExports.useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = reactExports.useState(false);
+  const [loading, setLoading] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setName(data.user?.user_metadata?.name || "");
+    });
+  }, []);
+  async function handleUpdateProfile() {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { name }
+      });
+      if (error) throw error;
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function handleChangePassword() {
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      if (error) throw error;
+      toast.success("Password changed successfully");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function handleDeleteAccount() {
+    setLoading(true);
+    try {
+      const { error: rpcError } = await supabase.rpc("delete_user_account");
+      if (rpcError) throw rpcError;
+      await supabase.auth.signOut();
+      await window.authApi.setAccessToken(null);
+      toast.success("Account deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete account");
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setShowDeleteDialog(false);
+    }
+  }
+  if (!user) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center h-full", children: "Loading..." });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-2xl mx-auto p-6 space-y-6", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-2xl font-bold mb-1", children: "Profile" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage your account information and security settings" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Profile Information" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your personal details" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: name || "User", size: "lg" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 space-y-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "name", children: "Name" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Input,
+                {
+                  id: "name",
+                  value: name,
+                  onChange: (e) => setName(e.target.value),
+                  placeholder: "Your name"
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "email", children: "Email" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Input,
+                {
+                  id: "email",
+                  value: user.email || "",
+                  disabled: true,
+                  className: "bg-muted"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mt-1", children: "Email cannot be changed" })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleUpdateProfile, disabled: loading, children: "Save Changes" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Change Password" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your password to keep your account secure" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "current-password", children: "Current Password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Input,
+            {
+              id: "current-password",
+              type: "password",
+              value: currentPassword,
+              onChange: (e) => setCurrentPassword(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "new-password", children: "New Password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Input,
+            {
+              id: "new-password",
+              type: "password",
+              value: newPassword,
+              onChange: (e) => setNewPassword(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "confirm-password", children: "Confirm New Password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Input,
+            {
+              id: "confirm-password",
+              type: "password",
+              value: confirmPassword,
+              onChange: (e) => setConfirmPassword(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleChangePassword, disabled: loading, children: "Change Password" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { className: "border-destructive", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { className: "text-destructive", children: "Danger Zone" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Irreversible actions that affect your account" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm mb-2", children: "Once you delete your account, there is no going back. All your data will be permanently deleted." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Button,
+          {
+            variant: "destructive",
+            onClick: () => setShowDeleteDialog(true),
+            children: "Delete Account"
+          }
+        )
+      ] }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialog, { open: showDeleteDialog, onOpenChange: setShowDeleteDialog, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogContent, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogTitle, { children: "Are you absolutely sure?" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogDescription, { children: "This action cannot be undone. This will permanently delete your account and remove all your data from our servers." })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "delete-password", children: "Enter your password to confirm" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Input,
+          {
+            id: "delete-password",
+            type: "password",
+            value: deletePassword,
+            onChange: (e) => setDeletePassword(e.target.value),
+            placeholder: "Password"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogFooter, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogCancel, { children: "Cancel" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          AlertDialogAction,
+          {
+            onClick: handleDeleteAccount,
+            disabled: !deletePassword || loading,
+            className: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+            children: "Delete Account"
+          }
+        )
+      ] })
+    ] }) })
+  ] }) });
+}
 function App() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(AuthGate, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceGate, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(AppShell, {}) }) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(BrowserRouter, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Route,
+      {
+        path: "/",
+        element: /* @__PURE__ */ jsxRuntimeExports.jsx(AuthGate, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceGate, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(AppShell, {}) }) })
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Route,
+      {
+        path: "/profile",
+        element: /* @__PURE__ */ jsxRuntimeExports.jsx(AuthGate, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceGate, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ProfilePage, {}) }) })
+      }
+    )
+  ] }) });
 }
 const saved = localStorage.getItem("archterm-theme") ?? "dark";
 document.documentElement.classList.toggle("dark", saved === "dark");

@@ -165,6 +165,32 @@ const workspaceIpcHandlers = {
     const { error } = await supabase.from("workspace_invites").update({ revoked_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", workspaceInviteId).is("accepted_at", null);
     if (error) throw error;
   },
+  async updateWorkspace(event, workspaceId, updates) {
+    const supabase = await getAuthedClient(event);
+    const { data, error } = await supabase.from("workspaces").update(updates).eq("id", workspaceId).select("id,name,created_by,created_at,updated_at").single();
+    if (error) throw error;
+    return toWorkspace(data);
+  },
+  async deleteWorkspace(event, workspaceId) {
+    const supabase = await getAuthedClient(event);
+    const { data: workspace } = await supabase.from("workspaces").select("created_by").eq("id", workspaceId).single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (workspace?.created_by !== user.id) {
+      throw new Error("Only workspace owner can delete workspace");
+    }
+    const { error } = await supabase.from("workspaces").delete().eq("id", workspaceId);
+    if (error) throw error;
+  },
+  async leaveWorkspace(event, workspaceId) {
+    const supabase = await getAuthedClient(event);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: owners } = await supabase.from("workspace_members").select("user_id").eq("workspace_id", workspaceId).eq("role", "owner");
+    if (owners && owners.length === 1 && owners[0].user_id === user.id) {
+      throw new Error("Cannot leave workspace as the last owner. Delete the workspace instead.");
+    }
+    const { error } = await supabase.from("workspace_members").delete().eq("workspace_id", workspaceId).eq("user_id", user.id);
+    if (error) throw error;
+  },
   members: {
     async list(event, workspaceId) {
       const supabase = await getAuthedClient(event);
@@ -1811,6 +1837,9 @@ function registerWorkspaceIpcHandlers() {
   register("workspace.invite", withSupabase(workspaceIpcHandlers.invite));
   register("workspace.acceptInvite", withSupabase(workspaceIpcHandlers.acceptInvite));
   register("workspace.revokeInvite", withSupabase(workspaceIpcHandlers.revokeInvite));
+  register("workspace.updateWorkspace", withSupabase(workspaceIpcHandlers.updateWorkspace));
+  register("workspace.deleteWorkspace", withSupabase(workspaceIpcHandlers.deleteWorkspace));
+  register("workspace.leaveWorkspace", withSupabase(workspaceIpcHandlers.leaveWorkspace));
   register("workspace.members.list", withSupabase(workspaceIpcHandlers.members.list));
   register("workspace.members.updateRole", withSupabase(workspaceIpcHandlers.members.updateRole));
   register("workspace.members.remove", withSupabase(workspaceIpcHandlers.members.remove));

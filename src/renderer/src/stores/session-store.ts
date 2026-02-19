@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import type { SshSessionStatus } from '@shared/types/ssh';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
 
-export type TabType = 'hosts' | 'keys' | 'team' | 'workspace' | 'settings' | 'terminal' | 'sftp';
+export type TabType = 'hosts' | 'keys' | 'team' | 'workspace' | 'settings' | 'profile' | 'terminal' | 'sftp';
 
 export interface Tab {
   tabId: string;
@@ -40,13 +40,13 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => {
       const newTabs = new Map(state.tabs);
       const closable = tab.closable ?? true;
-      const isStaticTab = tab.tabType === 'hosts' || tab.tabType === 'keys' || tab.tabType === 'team' || tab.tabType === 'workspace' || tab.tabType === 'settings';
+      const isStaticTab = tab.tabType === 'hosts' || tab.tabType === 'keys' || tab.tabType === 'team' || tab.tabType === 'workspace' || tab.tabType === 'settings' || tab.tabType === 'profile';
 
-      // For static tabs (hosts, keys, team, settings): keep only one visible
+      // For static tabs (hosts, keys, team, workspace, settings, profile): keep only one visible
       if (isStaticTab) {
         // Remove all other static tabs
         for (const [id, t] of newTabs.entries()) {
-          if ((t.tabType === 'hosts' || t.tabType === 'keys' || t.tabType === 'team' || t.tabType === 'workspace' || t.tabType === 'settings') && t.tabType !== tab.tabType) {
+          if ((t.tabType === 'hosts' || t.tabType === 'keys' || t.tabType === 'team' || t.tabType === 'workspace' || t.tabType === 'settings' || t.tabType === 'profile') && t.tabType !== tab.tabType) {
             newTabs.delete(id);
           }
         }

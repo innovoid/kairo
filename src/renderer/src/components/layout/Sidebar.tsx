@@ -5,22 +5,24 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-import { SquareTerminal, Server, KeyRound, Building2, Settings } from 'lucide-react';
+import { Server, KeyRound, Building2, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { AvatarInitials } from '@/components/ui/avatar-initials';
 import { UserMenu } from '@/components/layout/UserMenu';
+import { WorkspaceSwitcher } from '@/features/workspaces/WorkspaceSwitcher';
 
 interface SidebarProps {
   onOpenSettings: () => void;
   onGoHome: () => void;
   onGoKeys: () => void;
   onGoWorkspace: () => void;
-  activeView: 'hosts' | 'keys' | 'workspace' | 'settings';
+  onOpenProfile: () => void;
+  activeView: 'hosts' | 'keys' | 'workspace' | 'settings' | 'profile';
 }
 
-export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, activeView }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, activeView }: SidebarProps) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -34,9 +36,9 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, act
   return (
     <TooltipProvider delay={300}>
       <div className="flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1">
-        {/* Logo */}
-        <div className="flex items-center justify-center h-9 w-9 mb-2">
-          <SquareTerminal className="h-6 w-6 text-primary" />
+        {/* Workspace Switcher */}
+        <div className="w-full px-1 mb-2">
+          <WorkspaceSwitcher />
         </div>
 
         {/* Navigation */}
@@ -49,16 +51,16 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, act
         {/* Bottom */}
         {user && (
           <Tooltip>
-            <UserMenu>
-              <TooltipTrigger
-                className={cn(
-                  'inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors',
-                  'hover:bg-accent hover:text-accent-foreground',
-                )}
-              >
-                <AvatarInitials name={userName} size="sm" />
-              </TooltipTrigger>
-            </UserMenu>
+            <TooltipTrigger
+              className={cn(
+                'inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors',
+                'hover:bg-accent hover:text-accent-foreground',
+                activeView === 'profile' && 'bg-accent text-accent-foreground',
+              )}
+              onClick={onOpenProfile}
+            >
+              <AvatarInitials name={userName} size="sm" />
+            </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
               Profile
             </TooltipContent>
