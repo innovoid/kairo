@@ -11,6 +11,7 @@ import { TeamPage } from '@/features/team/TeamPage';
 import { SettingsPage, type SettingsTab } from '@/features/settings/SettingsPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
+import { useCommandPalette } from '@/features/command-palette/useCommandPalette';
 import { useTransferStore } from '@/stores/transfer-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSessionStore } from '@/stores/session-store';
@@ -27,6 +28,7 @@ export function AppShell() {
   const [editingHost, setEditingHost] = useState<Host | null>(null);
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } = useCommandPalette();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
@@ -115,6 +117,7 @@ export function AppShell() {
     activeTab?.tabType === 'settings' ? 'settings' :
     activeTab?.tabType === 'keys' ? 'keys' :
     activeTab?.tabType === 'workspace' ? 'workspace' :
+    activeTab?.tabType === 'profile' ? 'profile' :
     'hosts';
 
   return (
@@ -126,6 +129,7 @@ export function AppShell() {
           onGoHome={handleGoHome}
           onGoKeys={handleGoKeys}
           onGoWorkspace={handleGoWorkspace}
+          onOpenProfile={handleGoProfile}
           activeView={sidebarView}
         />
 
@@ -157,6 +161,7 @@ export function AppShell() {
                 workspaceId={workspaceId}
               />
             )}
+            {activeTab?.tabType === 'profile' && <ProfilePage />}
             {(activeTab?.tabType === 'terminal' || activeTab?.tabType === 'sftp') && <MainArea />}
 
             {/* Right panels - only one visible at a time */}
@@ -174,6 +179,8 @@ export function AppShell() {
       <StatusBar />
 
       <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
         onOpenSettings={handleGoSettings}
         onOpenKeys={handleGoKeys}
       />
