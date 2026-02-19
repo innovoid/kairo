@@ -216,9 +216,29 @@ export const supabaseSync = {
     // LOCAL-FIRST: Update SQLite immediately, sync to Supabase in background
 
     try {
+      console.log('[supabaseSync.updateHost] Starting update:', { id, input });
+
       // Get current host from SQLite
       const existingHost = hostQueries.getById(id);
-      if (!existingHost) throw new Error(`Host with id ${id} not found in local cache`);
+      console.log('[supabaseSync.updateHost] Existing host:', {
+        found: !!existingHost,
+        id: existingHost?.id,
+        hasAllFields: existingHost ? {
+          id: !!existingHost.id,
+          workspace_id: !!existingHost.workspace_id,
+          auth_type: !!existingHost.auth_type,
+          tags: typeof existingHost.tags,
+        } : null
+      });
+
+      if (!existingHost) {
+        throw new Error(`Host with id ${id} not found in local cache`);
+      }
+
+      // Validate required fields
+      if (!existingHost.id || !existingHost.workspace_id || !existingHost.auth_type) {
+        throw new Error(`Host data is corrupted: missing required fields`);
+      }
 
       // Parse existing tags safely
       let existingTags: string[] = [];
@@ -268,6 +288,17 @@ export const supabaseSync = {
           if (error) console.error('Background sync failed for host update:', error);
         });
 
+      // Parse tags safely for return
+      let parsedTags: string[] = [];
+      try {
+        parsedTags = JSON.parse(updatedHost.tags);
+      } catch (e) {
+        console.error('Failed to parse tags for return:', updatedHost.tags, e);
+        parsedTags = [];
+      }
+
+      console.log('[supabaseSync.updateHost] Returning updated host:', updatedHost.id);
+
       // Return immediately with local data
       return {
         id: updatedHost.id,
@@ -280,12 +311,12 @@ export const supabaseSync = {
         authType: updatedHost.auth_type,
         password: null,
         keyId: updatedHost.key_id,
-        tags: JSON.parse(updatedHost.tags),
+        tags: parsedTags,
         createdAt: new Date(updatedHost.synced_at).toISOString(),
         updatedAt: new Date(updatedHost.synced_at).toISOString(),
       };
     } catch (error) {
-      console.error('Error updating host in SQLite:', error);
+      console.error('[supabaseSync.updateHost] Error updating host:', error);
       throw new Error(`Failed to update host locally: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },

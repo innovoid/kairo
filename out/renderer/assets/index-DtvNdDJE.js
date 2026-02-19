@@ -43796,15 +43796,27 @@ const useHostStore = create((set) => ({
     return host;
   },
   updateHost: async (id, input) => {
+    console.log("[host-store] updateHost called:", { id, input });
     set((state) => ({
       hosts: state.hosts.map(
         (h2) => h2.id === id ? { ...h2, ...input, updatedAt: (/* @__PURE__ */ new Date()).toISOString() } : h2
       )
     }));
-    const updated = await window.hostsApi.update(id, input);
-    set((state) => ({
-      hosts: state.hosts.map((h2) => h2.id === id ? updated : h2)
-    }));
+    try {
+      const updated = await window.hostsApi.update(id, input);
+      console.log("[host-store] updateHost success:", updated);
+      set((state) => ({
+        hosts: state.hosts.map((h2) => h2.id === id ? updated : h2)
+      }));
+    } catch (error) {
+      console.error("[host-store] updateHost failed:", error);
+      const workspaceId = window.currentWorkspaceId;
+      if (workspaceId) {
+        const hosts = await window.hostsApi.list(workspaceId);
+        set({ hosts });
+      }
+      throw error;
+    }
   },
   deleteHost: async (id) => {
     await window.hostsApi.delete(id);

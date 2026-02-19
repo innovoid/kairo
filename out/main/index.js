@@ -516,8 +516,24 @@ const supabaseSync = {
   },
   async updateHost(supabase, id, input) {
     try {
+      console.log("[supabaseSync.updateHost] Starting update:", { id, input });
       const existingHost = hostQueries.getById(id);
-      if (!existingHost) throw new Error(`Host with id ${id} not found in local cache`);
+      console.log("[supabaseSync.updateHost] Existing host:", {
+        found: !!existingHost,
+        id: existingHost?.id,
+        hasAllFields: existingHost ? {
+          id: !!existingHost.id,
+          workspace_id: !!existingHost.workspace_id,
+          auth_type: !!existingHost.auth_type,
+          tags: typeof existingHost.tags
+        } : null
+      });
+      if (!existingHost) {
+        throw new Error(`Host with id ${id} not found in local cache`);
+      }
+      if (!existingHost.id || !existingHost.workspace_id || !existingHost.auth_type) {
+        throw new Error(`Host data is corrupted: missing required fields`);
+      }
       let existingTags = [];
       try {
         existingTags = JSON.parse(existingHost.tags);
@@ -551,6 +567,14 @@ const supabaseSync = {
       supabase.from("hosts").update(updates).eq("id", id).then(({ error }) => {
         if (error) console.error("Background sync failed for host update:", error);
       });
+      let parsedTags = [];
+      try {
+        parsedTags = JSON.parse(updatedHost.tags);
+      } catch (e) {
+        console.error("Failed to parse tags for return:", updatedHost.tags, e);
+        parsedTags = [];
+      }
+      console.log("[supabaseSync.updateHost] Returning updated host:", updatedHost.id);
       return {
         id: updatedHost.id,
         workspaceId: updatedHost.workspace_id,
@@ -562,12 +586,12 @@ const supabaseSync = {
         authType: updatedHost.auth_type,
         password: null,
         keyId: updatedHost.key_id,
-        tags: JSON.parse(updatedHost.tags),
+        tags: parsedTags,
         createdAt: new Date(updatedHost.synced_at).toISOString(),
         updatedAt: new Date(updatedHost.synced_at).toISOString()
       };
     } catch (error) {
-      console.error("Error updating host in SQLite:", error);
+      console.error("[supabaseSync.updateHost] Error updating host:", error);
       throw new Error(`Failed to update host locally: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   },
@@ -714,11 +738,27 @@ const hostsIpcHandlers = {
   },
   async updateHost(event, id, input) {
     try {
+      console.log("[hosts.update] Received update request:", {
+        id,
+        inputKeys: Object.keys(input),
+        input: JSON.stringify(input, null, 2)
+      });
       const supabase = getClient$2(event);
-      return await supabaseSync.updateHost(supabase, id, input);
+      const result = await supabaseSync.updateHost(supabase, id, input);
+      console.log("[hosts.update] Update successful:", result.id);
+      return result;
     } catch (error) {
-      console.error("Error in updateHost:", error);
-      throw new Error(error instanceof Error ? error.message : "Failed to update host");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : "No stack trace";
+      console.error("[hosts.update] ERROR:", {
+        message: errorMessage,
+        stack: errorStack,
+        id,
+        inputKeys: Object.keys(input)
+      });
+      const cleanError = new Error(errorMessage);
+      cleanError.stack = errorStack;
+      throw cleanError;
     }
   },
   async deleteHost(event, id) {

@@ -32,11 +32,28 @@ export const hostsIpcHandlers = {
 
   async updateHost(event: IpcMainInvokeEvent, id: string, input: UpdateHostInput) {
     try {
+      console.log('[hosts.update] Received update request:', {
+        id,
+        inputKeys: Object.keys(input),
+        input: JSON.stringify(input, null, 2)
+      });
       const supabase = getClient(event);
-      return await supabaseSync.updateHost(supabase, id, input);
+      const result = await supabaseSync.updateHost(supabase, id, input);
+      console.log('[hosts.update] Update successful:', result.id);
+      return result;
     } catch (error) {
-      console.error('Error in updateHost:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to update host');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+      console.error('[hosts.update] ERROR:', {
+        message: errorMessage,
+        stack: errorStack,
+        id,
+        inputKeys: Object.keys(input),
+      });
+      // Make sure we throw a clean Error object
+      const cleanError = new Error(errorMessage);
+      cleanError.stack = errorStack;
+      throw cleanError;
     }
   },
 
