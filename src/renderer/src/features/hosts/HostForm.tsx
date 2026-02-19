@@ -215,7 +215,9 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
                 <Label className="text-xs">SSH Key</Label>
                 <Select value={keyId} onValueChange={(v) => { if (v) setKeyId(v); }}>
                   <SelectTrigger className="h-8 text-sm w-full">
-                    <SelectValue placeholder="Select a key..." />
+                    <SelectValue placeholder="Select a key...">
+                      {keyId ? keys.find((k) => k.id === keyId)?.name || 'Select a key...' : 'Select a key...'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {keys.length === 0 ? (
