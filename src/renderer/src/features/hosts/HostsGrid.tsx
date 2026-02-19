@@ -3,7 +3,6 @@ import type { Host, HostFolder } from '@shared/types/hosts';
 import { useHostStore } from '@/stores/host-store';
 import { useSessionStore } from '@/stores/session-store';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,7 +13,13 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { Plus, Search, FolderOpen, Terminal, Pencil, Trash2, Server } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Plus, FolderOpen, Terminal, Pencil, Trash2, Server, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Workspace } from '@shared/types/workspace';
 import { FolderDialog } from './FolderDialog';
@@ -37,7 +42,6 @@ interface HostsGridProps {
 
 export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }: HostsGridProps) {
   const { hosts, folders, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
-  const [search, setSearch] = useState('');
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<HostFolder | null>(null);
 
@@ -93,16 +97,8 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
     await deleteFolder(folder.id);
   }
 
-  const filtered = search
-    ? hosts.filter(
-        (h) =>
-          h.label.toLowerCase().includes(search.toLowerCase()) ||
-          h.hostname.toLowerCase().includes(search.toLowerCase()),
-      )
-    : hosts;
-
   const rootFolders = folders.filter((f) => !f.parentId);
-  const rootHosts = filtered.filter((h) => !h.folderId);
+  const rootHosts = hosts.filter((h) => !h.folderId);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -113,42 +109,41 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
             <h1 className="text-lg font-semibold">Hosts</h1>
             <p className="text-sm text-muted-foreground">Manage and connect to your servers</p>
           </div>
-          <Button size="sm" variant="outline" onClick={handleCreateFolder}>
-            <FolderOpen className="h-4 w-4 mr-1.5" />
-            New Folder
-          </Button>
-          <Button size="sm" onClick={onAddHost}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add Host
-          </Button>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-6 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search hosts..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Host
+                <ChevronDown className="h-4 w-4 ml-1.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onAddHost}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Host
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCreateFolder}>
+                <FolderOpen className="h-4 w-4 mr-2" />
+                New Folder
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           {/* Folder sections */}
-          {!search &&
-            rootFolders.map((folder) => (
-              <DroppableFolderSection
-                key={folder.id}
-                folder={folder}
-                hosts={filtered}
-                allFolders={folders}
-                onEditHost={onEditHost}
-                onDeleteHost={handleDeleteHost}
-                onEditFolder={handleEditFolder}
-                onDeleteFolder={handleDeleteFolder}
-              />
-            ))}
+          {rootFolders.map((folder) => (
+            <DroppableFolderSection
+              key={folder.id}
+              folder={folder}
+              hosts={hosts}
+              allFolders={folders}
+              onEditHost={onEditHost}
+              onDeleteHost={handleDeleteHost}
+              onEditFolder={handleEditFolder}
+              onDeleteFolder={handleDeleteFolder}
+            />
+          ))}
 
           {/* Root hosts (no folder) */}
           {rootHosts.length > 0 && (

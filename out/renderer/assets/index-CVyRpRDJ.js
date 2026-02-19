@@ -7010,10 +7010,10 @@ const ReactDOM$1 = /* @__PURE__ */ getDefaultExportFromCjs(clientExports);
 var PopStateEventType = "popstate";
 function createBrowserHistory(options = {}) {
   function createBrowserLocation(window2, globalHistory) {
-    let { pathname, search, hash } = window2.location;
+    let { pathname, search: search2, hash } = window2.location;
     return createLocation(
       "",
-      { pathname, search, hash },
+      { pathname, search: search2, hash },
       // state defaults to `null` because `window.history.state` does
       globalHistory.state && globalHistory.state.usr || null,
       globalHistory.state && globalHistory.state.key || "default"
@@ -7070,11 +7070,11 @@ function createLocation(current, to, state = null, key) {
 }
 function createPath({
   pathname = "/",
-  search = "",
+  search: search2 = "",
   hash = ""
 }) {
-  if (search && search !== "?")
-    pathname += search.charAt(0) === "?" ? search : "?" + search;
+  if (search2 && search2 !== "?")
+    pathname += search2.charAt(0) === "?" ? search2 : "?" + search2;
   if (hash && hash !== "#")
     pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
   return pathname;
@@ -7478,7 +7478,7 @@ var ABSOLUTE_URL_REGEX = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 function resolvePath(to, fromPathname = "/") {
   let {
     pathname: toPathname,
-    search = "",
+    search: search2 = "",
     hash = ""
   } = typeof to === "string" ? parsePath(to) : to;
   let pathname;
@@ -7494,7 +7494,7 @@ function resolvePath(to, fromPathname = "/") {
   }
   return {
     pathname,
-    search: normalizeSearch(search),
+    search: normalizeSearch(search2),
     hash: normalizeHash(hash)
   };
 }
@@ -7572,7 +7572,7 @@ function resolveTo(toArg, routePathnames, locationPathname, isPathRelative = fal
 }
 var joinPaths = (paths) => paths.join("/").replace(/\/\/+/g, "/");
 var normalizePathname = (pathname) => pathname.replace(/\/+$/, "").replace(/^\/*/, "/");
-var normalizeSearch = (search) => !search || search === "?" ? "" : search.startsWith("?") ? search : "?" + search;
+var normalizeSearch = (search2) => !search2 || search2 === "?" ? "" : search2.startsWith("?") ? search2 : "?" + search2;
 var normalizeHash = (hash) => !hash || hash === "#" ? "" : hash.startsWith("#") ? hash : "#" + hash;
 var ErrorResponseImpl = class {
   constructor(status, statusText, data2, internal = false) {
@@ -7713,12 +7713,12 @@ function useHref(to, { relative } = {}) {
     `useHref() may be used only in the context of a <Router> component.`
   );
   let { basename, navigator: navigator2 } = reactExports.useContext(NavigationContext);
-  let { hash, pathname, search } = useResolvedPath(to, { relative });
+  let { hash, pathname, search: search2 } = useResolvedPath(to, { relative });
   let joinedPathname = pathname;
   if (basename !== "/") {
     joinedPathname = pathname === "/" ? basename : joinPaths([basename, pathname]);
   }
-  return navigator2.createHref({ pathname: joinedPathname, search, hash });
+  return navigator2.createHref({ pathname: joinedPathname, search: search2, hash });
 }
 function useInRouterContext() {
   return reactExports.useContext(LocationContext) != null;
@@ -8288,7 +8288,7 @@ function Router({
   }
   let {
     pathname = "/",
-    search = "",
+    search: search2 = "",
     hash = "",
     state = null,
     key = "default"
@@ -8301,17 +8301,17 @@ function Router({
     return {
       location: {
         pathname: trailingPathname,
-        search,
+        search: search2,
         hash,
         state,
         key
       },
       navigationType
     };
-  }, [basename, pathname, search, hash, state, key, navigationType]);
+  }, [basename, pathname, search2, hash, state, key, navigationType]);
   warning(
     locationContext != null,
-    `<Router basename="${basename}"> is not able to match the URL "${pathname}${search}${hash}" because it does not start with the basename, so the <Router> won't render anything.`
+    `<Router basename="${basename}"> is not able to match the URL "${pathname}${search2}${hash}" because it does not start with the basename, so the <Router> won't render anything.`
   );
   if (locationContext == null) {
     return null;
@@ -21357,6 +21357,7 @@ function NOOP() {
 const EMPTY_ARRAY$1 = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 const TYPEAHEAD_RESET_MS = 500;
+const PATIENT_CLICK_THRESHOLD = 500;
 const DISABLED_TRANSITIONS_STYLE = {
   style: {
     transition: "none"
@@ -25957,6 +25958,28 @@ function getNextTabbable(referenceElement) {
 }
 function getPreviousTabbable(referenceElement) {
   return getTabbableIn(ownerDocument(referenceElement).body, -1) || referenceElement;
+}
+function getTabbableNearElement(referenceElement, dir) {
+  if (!referenceElement) {
+    return null;
+  }
+  const list = tabbable(ownerDocument(referenceElement).body, getTabbableOptions());
+  const elementCount = list.length;
+  if (elementCount === 0) {
+    return null;
+  }
+  const index2 = list.indexOf(referenceElement);
+  if (index2 === -1) {
+    return null;
+  }
+  const nextIndex = (index2 + dir + elementCount) % elementCount;
+  return list[nextIndex];
+}
+function getTabbableAfterElement(referenceElement) {
+  return getTabbableNearElement(referenceElement, 1);
+}
+function getTabbableBeforeElement(referenceElement) {
+  return getTabbableNearElement(referenceElement, -1);
 }
 function isOutsideEvent(event, container) {
   const containerElement = container || event.currentTarget;
@@ -35282,7 +35305,7 @@ function getPseudoElementBounds(element) {
     bottom: elementRect.bottom + heightDiff / 2
   };
 }
-const BOUNDARY_OFFSET = 2;
+const BOUNDARY_OFFSET$1 = 2;
 const SELECTED_DELAY = 400;
 const UNSELECTED_DELAY = 200;
 const stateAttributesMapping$6 = {
@@ -35433,7 +35456,7 @@ const SelectTrigger$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectT
           return;
         }
         const bounds = getPseudoElementBounds(triggerRef.current);
-        if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET) {
+        if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET$1 && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET$1 && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET$1 && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET$1) {
           return;
         }
         setOpen(false, createChangeEventDetails(cancelOpen, mouseEvent));
@@ -50559,6 +50582,31 @@ function useCompositeItem(params = {}) {
     index: index2
   };
 }
+function CompositeItem(componentProps) {
+  const {
+    render,
+    className,
+    state = EMPTY_OBJECT,
+    props = EMPTY_ARRAY$1,
+    refs = EMPTY_ARRAY$1,
+    metadata,
+    stateAttributesMapping: stateAttributesMapping2,
+    tag = "div",
+    ...elementProps
+  } = componentProps;
+  const {
+    compositeProps,
+    compositeRef
+  } = useCompositeItem({
+    metadata
+  });
+  return useRenderElement(tag, componentProps, {
+    state,
+    ref: [...refs, compositeRef],
+    props: [compositeProps, ...props, elementProps],
+    stateAttributesMapping: stateAttributesMapping2
+  });
+}
 function findRootOwnerId(node) {
   if (isHTMLElement$1(node) && node.hasAttribute("data-rootownerid")) {
     return node.getAttribute("data-rootownerid") ?? void 0;
@@ -50567,6 +50615,288 @@ function findRootOwnerId(node) {
     return void 0;
   }
   return findRootOwnerId(getParentNode(node));
+}
+function useMixedToggleClickHandler(params) {
+  const {
+    enabled = true,
+    mouseDownAction,
+    open
+  } = params;
+  const ignoreClickRef = reactExports.useRef(false);
+  return reactExports.useMemo(() => {
+    if (!enabled) {
+      return EMPTY_OBJECT;
+    }
+    return {
+      onMouseDown: (event) => {
+        if (mouseDownAction === "open" && !open || mouseDownAction === "close" && open) {
+          ignoreClickRef.current = true;
+          ownerDocument(event.currentTarget).addEventListener("click", () => {
+            ignoreClickRef.current = false;
+          }, {
+            once: true
+          });
+        }
+      },
+      onClick: (event) => {
+        if (ignoreClickRef.current) {
+          ignoreClickRef.current = false;
+          event.preventBaseUIHandler();
+        }
+      }
+    };
+  }, [enabled, mouseDownAction, open]);
+}
+const BOUNDARY_OFFSET = 2;
+const MenuTrigger = fastComponentRef(function MenuTrigger2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    disabled: disabledProp = false,
+    nativeButton = true,
+    id: idProp,
+    openOnHover: openOnHoverProp,
+    delay = 100,
+    closeDelay = 0,
+    handle,
+    payload,
+    ...elementProps
+  } = componentProps;
+  const rootContext = useMenuRootContext(true);
+  const store = handle?.store ?? rootContext?.store;
+  if (!store) {
+    throw new Error(formatErrorMessage(85));
+  }
+  const thisTriggerId = useBaseUiId(idProp);
+  const isTriggerActive = store.useState("isTriggerActive", thisTriggerId);
+  const floatingRootContext = store.useState("floatingRootContext");
+  const isOpenedByThisTrigger = store.useState("isOpenedByTrigger", thisTriggerId);
+  const triggerElementRef = reactExports.useRef(null);
+  const parent = useMenuParent();
+  const compositeRootContext = useCompositeRootContext(true);
+  const floatingTreeRootFromContext = useFloatingTree();
+  const floatingTreeRoot = reactExports.useMemo(() => {
+    return floatingTreeRootFromContext ?? new FloatingTreeStore();
+  }, [floatingTreeRootFromContext]);
+  const floatingNodeId = useFloatingNodeId(floatingTreeRoot);
+  const floatingParentNodeId = useFloatingParentNodeId();
+  const {
+    registerTrigger,
+    isMountedByThisTrigger
+  } = useTriggerDataForwarding(thisTriggerId, triggerElementRef, store, {
+    payload,
+    closeDelay,
+    parent,
+    floatingTreeRoot,
+    floatingNodeId,
+    floatingParentNodeId,
+    keyboardEventRelay: compositeRootContext?.relayKeyboardEvent
+  });
+  const isInMenubar = parent.type === "menubar";
+  const rootDisabled = store.useState("disabled");
+  const disabled2 = disabledProp || rootDisabled || isInMenubar && parent.context.disabled;
+  const {
+    getButtonProps,
+    buttonRef
+  } = useButton({
+    disabled: disabled2,
+    native: nativeButton
+  });
+  reactExports.useEffect(() => {
+    if (!isOpenedByThisTrigger && parent.type === void 0) {
+      store.context.allowMouseUpTriggerRef.current = false;
+    }
+  }, [store, isOpenedByThisTrigger, parent.type]);
+  const triggerRef = reactExports.useRef(null);
+  const allowMouseUpTriggerTimeout = useTimeout();
+  const handleDocumentMouseUp = useStableCallback((mouseEvent) => {
+    if (!triggerRef.current) {
+      return;
+    }
+    allowMouseUpTriggerTimeout.clear();
+    store.context.allowMouseUpTriggerRef.current = false;
+    const mouseUpTarget = mouseEvent.target;
+    if (contains(triggerRef.current, mouseUpTarget) || contains(store.select("positionerElement"), mouseUpTarget) || mouseUpTarget === triggerRef.current) {
+      return;
+    }
+    if (mouseUpTarget != null && findRootOwnerId(mouseUpTarget) === store.select("rootId")) {
+      return;
+    }
+    const bounds = getPseudoElementBounds(triggerRef.current);
+    if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET) {
+      return;
+    }
+    floatingTreeRoot.events.emit("close", {
+      domEvent: mouseEvent,
+      reason: cancelOpen
+    });
+  });
+  reactExports.useEffect(() => {
+    if (isOpenedByThisTrigger && store.select("lastOpenChangeReason") === triggerHover) {
+      const doc = ownerDocument(triggerRef.current);
+      doc.addEventListener("mouseup", handleDocumentMouseUp, {
+        once: true
+      });
+    }
+  }, [isOpenedByThisTrigger, handleDocumentMouseUp, store]);
+  const parentMenubarHasSubmenuOpen = isInMenubar && parent.context.hasSubmenuOpen;
+  const openOnHover = openOnHoverProp ?? parentMenubarHasSubmenuOpen;
+  const hoverProps = useHoverReferenceInteraction(floatingRootContext, {
+    enabled: openOnHover && !disabled2 && parent.type !== "context-menu" && (!isInMenubar || parentMenubarHasSubmenuOpen && !isMountedByThisTrigger),
+    handleClose: safePolygon({
+      blockPointerEvents: !isInMenubar
+    }),
+    mouseOnly: true,
+    move: false,
+    restMs: parent.type === void 0 ? delay : void 0,
+    delay: {
+      close: closeDelay
+    },
+    triggerElementRef,
+    externalTree: floatingTreeRoot,
+    isActiveTrigger: isTriggerActive
+  });
+  const stickIfOpen = useStickIfOpen(isOpenedByThisTrigger, store.select("lastOpenChangeReason"));
+  const click = useClick(floatingRootContext, {
+    enabled: !disabled2 && parent.type !== "context-menu",
+    event: isOpenedByThisTrigger && isInMenubar ? "click" : "mousedown",
+    toggle: true,
+    ignoreMouse: false,
+    stickIfOpen: parent.type === void 0 ? stickIfOpen : false
+  });
+  const focus2 = useFocus(floatingRootContext, {
+    enabled: !disabled2 && parentMenubarHasSubmenuOpen
+  });
+  const mixedToggleHandlers = useMixedToggleClickHandler({
+    open: isOpenedByThisTrigger,
+    enabled: isInMenubar,
+    mouseDownAction: "open"
+  });
+  const localInteractionProps = useInteractions([click, focus2]);
+  const state = {
+    disabled: disabled2,
+    open: isOpenedByThisTrigger
+  };
+  const rootTriggerProps = store.useState("triggerProps", isMountedByThisTrigger);
+  const ref = [triggerRef, forwardedRef, buttonRef, registerTrigger, triggerElementRef];
+  const props = [localInteractionProps.getReferenceProps(), hoverProps ?? EMPTY_OBJECT, rootTriggerProps, {
+    "aria-haspopup": "menu",
+    id: thisTriggerId,
+    onMouseDown: (event) => {
+      if (store.select("open")) {
+        return;
+      }
+      allowMouseUpTriggerTimeout.start(200, () => {
+        store.context.allowMouseUpTriggerRef.current = true;
+      });
+      const doc = ownerDocument(event.currentTarget);
+      doc.addEventListener("mouseup", handleDocumentMouseUp, {
+        once: true
+      });
+    }
+  }, isInMenubar ? {
+    role: "menuitem"
+  } : {}, mixedToggleHandlers, elementProps, getButtonProps];
+  const preFocusGuardRef = reactExports.useRef(null);
+  const handlePreFocusGuardFocus = useStableCallback((event) => {
+    reactDomExports.flushSync(() => {
+      store.setOpen(false, createChangeEventDetails(focusOut, event.nativeEvent, event.currentTarget));
+    });
+    const previousTabbable = getTabbableBeforeElement(preFocusGuardRef.current);
+    previousTabbable?.focus();
+  });
+  const handleFocusTargetFocus = useStableCallback((event) => {
+    const currentPositionerElement = store.select("positionerElement");
+    if (currentPositionerElement && isOutsideEvent(event, currentPositionerElement)) {
+      store.context.beforeContentFocusGuardRef.current?.focus();
+    } else {
+      reactDomExports.flushSync(() => {
+        store.setOpen(false, createChangeEventDetails(focusOut, event.nativeEvent, event.currentTarget));
+      });
+      let nextTabbable = getTabbableAfterElement(store.context.triggerFocusTargetRef.current || triggerElementRef.current);
+      while (nextTabbable !== null && contains(currentPositionerElement, nextTabbable)) {
+        const prevTabbable = nextTabbable;
+        nextTabbable = getNextTabbable(nextTabbable);
+        if (nextTabbable === prevTabbable) {
+          break;
+        }
+      }
+      nextTabbable?.focus();
+    }
+  });
+  const element = useRenderElement("button", componentProps, {
+    enabled: !isInMenubar,
+    stateAttributesMapping: pressableTriggerOpenStateMapping,
+    state,
+    ref,
+    props
+  });
+  if (isInMenubar) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeItem, {
+      tag: "button",
+      render,
+      className,
+      state,
+      refs: ref,
+      props,
+      stateAttributesMapping: pressableTriggerOpenStateMapping
+    });
+  }
+  if (isOpenedByThisTrigger) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
+      children: [/* @__PURE__ */ jsxRuntimeExports.jsx(FocusGuard, {
+        ref: preFocusGuardRef,
+        onFocus: handlePreFocusGuardFocus
+      }, `${thisTriggerId}-pre-focus-guard`), /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
+        children: element
+      }, thisTriggerId), /* @__PURE__ */ jsxRuntimeExports.jsx(FocusGuard, {
+        ref: store.context.triggerFocusTargetRef,
+        onFocus: handleFocusTargetFocus
+      }, `${thisTriggerId}-post-focus-guard`)]
+    });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
+    children: element
+  }, thisTriggerId);
+});
+function useStickIfOpen(open, openReason) {
+  const stickIfOpenTimeout = useTimeout();
+  const [stickIfOpen, setStickIfOpen] = reactExports.useState(false);
+  useIsoLayoutEffect(() => {
+    if (open && openReason === "trigger-hover") {
+      setStickIfOpen(true);
+      stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
+        setStickIfOpen(false);
+      });
+    } else if (!open) {
+      stickIfOpenTimeout.clear();
+      setStickIfOpen(false);
+    }
+  }, [open, openReason, stickIfOpenTimeout]);
+  return stickIfOpen;
+}
+function useMenuParent() {
+  const contextMenuContext = useContextMenuRootContext(true);
+  const parentContext = useMenuRootContext(true);
+  const menubarContext = useMenubarContext();
+  const parent = reactExports.useMemo(() => {
+    if (menubarContext) {
+      return {
+        type: "menubar",
+        context: menubarContext
+      };
+    }
+    if (contextMenuContext && !parentContext) {
+      return {
+        type: "context-menu",
+        context: contextMenuContext
+      };
+    }
+    return {
+      type: void 0
+    };
+  }, [contextMenuContext, parentContext, menubarContext]);
+  return parent;
 }
 const MenuSubmenuTrigger = /* @__PURE__ */ reactExports.forwardRef(function SubmenuTriggerComponent(componentProps, forwardedRef) {
   const {
@@ -50980,6 +51310,59 @@ function ContextMenuSeparator({
     {
       "data-slot": "context-menu-separator",
       className: cn$2("bg-border -mx-1 my-1 h-px", className),
+      ...props
+    }
+  );
+}
+function DropdownMenu({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuRoot, { "data-slot": "dropdown-menu", ...props });
+}
+function DropdownMenuTrigger({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuTrigger, { "data-slot": "dropdown-menu-trigger", ...props });
+}
+function DropdownMenuContent({
+  align = "start",
+  alignOffset = 0,
+  side = "bottom",
+  sideOffset = 4,
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    MenuPositioner,
+    {
+      className: "isolate z-50 outline-none",
+      align,
+      alignOffset,
+      side,
+      sideOffset,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        MenuPopup,
+        {
+          "data-slot": "dropdown-menu-content",
+          className: cn$2("data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 bg-popover text-popover-foreground min-w-32 rounded-lg p-1 shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 z-50 max-h-(--available-height) w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto outline-none data-closed:overflow-hidden", className),
+          ...props
+        }
+      )
+    }
+  ) });
+}
+function DropdownMenuItem({
+  className,
+  inset,
+  variant = "default",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    MenuItem,
+    {
+      "data-slot": "dropdown-menu-item",
+      "data-inset": inset,
+      "data-variant": variant,
+      className: cn$2(
+        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:text-destructive not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 group/dropdown-menu-item relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className
+      ),
       ...props
     }
   );
@@ -54871,7 +55254,6 @@ function useDroppable(_ref) {
 }
 function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
   const { hosts, folders, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
-  const [search, setSearch] = reactExports.useState("");
   const [folderDialogOpen, setFolderDialogOpen] = reactExports.useState(false);
   const [editingFolder, setEditingFolder] = reactExports.useState(null);
   reactExports.useEffect(() => {
@@ -54916,44 +55298,38 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
     if (!window.confirm(`Delete folder "${folder.name}"? Hosts inside will move to root.`)) return;
     await deleteFolder(folder.id);
   }
-  const filtered = search ? hosts.filter(
-    (h2) => h2.label.toLowerCase().includes(search.toLowerCase()) || h2.hostname.toLowerCase().includes(search.toLowerCase())
-  ) : hosts;
   const rootFolders = folders.filter((f) => !f.parentId);
-  const rootHosts = filtered.filter((h2) => !h2.folderId);
+  const rootHosts = hosts.filter((h2) => !h2.folderId);
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4 mb-6", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-lg font-semibold", children: "Hosts" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage and connect to your servers" })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", variant: "outline", onClick: handleCreateFolder, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(FolderOpen, { className: "h-4 w-4 mr-1.5" }),
-        "New Folder"
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", onClick: onAddHost, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
-        "Add Host"
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenu, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuTrigger, { asChild: true, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
+          "Add Host",
+          /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "h-4 w-4 ml-1.5" })
+        ] }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuContent, { align: "end", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuItem, { onClick: onAddHost, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-2" }),
+            "Add Host"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuItem, { onClick: handleCreateFolder, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(FolderOpen, { className: "h-4 w-4 mr-2" }),
+            "New Folder"
+          ] })
+        ] })
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative mb-6 max-w-sm", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Search, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        Input,
-        {
-          placeholder: "Search hosts...",
-          value: search,
-          onChange: (e) => setSearch(e.target.value),
-          className: "pl-9"
-        }
-      )
-    ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(DndContext, { sensors, onDragEnd: handleDragEnd, children: [
-      !search && rootFolders.map((folder) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      rootFolders.map((folder) => /* @__PURE__ */ jsxRuntimeExports.jsx(
         DroppableFolderSection,
         {
           folder,
-          hosts: filtered,
+          hosts,
           allFolders: folders,
           onEditHost,
           onDeleteHost: handleDeleteHost,
