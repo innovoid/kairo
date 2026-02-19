@@ -275,8 +275,22 @@ export const supabaseSync = {
   },
 
   async deleteFolder(supabase: SupabaseClient, id: string): Promise<void> {
-    const { error } = await supabase.from('host_folders').delete().eq('id', id);
-    if (error) throw error;
+    // Move all hosts in this folder to root (folder_id = null)
+    const { error: updateError } = await supabase
+      .from('hosts')
+      .update({ folder_id: null })
+      .eq('folder_id', id);
+    if (updateError) throw updateError;
+
+    // Update local SQLite
+    const db = require('../db').getDb();
+    db.prepare('update hosts set folder_id = null where folder_id = ?').run(id);
+
+    // Delete the folder from Supabase
+    const { error: deleteError } = await supabase.from('host_folders').delete().eq('id', id);
+    if (deleteError) throw deleteError;
+
+    // Delete the folder from SQLite
     folderQueries.delete(id);
   },
 
