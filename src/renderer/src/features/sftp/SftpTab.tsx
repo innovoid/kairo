@@ -1,5 +1,6 @@
 import type { Tab } from '@/stores/session-store';
 import { FilePane } from './FilePane';
+import { TransferProgress } from './TransferProgress';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -34,6 +35,7 @@ export function SftpTab({ tab }: SftpTabProps) {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+      <TransferProgress />
     </div>
   );
 }
