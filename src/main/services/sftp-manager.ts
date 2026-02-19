@@ -74,21 +74,28 @@ export const sftpManager = {
       sftp.stat(remotePath, (statErr, stats) => {
         const totalBytes = statErr ? 0 : (stats.size ?? 0);
         let bytesTransferred = 0;
+        let lastUpdate = Date.now();
 
         const readStream = sftp.createReadStream(remotePath);
         const writeStream = createWriteStream(localPath);
 
         readStream.on('data', (chunk: Buffer) => {
           bytesTransferred += chunk.length;
-          const progress: TransferProgress = {
-            transferId,
-            filename,
-            direction: 'download',
-            bytesTransferred,
-            totalBytes,
-            status: 'active',
-          };
-          if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+
+          // Throttle progress events to every 100ms
+          const now = Date.now();
+          if (now - lastUpdate > 100) {
+            const progress: TransferProgress = {
+              transferId,
+              filename,
+              direction: 'download',
+              bytesTransferred,
+              totalBytes,
+              status: 'active',
+            };
+            if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+            lastUpdate = now;
+          }
         });
 
         readStream.on('error', (err: Error) => {
@@ -126,6 +133,7 @@ export const sftpManager = {
     const fileStat = await stat(localPath);
     const totalBytes = fileStat.size;
     let bytesTransferred = 0;
+    let lastUpdate = Date.now();
 
     return new Promise((resolve, reject) => {
       const readStream = createReadStream(localPath);
@@ -133,11 +141,17 @@ export const sftpManager = {
 
       readStream.on('data', (chunk: Buffer) => {
         bytesTransferred += chunk.length;
-        const progress: TransferProgress = {
-          transferId, filename, direction: 'upload',
-          bytesTransferred, totalBytes, status: 'active',
-        };
-        if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+
+        // Throttle progress events to every 100ms
+        const now = Date.now();
+        if (now - lastUpdate > 100) {
+          const progress: TransferProgress = {
+            transferId, filename, direction: 'upload',
+            bytesTransferred, totalBytes, status: 'active',
+          };
+          if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+          lastUpdate = now;
+        }
       });
 
       readStream.on('error', (err: Error) => {
