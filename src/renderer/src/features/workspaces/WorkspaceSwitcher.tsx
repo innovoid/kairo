@@ -35,11 +35,11 @@ export function WorkspaceSwitcher() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger>
-        <button className="flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent">
+      <PopoverTrigger render={(props) => (
+        <button {...props} className="flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent">
           <AvatarInitials name={workspaceName} size="sm" />
         </button>
-      </PopoverTrigger>
+      )} />
       <PopoverContent className="w-64 p-2" side="right" align="start" sideOffset={8}>
         <div className="space-y-1">
           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
