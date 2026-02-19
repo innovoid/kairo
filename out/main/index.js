@@ -194,27 +194,23 @@ const workspaceIpcHandlers = {
   members: {
     async list(event, workspaceId) {
       const supabase = await getAuthedClient(event);
-      const { data: members, error: membersError } = await supabase.from("workspace_members").select("workspace_id,user_id,role,created_at").eq("workspace_id", workspaceId).order("created_at", { ascending: true });
+      const { data: members, error: membersError } = await supabase.from("workspace_members").select(`
+          workspace_id,
+          user_id,
+          role,
+          created_at,
+          users:user_id (
+            email,
+            name
+          )
+        `).eq("workspace_id", workspaceId).order("created_at", { ascending: true });
       if (membersError) throw membersError;
       if (!members || members.length === 0) return [];
-      members.map((m) => m.user_id);
-      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
-      if (usersError) {
-        console.warn("Could not fetch user emails:", usersError);
-        return members.map((row) => ({
-          workspaceId: row.workspace_id,
-          userId: row.user_id,
-          email: row.user_id,
-          // Fallback to showing userId
-          role: row.role,
-          createdAt: row.created_at
-        }));
-      }
-      const userEmailMap = new Map(users.map((u) => [u.id, u.email || u.id]));
       return members.map((row) => ({
         workspaceId: row.workspace_id,
         userId: row.user_id,
-        email: userEmailMap.get(row.user_id) || row.user_id,
+        email: row.users?.email || row.user_id,
+        name: row.users?.name || row.users?.email || "Unknown User",
         role: row.role,
         createdAt: row.created_at
       }));

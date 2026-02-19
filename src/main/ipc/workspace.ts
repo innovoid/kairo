@@ -344,42 +344,30 @@ export const workspaceIpcHandlers = {
     async list(event: IpcMainInvokeEvent, workspaceId: string): Promise<WorkspaceMember[]> {
       const supabase = await getAuthedClient(event);
 
-      // Fetch workspace members
+      // Fetch workspace members with user info from public.users
       const { data: members, error: membersError } = await supabase
         .from('workspace_members')
-        .select('workspace_id,user_id,role,created_at')
+        .select(`
+          workspace_id,
+          user_id,
+          role,
+          created_at,
+          users:user_id (
+            email,
+            name
+          )
+        `)
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: true });
 
       if (membersError) throw membersError;
       if (!members || members.length === 0) return [];
 
-      // Fetch user emails from auth (using the admin client would be better, but for now we'll try direct RPC)
-      // Note: This requires a Supabase RPC function or accessing auth.users with service role
-      const userIds = members.map(m => m.user_id);
-
-      // Try to get emails via Supabase admin API
-      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
-
-      if (usersError) {
-        // If we can't fetch emails, return with userId as email fallback
-        console.warn('Could not fetch user emails:', usersError);
-        return members.map((row) => ({
-          workspaceId: row.workspace_id,
-          userId: row.user_id,
-          email: row.user_id, // Fallback to showing userId
-          role: row.role,
-          createdAt: row.created_at,
-        }));
-      }
-
-      // Map user IDs to emails
-      const userEmailMap = new Map(users.map(u => [u.id, u.email || u.id]));
-
-      return members.map((row) => ({
+      return members.map((row: any) => ({
         workspaceId: row.workspace_id,
         userId: row.user_id,
-        email: userEmailMap.get(row.user_id) || row.user_id,
+        email: row.users?.email || row.user_id,
+        name: row.users?.name || row.users?.email || 'Unknown User',
         role: row.role,
         createdAt: row.created_at,
       }));

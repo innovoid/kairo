@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Users } from 'lucide-react';
 import type { WorkspaceMember, WorkspaceRole } from '@shared/types/workspace';
+import { AvatarInitials } from '@/components/ui/avatar-initials';
 import {
   Table,
   TableBody,
@@ -104,15 +105,11 @@ export function TeamTab({ workspaceId }: TeamTabProps) {
                 {members.map((member) => (
                   <TableRow key={member.userId}>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-xs font-medium">
-                            {member.email.substring(0, 2).toUpperCase()}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-3">
+                        <AvatarInitials name={member.name || member.email} size="sm" />
                         <div>
-                          <p className="text-sm font-medium">{member.email}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{member.userId}</p>
+                          <p className="text-sm font-medium">{member.name || member.email}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
                         </div>
                       </div>
                     </TableCell>

@@ -30,18 +30,35 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setName(data.user?.user_metadata?.name || '');
-    });
+    async function loadProfile() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setUser(authUser);
+
+      if (authUser) {
+        // Load name from public.users
+        const { data: profile } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', authUser.id)
+          .single();
+
+        setName(profile?.name || authUser.email || '');
+      }
+    }
+    loadProfile();
   }, []);
 
   async function handleUpdateProfile() {
+    if (!user) return;
+
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { name }
-      });
+      // Update name in public.users
+      const { error } = await supabase
+        .from('users')
+        .update({ name })
+        .eq('id', user.id);
+
       if (error) throw error;
       toast.success('Profile updated successfully');
     } catch (error) {

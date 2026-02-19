@@ -35695,12 +35695,18 @@ function WorkspaceSwitcher() {
 }
 function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, activeView }) {
   const [user, setUser] = reactExports.useState(null);
+  const [userName, setUserName] = reactExports.useState("User");
   reactExports.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
+    async function loadUser() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setUser(authUser);
+      if (authUser) {
+        const { data: profile } = await supabase.from("users").select("name").eq("id", authUser.id).single();
+        setUserName(profile?.name || authUser.email || "User");
+      }
+    }
+    loadUser();
   }, []);
-  const userName = user?.user_metadata?.name || "User";
   return /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipProvider, { delay: 300, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full px-1 mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceSwitcher, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Server, label: "Hosts", active: activeView === "hosts", onClick: onGoHome }),
@@ -56006,11 +56012,19 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage and connect to your servers" })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenu, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuTrigger, { render: (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { ...props, size: "sm", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuTrigger, { className: cn$2(
+          "h-7 gap-1 rounded-lg px-2.5 text-[0.8rem]",
+          "inline-flex items-center justify-center",
+          "bg-primary text-primary-foreground",
+          "hover:bg-primary/80 transition-all",
+          "border border-transparent",
+          "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:border-ring",
+          "outline-none select-none"
+        ), children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
           "Add Host",
           /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "h-4 w-4 ml-1.5" })
-        ] }) }),
+        ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuContent, { align: "end", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenuItem, { onClick: onAddHost, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-2" }),
@@ -59509,17 +59523,21 @@ function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = reactExports.useState(false);
   const [loading, setLoading] = reactExports.useState(false);
   reactExports.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setName(data.user?.user_metadata?.name || "");
-    });
+    async function loadProfile() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setUser(authUser);
+      if (authUser) {
+        const { data: profile } = await supabase.from("users").select("name").eq("id", authUser.id).single();
+        setName(profile?.name || authUser.email || "");
+      }
+    }
+    loadProfile();
   }, []);
   async function handleUpdateProfile() {
+    if (!user) return;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { name }
-      });
+      const { error } = await supabase.from("users").update({ name }).eq("id", user.id);
       if (error) throw error;
       toast.success("Profile updated successfully");
     } catch (error) {

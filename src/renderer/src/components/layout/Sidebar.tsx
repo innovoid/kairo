@@ -24,14 +24,26 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, activeView }: SidebarProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [userName, setUserName] = useState('User');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-  }, []);
+    async function loadUser() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setUser(authUser);
 
-  const userName = user?.user_metadata?.name || 'User';
+      if (authUser) {
+        // Load name from public.users
+        const { data: profile } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', authUser.id)
+          .single();
+
+        setUserName(profile?.name || authUser.email || 'User');
+      }
+    }
+    loadUser();
+  }, []);
 
   return (
     <TooltipProvider delay={300}>

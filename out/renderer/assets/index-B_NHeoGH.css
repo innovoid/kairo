@@ -4590,6 +4590,16 @@
       }
     }
 
+    .hover\:bg-primary\/80:hover {
+      background-color: var(--primary);
+    }
+
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-primary\/80:hover {
+        background-color: color-mix(in oklab, var(--primary) 80%, transparent);
+      }
+    }
+
     .hover\:bg-primary\/90:hover {
       background-color: var(--primary);
     }

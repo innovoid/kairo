@@ -21,11 +21,25 @@ interface UserMenuProps {
 export function UserMenu({ children }: UserMenuProps) {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [userName, setUserName] = useState('User');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
+    async function loadUser() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setUser(authUser);
+
+      if (authUser) {
+        // Load name from public.users
+        const { data: profile } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', authUser.id)
+          .single();
+
+        setUserName(profile?.name || authUser.email || 'User');
+      }
+    }
+    loadUser();
   }, []);
 
   async function handleLogout() {
@@ -52,7 +66,6 @@ export function UserMenu({ children }: UserMenuProps) {
     return <>{children}</>;
   }
 
-  const userName = user.user_metadata?.name || 'User';
   const userEmail = user.email || '';
 
   return (
