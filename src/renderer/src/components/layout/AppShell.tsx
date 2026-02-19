@@ -6,6 +6,7 @@ import { StatusBar } from './StatusBar';
 import { HostForm } from '@/features/hosts/HostForm';
 import { HostsGrid } from '@/features/hosts/HostsGrid';
 import { KeysPage } from '@/features/keys/KeysPage';
+import { TeamPage } from '@/features/team/TeamPage';
 import { SettingsPage, type SettingsTab } from '@/features/settings/SettingsPage';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { useTransferStore } from '@/stores/transfer-store';
@@ -53,6 +54,10 @@ export function AppShell() {
     openTab({ tabId: 'keys', tabType: 'keys', label: 'SSH Keys' });
   }
 
+  function handleGoTeam() {
+    openTab({ tabId: 'team', tabType: 'team', label: 'Team' });
+  }
+
   function handleGoSettings() {
     openTab({ tabId: 'settings', tabType: 'settings', label: 'Settings', settingsTab: 'terminal' });
   }
@@ -84,7 +89,11 @@ export function AppShell() {
     );
   }
 
-  const sidebarView = activeTab?.tabType === 'settings' ? 'settings' : activeTab?.tabType === 'keys' ? 'keys' : 'hosts';
+  const sidebarView =
+    activeTab?.tabType === 'settings' ? 'settings' :
+    activeTab?.tabType === 'keys' ? 'keys' :
+    activeTab?.tabType === 'team' ? 'team' :
+    'hosts';
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
@@ -94,6 +103,7 @@ export function AppShell() {
           onOpenSettings={handleGoSettings}
           onGoHome={handleGoHome}
           onGoKeys={handleGoKeys}
+          onGoTeam={handleGoTeam}
           activeView={sidebarView}
         />
 
@@ -110,6 +120,7 @@ export function AppShell() {
               />
             )}
             {activeTab?.tabType === 'keys' && <KeysPage workspaceId={workspaceId} />}
+            {activeTab?.tabType === 'team' && <TeamPage workspaceId={workspaceId} />}
             {activeTab?.tabType === 'settings' && (
               <SettingsPage
                 activeTab={activeTab.settingsTab ?? 'terminal'}

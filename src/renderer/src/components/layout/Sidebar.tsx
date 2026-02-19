@@ -4,17 +4,18 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-import { SquareTerminal, Server, KeyRound, Settings } from 'lucide-react';
+import { SquareTerminal, Server, KeyRound, Users, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   onOpenSettings: () => void;
   onGoHome: () => void;
   onGoKeys: () => void;
-  activeView: 'hosts' | 'keys' | 'settings';
+  onGoTeam: () => void;
+  activeView: 'hosts' | 'keys' | 'team' | 'settings';
 }
 
-export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, activeView }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoTeam, activeView }: SidebarProps) {
   return (
     <TooltipProvider delay={300}>
       <div className="flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1">
@@ -26,6 +27,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, activeView }: Side
         {/* Navigation */}
         <NavButton icon={Server} label="Hosts" active={activeView === 'hosts'} onClick={onGoHome} />
         <NavButton icon={KeyRound} label="SSH Keys" active={activeView === 'keys'} onClick={onGoKeys} />
+        <NavButton icon={Users} label="Team" active={activeView === 'team'} onClick={onGoTeam} />
 
         <div className="flex-1" />
 
