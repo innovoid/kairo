@@ -1,6 +1,7 @@
 import { createHash, pbkdf2Sync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { keyQueries, privateKeyQueries } from '../db';
+import { keyQueries } from '../db';
+import { keyManager } from './key-manager';
 
 const PBKDF2_ITERATIONS = 100000;
 const KEY_LENGTH = 32;
@@ -131,19 +132,9 @@ export const workspaceEncryption = {
       if (!valid) throw new Error('Invalid workspace passphrase');
     }
 
-    // Get private key from local storage
-    const pk = privateKeyQueries.get(keyId);
-    if (!pk) throw new Error('Private key not found in local storage');
-
-    // Decrypt the locally stored key (uses local encryption)
-    const keyBuf = Buffer.alloc(32);
-    Buffer.from('archterm-v1-secret-key-padding!!').copy(keyBuf);
-    const localDecipher = createDecipheriv('aes-256-gcm', keyBuf, Buffer.from(pk.iv, 'base64'));
-    localDecipher.setAuthTag(Buffer.from(pk.auth_tag, 'base64'));
-    const privateKeyData = Buffer.concat([
-      localDecipher.update(Buffer.from(pk.encrypted_blob, 'base64')),
-      localDecipher.final(),
-    ]).toString('utf8');
+    // Get private key from local storage and decrypt via keyManager
+    const privateKeyData = await keyManager.getDecryptedKey(keyId);
+    if (!privateKeyData) throw new Error('Private key not found in local storage');
 
     // Get workspace salt
     const { data: encData, error: encError } = await supabase

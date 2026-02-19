@@ -18,6 +18,23 @@ export function getDb(): Database.Database {
   _db.pragma('journal_mode = WAL');
   _db.pragma('foreign_keys = ON');
   runMigrations(_db);
+
+  // Migrate legacy private keys to safeStorage-backed encryption.
+  // Lazy require to avoid circular dependency (key-manager imports from db).
+  try {
+    const legacyCount = _db
+      .prepare('select count(*) as cnt from private_keys where salt is null')
+      .get() as { cnt: number } | undefined;
+
+    if (legacyCount && legacyCount.cnt > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { migratePrivateKeys } = require('./services/key-manager') as typeof import('./services/key-manager');
+      migratePrivateKeys(_db);
+    }
+  } catch {
+    // Migration is best-effort; legacy keys still decrypt via fallback
+  }
+
   return _db;
 }
 
@@ -61,7 +78,8 @@ function runMigrations(db: Database.Database): void {
       key_id text primary key,
       encrypted_blob text not null,
       iv text not null,
-      auth_tag text not null
+      auth_tag text not null,
+      salt text
     );
 
     create table if not exists settings_cache (
@@ -69,7 +87,20 @@ function runMigrations(db: Database.Database): void {
       data text not null,
       synced_at integer
     );
+
+    create table if not exists app_secrets (
+      key text primary key,
+      value text not null
+    );
   `);
+
+  // Add salt column to private_keys if it doesn't exist (migration for existing databases)
+  const cols = db
+    .prepare("pragma table_info('private_keys')")
+    .all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'salt')) {
+    db.exec('alter table private_keys add column salt text');
+  }
 }
 
 // Typed query helpers
@@ -113,6 +144,7 @@ export interface DbPrivateKey {
   encrypted_blob: string;
   iv: string;
   auth_tag: string;
+  salt: string | null;
 }
 
 export const hostQueries = {
@@ -196,8 +228,8 @@ export const privateKeyQueries = {
   upsert: (pk: DbPrivateKey): void => {
     const db = getDb();
     db.prepare(`
-      insert or replace into private_keys (key_id, encrypted_blob, iv, auth_tag)
-      values (@key_id, @encrypted_blob, @iv, @auth_tag)
+      insert or replace into private_keys (key_id, encrypted_blob, iv, auth_tag, salt)
+      values (@key_id, @encrypted_blob, @iv, @auth_tag, @salt)
     `).run(pk);
   },
   delete: (keyId: string): void => {
