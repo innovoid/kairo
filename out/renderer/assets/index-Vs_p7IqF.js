@@ -43770,11 +43770,35 @@ const useHostStore = create((set) => ({
     }
   },
   createHost: async (input) => {
+    const tempId = `temp-${Date.now()}`;
+    const placeholderHost = {
+      id: tempId,
+      workspaceId: input.workspaceId,
+      folderId: input.folderId ?? null,
+      label: input.label,
+      hostname: input.hostname,
+      port: input.port ?? 22,
+      username: input.username,
+      authType: input.authType,
+      password: null,
+      keyId: input.keyId ?? null,
+      tags: input.tags ?? [],
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    set((state) => ({ hosts: [...state.hosts, placeholderHost] }));
     const host = await window.hostsApi.create(input);
-    set((state) => ({ hosts: [...state.hosts, host] }));
+    set((state) => ({
+      hosts: state.hosts.map((h2) => h2.id === tempId ? host : h2)
+    }));
     return host;
   },
   updateHost: async (id, input) => {
+    set((state) => ({
+      hosts: state.hosts.map(
+        (h2) => h2.id === id ? { ...h2, ...input, updatedAt: (/* @__PURE__ */ new Date()).toISOString() } : h2
+      )
+    }));
     const updated = await window.hostsApi.update(id, input);
     set((state) => ({
       hosts: state.hosts.map((h2) => h2.id === id ? updated : h2)
@@ -43785,14 +43809,40 @@ const useHostStore = create((set) => ({
     set((state) => ({ hosts: state.hosts.filter((h2) => h2.id !== id) }));
   },
   moveToFolder: async (id, folderId) => {
-    const updated = await window.hostsApi.moveToFolder(id, folderId);
     set((state) => ({
-      hosts: state.hosts.map((h2) => h2.id === id ? updated : h2)
+      hosts: state.hosts.map(
+        (h2) => h2.id === id ? { ...h2, folderId } : h2
+      )
     }));
+    try {
+      const updated = await window.hostsApi.moveToFolder(id, folderId);
+      set((state) => ({
+        hosts: state.hosts.map((h2) => h2.id === id ? updated : h2)
+      }));
+    } catch (error) {
+      console.error("Failed to move host:", error);
+      const workspaceId = window.currentWorkspaceId;
+      if (workspaceId) {
+        const hosts = await window.hostsApi.list(workspaceId);
+        set({ hosts });
+      }
+    }
   },
   createFolder: async (input) => {
+    const tempId = `temp-${Date.now()}`;
+    const placeholderFolder = {
+      id: tempId,
+      workspaceId: input.workspaceId,
+      parentId: input.parentId ?? null,
+      name: input.name,
+      position: input.position ?? 0,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    set((state) => ({ folders: [...state.folders, placeholderFolder] }));
     const folder = await window.foldersApi.create(input);
-    set((state) => ({ folders: [...state.folders, folder] }));
+    set((state) => ({
+      folders: state.folders.map((f) => f.id === tempId ? folder : f)
+    }));
     return folder;
   },
   updateFolder: async (id, name) => {
