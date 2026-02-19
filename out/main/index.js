@@ -1446,11 +1446,32 @@ function getClient$1(event) {
   return client;
 }
 const keysIpcHandlers = {
-  list(_event, workspaceId) {
-    return keyManager.list(workspaceId);
+  async list(event, workspaceId) {
+    const localKeys = keyManager.list(workspaceId);
+    try {
+      const supabase = getClient$1(event);
+      for (const key of localKeys) {
+        try {
+          await supabaseSync.syncKeyMetadata(supabase, key.id);
+        } catch (error) {
+          console.error(`[keys.list] Failed to sync key ${key.id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("[keys.list] Failed to sync keys to Supabase:", error);
+    }
+    return localKeys;
   },
-  async import(_event, input) {
-    return keyManager.import(input);
+  async import(event, input) {
+    const key = await keyManager.import(input);
+    try {
+      const supabase = getClient$1(event);
+      await supabaseSync.syncKeyMetadata(supabase, key.id);
+      console.log("[keys.import] Key metadata synced to Supabase:", key.id);
+    } catch (error) {
+      console.error("[keys.import] Failed to sync key metadata to Supabase:", error);
+    }
+    return key;
   },
   delete(_event, id) {
     keyManager.delete(id);

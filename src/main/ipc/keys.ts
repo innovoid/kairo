@@ -12,12 +12,41 @@ function getClient(event: IpcMainInvokeEvent): SupabaseClient {
 }
 
 export const keysIpcHandlers = {
-  list(_event: IpcMainInvokeEvent, workspaceId: string) {
-    return keyManager.list(workspaceId);
+  async list(event: IpcMainInvokeEvent, workspaceId: string) {
+    const localKeys = keyManager.list(workspaceId);
+
+    // Sync any local keys to Supabase if not already there
+    try {
+      const supabase = getClient(event);
+      for (const key of localKeys) {
+        try {
+          await supabaseSync.syncKeyMetadata(supabase, key.id);
+        } catch (error) {
+          console.error(`[keys.list] Failed to sync key ${key.id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('[keys.list] Failed to sync keys to Supabase:', error);
+    }
+
+    return localKeys;
   },
 
-  async import(_event: IpcMainInvokeEvent, input: ImportKeyInput) {
-    return keyManager.import(input);
+  async import(event: IpcMainInvokeEvent, input: ImportKeyInput) {
+    // Import key locally
+    const key = await keyManager.import(input);
+
+    // Automatically sync metadata to Supabase so it can be referenced by hosts
+    try {
+      const supabase = getClient(event);
+      await supabaseSync.syncKeyMetadata(supabase, key.id);
+      console.log('[keys.import] Key metadata synced to Supabase:', key.id);
+    } catch (error) {
+      console.error('[keys.import] Failed to sync key metadata to Supabase:', error);
+      // Don't throw - key is still usable locally
+    }
+
+    return key;
   },
 
   delete(_event: IpcMainInvokeEvent, id: string) {
