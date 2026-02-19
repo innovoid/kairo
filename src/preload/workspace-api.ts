@@ -4,6 +4,9 @@ import type { WorkspaceIpcApi } from '../shared/types/workspace';
 const workspaceApi: WorkspaceIpcApi & {
   getActiveContext: () => Promise<unknown>;
   ensurePersonalWorkspace: (name?: string) => Promise<unknown>;
+  update: (workspaceId: string, updates: { name: string }) => Promise<unknown>;
+  delete: (workspaceId: string) => Promise<void>;
+  leave: (workspaceId: string) => Promise<void>;
 } = {
   create: (input) => ipcRenderer.invoke('workspace.create', input),
   listMine: () => ipcRenderer.invoke('workspace.listMine'),
@@ -18,6 +21,9 @@ const workspaceApi: WorkspaceIpcApi & {
   },
   getActiveContext: () => ipcRenderer.invoke('workspace.getActiveContext'),
   ensurePersonalWorkspace: (name) => ipcRenderer.invoke('workspace.ensurePersonalWorkspace', name),
+  update: (workspaceId, updates) => ipcRenderer.invoke('workspace.updateWorkspace', workspaceId, updates),
+  delete: (workspaceId) => ipcRenderer.invoke('workspace.deleteWorkspace', workspaceId),
+  leave: (workspaceId) => ipcRenderer.invoke('workspace.leaveWorkspace', workspaceId),
 };
 
 contextBridge.exposeInMainWorld('workspaceApi', workspaceApi);

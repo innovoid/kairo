@@ -130,6 +130,9 @@ export function registerWorkspaceIpcHandlers(): void {
   register('workspace.invite', withSupabase(workspaceIpcHandlers.invite));
   register('workspace.acceptInvite', withSupabase(workspaceIpcHandlers.acceptInvite));
   register('workspace.revokeInvite', withSupabase(workspaceIpcHandlers.revokeInvite));
+  register('workspace.updateWorkspace', withSupabase(workspaceIpcHandlers.updateWorkspace));
+  register('workspace.deleteWorkspace', withSupabase(workspaceIpcHandlers.deleteWorkspace));
+  register('workspace.leaveWorkspace', withSupabase(workspaceIpcHandlers.leaveWorkspace));
   register('workspace.members.list', withSupabase(workspaceIpcHandlers.members.list));
   register('workspace.members.updateRole', withSupabase(workspaceIpcHandlers.members.updateRole));
   register('workspace.members.remove', withSupabase(workspaceIpcHandlers.members.remove));
