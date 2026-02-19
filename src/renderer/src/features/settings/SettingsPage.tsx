@@ -315,9 +315,6 @@ function AiTab() {
   const [openaiKey, setOpenaiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
-  const [openaiModel, setOpenaiModel] = useState('gpt-4o-mini');
-  const [anthropicModel, setAnthropicModel] = useState('claude-3-5-sonnet-20241022');
-  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-exp');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -371,10 +368,6 @@ function AiTab() {
     }
   }
 
-  async function testConnection(provider: string) {
-    toast.success(`${provider} connection test successful`);
-  }
-
   function toggleShowKey(provider: string) {
     setShowKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
   }
@@ -423,29 +416,6 @@ function AiTab() {
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Default Model</Label>
-              <Select value={openaiModel} onValueChange={setOpenaiModel}>
-                <SelectTrigger className="h-8">
-                  <SelectValue>
-                    {openaiModel === 'gpt-4o' ? 'GPT-4o' : openaiModel === 'gpt-4o-mini' ? 'GPT-4o mini' : 'GPT-4 Turbo'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                  <SelectItem value="gpt-4o-mini">GPT-4o mini</SelectItem>
-                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => testConnection('OpenAI')}
-            >
-              Test Connection
-            </Button>
           </div>
         )}
       </div>
@@ -486,29 +456,6 @@ function AiTab() {
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Default Model</Label>
-              <Select value={anthropicModel} onValueChange={setAnthropicModel}>
-                <SelectTrigger className="h-8">
-                  <SelectValue>
-                    {anthropicModel === 'claude-3-5-sonnet-20241022' ? 'Claude 3.5 Sonnet' : anthropicModel === 'claude-3-opus-20240229' ? 'Claude 3 Opus' : 'Claude 3 Haiku'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
-                  <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
-                  <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => testConnection('Anthropic')}
-            >
-              Test Connection
-            </Button>
           </div>
         )}
       </div>
@@ -549,29 +496,6 @@ function AiTab() {
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Default Model</Label>
-              <Select value={geminiModel} onValueChange={setGeminiModel}>
-                <SelectTrigger className="h-8">
-                  <SelectValue>
-                    {geminiModel === 'gemini-2.0-flash-exp' ? 'Gemini 2.0 Flash' : geminiModel === 'gemini-1.5-pro' ? 'Gemini 1.5 Pro' : 'Gemini 1.5 Flash'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash</SelectItem>
-                  <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                  <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => testConnection('Gemini')}
-            >
-              Test Connection
-            </Button>
           </div>
         )}
       </div>

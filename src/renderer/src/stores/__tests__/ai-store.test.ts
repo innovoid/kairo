@@ -8,15 +8,12 @@ vi.mock('../settings-store', () => ({
     getState: vi.fn(() => ({
       settings: {
         aiProvider: 'openai',
-        openaiApiKeyEncrypted: 'test-api-key',
-        anthropicApiKeyEncrypted: null,
-        geminiApiKeyEncrypted: null,
       },
     })),
   },
 }));
 
-// Mock window.aiApi
+// Mock window.aiApi and window.apiKeysApi
 const mockAiApi = {
   complete: vi.fn(),
   onChunk: vi.fn(() => vi.fn()),
@@ -24,13 +21,22 @@ const mockAiApi = {
   onError: vi.fn(() => vi.fn()),
 };
 
+const mockApiKeysApi = {
+  get: vi.fn((_provider?: string): Promise<string | null> => Promise.resolve('test-api-key')),
+  set: vi.fn(() => Promise.resolve()),
+  delete: vi.fn(() => Promise.resolve()),
+};
+
 (global as any).window = {
   aiApi: mockAiApi,
+  apiKeysApi: mockApiKeysApi,
 };
 
 describe('useAiStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset default mock behaviours
+    mockApiKeysApi.get.mockResolvedValue('test-api-key');
     // Reset store state
     useAiStore.setState({
       messages: [],
@@ -146,15 +152,7 @@ describe('useAiStore', () => {
     });
 
     it('should add error message when API key is not configured', async () => {
-      const { useSettingsStore } = await import('../settings-store');
-      vi.mocked(useSettingsStore.getState).mockReturnValue({
-        settings: {
-          aiProvider: 'openai',
-          openaiApiKeyEncrypted: null,
-          anthropicApiKeyEncrypted: null,
-          geminiApiKeyEncrypted: null,
-        },
-      } as any);
+      mockApiKeysApi.get.mockResolvedValue(null);
 
       const { sendMessage } = useAiStore.getState();
 
@@ -175,11 +173,9 @@ describe('useAiStore', () => {
       vi.mocked(useSettingsStore.getState).mockReturnValue({
         settings: {
           aiProvider: 'anthropic',
-          openaiApiKeyEncrypted: null,
-          anthropicApiKeyEncrypted: 'anthropic-key',
-          geminiApiKeyEncrypted: null,
         },
       } as any);
+      mockApiKeysApi.get.mockResolvedValue('anthropic-key');
 
       const { sendMessage } = useAiStore.getState();
 
