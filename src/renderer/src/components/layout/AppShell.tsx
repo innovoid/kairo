@@ -62,8 +62,8 @@ export function AppShell() {
     openTab({ tabId: 'keys', tabType: 'keys', label: 'SSH Keys' });
   }
 
-  function handleGoTeam() {
-    openTab({ tabId: 'team', tabType: 'team', label: 'Team' });
+  function handleGoWorkspace() {
+    openTab({ tabId: 'workspace', tabType: 'workspace', label: 'Workspace' });
   }
 
   function handleGoSettings() {
@@ -104,7 +104,7 @@ export function AppShell() {
   const sidebarView =
     activeTab?.tabType === 'settings' ? 'settings' :
     activeTab?.tabType === 'keys' ? 'keys' :
-    activeTab?.tabType === 'team' ? 'team' :
+    activeTab?.tabType === 'workspace' ? 'workspace' :
     'hosts';
 
   return (
@@ -115,7 +115,7 @@ export function AppShell() {
           onOpenSettings={handleGoSettings}
           onGoHome={handleGoHome}
           onGoKeys={handleGoKeys}
-          onGoTeam={handleGoTeam}
+          onGoWorkspace={handleGoWorkspace}
           activeView={sidebarView}
         />
 
@@ -139,7 +139,7 @@ export function AppShell() {
                 onCloseImport={handleClosePanel}
               />
             )}
-            {activeTab?.tabType === 'team' && <TeamPage workspaceId={workspaceId} />}
+            {activeTab?.tabType === 'workspace' && <TeamPage workspaceId={workspaceId} />}
             {activeTab?.tabType === 'settings' && (
               <SettingsPage
                 activeTab={activeTab.settingsTab ?? 'terminal'}

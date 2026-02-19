@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-import { SquareTerminal, Server, KeyRound, Users, Settings } from 'lucide-react';
+import { SquareTerminal, Server, KeyRound, Building2, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -16,11 +16,11 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onGoHome: () => void;
   onGoKeys: () => void;
-  onGoTeam: () => void;
-  activeView: 'hosts' | 'keys' | 'team' | 'settings';
+  onGoWorkspace: () => void;
+  activeView: 'hosts' | 'keys' | 'workspace' | 'settings';
 }
 
-export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoTeam, activeView }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, activeView }: SidebarProps) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoTeam, activeVi
         {/* Navigation */}
         <NavButton icon={Server} label="Hosts" active={activeView === 'hosts'} onClick={onGoHome} />
         <NavButton icon={KeyRound} label="SSH Keys" active={activeView === 'keys'} onClick={onGoKeys} />
-        <NavButton icon={Users} label="Team" active={activeView === 'team'} onClick={onGoTeam} />
+        <NavButton icon={Building2} label="Workspace" active={activeView === 'workspace'} onClick={onGoWorkspace} />
 
         <div className="flex-1" />
 
