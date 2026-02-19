@@ -77,7 +77,15 @@ const keysApi = {
   import: (input) => ipcRenderer.invoke("keys.import", input),
   delete: (id) => ipcRenderer.invoke("keys.delete", id),
   exportPublic: (id) => ipcRenderer.invoke("keys.exportPublic", id),
-  syncEncrypted: (id) => ipcRenderer.invoke("keys.syncEncrypted", id)
+  syncEncrypted: (id) => ipcRenderer.invoke("keys.syncEncrypted", id),
+  // Workspace encryption
+  isWorkspaceEncryptionInitialized: (workspaceId) => ipcRenderer.invoke("keys.isWorkspaceEncryptionInitialized", workspaceId),
+  initializeWorkspaceEncryption: (workspaceId, passphrase) => ipcRenderer.invoke("keys.initializeWorkspaceEncryption", workspaceId, passphrase),
+  verifyWorkspacePassphrase: (workspaceId, passphrase) => ipcRenderer.invoke("keys.verifyWorkspacePassphrase", workspaceId, passphrase),
+  syncKeyToCloud: (workspaceId, keyId, passphrase) => ipcRenderer.invoke("keys.syncKeyToCloud", workspaceId, keyId, passphrase),
+  downloadKeyFromCloud: (workspaceId, keyId, passphrase) => ipcRenderer.invoke("keys.downloadKeyFromCloud", workspaceId, keyId, passphrase),
+  deleteKeyFromCloud: (workspaceId, keyId) => ipcRenderer.invoke("keys.deleteKeyFromCloud", workspaceId, keyId),
+  changeWorkspacePassphrase: (workspaceId, oldPassphrase, newPassphrase) => ipcRenderer.invoke("keys.changeWorkspacePassphrase", workspaceId, oldPassphrase, newPassphrase)
 };
 contextBridge.exposeInMainWorld("keysApi", keysApi);
 const aiApi = {
