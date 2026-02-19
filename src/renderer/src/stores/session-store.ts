@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import type { SshSessionStatus } from '@shared/types/ssh';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
 
-export type TabType = 'hosts' | 'keys' | 'settings' | 'terminal' | 'sftp';
+export type TabType = 'hosts' | 'keys' | 'team' | 'settings' | 'terminal' | 'sftp';
 
 export interface Tab {
   tabId: string;
@@ -33,6 +33,9 @@ interface SessionState {
 export const useSessionStore = create<SessionState>((set) => ({
   tabs: new Map([
     ['hosts', { tabId: 'hosts', tabType: 'hosts', label: 'Hosts', closable: false }],
+    ['keys', { tabId: 'keys', tabType: 'keys', label: 'SSH Keys', closable: false }],
+    ['team', { tabId: 'team', tabType: 'team', label: 'Team', closable: false }],
+    ['settings', { tabId: 'settings', tabType: 'settings', label: 'Settings', closable: false, settingsTab: 'terminal' }],
   ]),
   activeTabId: 'hosts',
 
@@ -41,8 +44,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       const newTabs = new Map(state.tabs);
       const closable = tab.closable ?? true;
 
-      // Check if tab already exists (for hosts, keys, settings)
-      if (tab.tabType === 'hosts' || tab.tabType === 'keys' || tab.tabType === 'settings') {
+      // Check if tab already exists (for hosts, keys, team, settings)
+      if (tab.tabType === 'hosts' || tab.tabType === 'keys' || tab.tabType === 'team' || tab.tabType === 'settings') {
         const existingTab = [...newTabs.values()].find(t => t.tabType === tab.tabType);
         if (existingTab) {
           return { activeTabId: existingTab.tabId };
