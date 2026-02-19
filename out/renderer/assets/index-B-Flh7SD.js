@@ -41320,7 +41320,7 @@ function useTerminal({ containerRef, sessionId, settings }) {
       fontSize: settings?.terminalFontSize ?? 14,
       theme: selectedTheme,
       cursorBlink: true,
-      cursorStyle: settings?.cursorStyle ?? "block",
+      cursorStyle: settings?.cursorStyle ?? "bar",
       scrollback: settings?.scrollbackLines ?? 1e4,
       lineHeight: settings?.lineHeight ?? 1.2,
       allowTransparency: false
@@ -55778,7 +55778,7 @@ function TerminalTab() {
   const [terminalFontSize, setTerminalFontSize] = reactExports.useState("14");
   const [terminalTheme, setTerminalTheme] = reactExports.useState("dracula");
   const [scrollback, setScrollback] = reactExports.useState("1000");
-  const [cursorStyle, setCursorStyle] = reactExports.useState("block");
+  const [cursorStyle, setCursorStyle] = reactExports.useState("bar");
   const [bellStyle, setBellStyle] = reactExports.useState("none");
   const [lineHeight, setLineHeight] = reactExports.useState("1.2");
   const [saving, setSaving] = reactExports.useState(false);
@@ -55791,7 +55791,7 @@ function TerminalTab() {
       setTerminalFontSize(String(settings.terminalFontSize));
       setTerminalTheme(settings.terminalTheme ?? "dracula");
       setScrollback(String(settings.scrollbackLines ?? 1e3));
-      setCursorStyle(settings.cursorStyle ?? "block");
+      setCursorStyle(settings.cursorStyle ?? "bar");
       setBellStyle(settings.bellStyle ?? "none");
       setLineHeight(String(settings.lineHeight ?? 1.2));
     }

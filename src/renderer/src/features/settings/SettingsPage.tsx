@@ -68,7 +68,7 @@ function TerminalTab() {
   const [terminalFontSize, setTerminalFontSize] = useState('14');
   const [terminalTheme, setTerminalTheme] = useState<TerminalTheme>('dracula');
   const [scrollback, setScrollback] = useState('1000');
-  const [cursorStyle, setCursorStyle] = useState<CursorStyle>('block');
+  const [cursorStyle, setCursorStyle] = useState<CursorStyle>('bar');
   const [bellStyle, setBellStyle] = useState<BellStyle>('none');
   const [lineHeight, setLineHeight] = useState('1.2');
   const [saving, setSaving] = useState(false);
@@ -83,7 +83,7 @@ function TerminalTab() {
       setTerminalFontSize(String(settings.terminalFontSize));
       setTerminalTheme(settings.terminalTheme ?? 'dracula');
       setScrollback(String(settings.scrollbackLines ?? 1000));
-      setCursorStyle(settings.cursorStyle ?? 'block');
+      setCursorStyle(settings.cursorStyle ?? 'bar');
       setBellStyle(settings.bellStyle ?? 'none');
       setLineHeight(String(settings.lineHeight ?? 1.2));
     }

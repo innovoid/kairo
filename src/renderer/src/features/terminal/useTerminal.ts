@@ -27,7 +27,7 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
       fontSize: settings?.terminalFontSize ?? 14,
       theme: selectedTheme,
       cursorBlink: true,
-      cursorStyle: settings?.cursorStyle ?? 'block',
+      cursorStyle: settings?.cursorStyle ?? 'bar',
       scrollback: settings?.scrollbackLines ?? 10000,
       lineHeight: settings?.lineHeight ?? 1.2,
       allowTransparency: false,
