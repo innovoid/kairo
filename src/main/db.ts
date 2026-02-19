@@ -144,6 +144,10 @@ export const folderQueries = {
     const db = getDb();
     return db.prepare('select * from host_folders where workspace_id = ?').all(workspaceId) as DbHostFolder[];
   },
+  getById: (id: string): DbHostFolder | undefined => {
+    const db = getDb();
+    return db.prepare('select * from host_folders where id = ?').get(id) as DbHostFolder | undefined;
+  },
   upsert: (folder: DbHostFolder): void => {
     const db = getDb();
     db.prepare(`

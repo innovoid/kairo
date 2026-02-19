@@ -298,6 +298,10 @@ const folderQueries = {
     const db = getDb();
     return db.prepare("select * from host_folders where workspace_id = ?").all(workspaceId);
   },
+  getById: (id) => {
+    const db = getDb();
+    return db.prepare("select * from host_folders where id = ?").get(id);
+  },
   upsert: (folder) => {
     const db = getDb();
     db.prepare(`
@@ -462,9 +466,26 @@ const supabaseSync = {
     }
     return rows.map(rowToKey);
   },
-  // Hosts CRUD with dual write (SQLite + Supabase)
+  // Hosts CRUD with local-first architecture (SQLite immediate, Supabase background)
   async createHost(supabase, input) {
-    const { data, error } = await supabase.from("hosts").insert({
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    const newHost = {
+      id,
+      workspace_id: input.workspaceId,
+      folder_id: input.folderId ?? null,
+      label: input.label,
+      hostname: input.hostname,
+      port: input.port ?? 22,
+      username: input.username,
+      auth_type: input.authType,
+      key_id: input.keyId ?? null,
+      tags: JSON.stringify(input.tags ?? []),
+      synced_at: now
+    };
+    hostQueries.upsert(newHost);
+    supabase.from("hosts").insert({
+      id,
       workspace_id: input.workspaceId,
       folder_id: input.folderId ?? null,
       label: input.label,
@@ -474,25 +495,42 @@ const supabaseSync = {
       auth_type: input.authType,
       key_id: input.keyId ?? null,
       tags: input.tags ?? []
-    }).select("*").single();
-    if (error) throw error;
-    const row = data;
-    hostQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      folder_id: row.folder_id,
-      label: row.label,
-      hostname: row.hostname,
-      port: row.port,
-      username: row.username,
-      auth_type: row.auth_type,
-      key_id: row.key_id,
-      tags: JSON.stringify(row.tags ?? []),
-      synced_at: Date.now()
+    }).then(({ error }) => {
+      if (error) console.error("Background sync failed for host create:", error);
     });
-    return rowToHost(row);
+    return {
+      id: newHost.id,
+      workspaceId: newHost.workspace_id,
+      folderId: newHost.folder_id,
+      label: newHost.label,
+      hostname: newHost.hostname,
+      port: newHost.port,
+      username: newHost.username,
+      authType: newHost.auth_type,
+      password: null,
+      keyId: newHost.key_id,
+      tags: JSON.parse(newHost.tags),
+      createdAt: new Date(newHost.synced_at).toISOString(),
+      updatedAt: new Date(newHost.synced_at).toISOString()
+    };
   },
   async updateHost(supabase, id, input) {
+    const existingHost = hostQueries.getById(id);
+    if (!existingHost) throw new Error("Host not found in local cache");
+    const updatedHost = {
+      id: existingHost.id,
+      workspace_id: existingHost.workspace_id,
+      folder_id: input.folderId !== void 0 ? input.folderId : existingHost.folder_id,
+      label: input.label !== void 0 ? input.label : existingHost.label,
+      hostname: input.hostname !== void 0 ? input.hostname : existingHost.hostname,
+      port: input.port !== void 0 ? input.port : existingHost.port,
+      username: input.username !== void 0 ? input.username : existingHost.username,
+      auth_type: input.authType !== void 0 ? input.authType : existingHost.auth_type,
+      key_id: input.keyId !== void 0 ? input.keyId : existingHost.key_id,
+      tags: JSON.stringify(input.tags !== void 0 ? input.tags : JSON.parse(existingHost.tags)),
+      synced_at: Date.now()
+    };
+    hostQueries.upsert(updatedHost);
     const updates = {};
     if (input.folderId !== void 0) updates.folder_id = input.folderId;
     if (input.label !== void 0) updates.label = input.label;
@@ -502,75 +540,93 @@ const supabaseSync = {
     if (input.authType !== void 0) updates.auth_type = input.authType;
     if (input.keyId !== void 0) updates.key_id = input.keyId;
     if (input.tags !== void 0) updates.tags = input.tags;
-    const { data, error } = await supabase.from("hosts").update(updates).eq("id", id).select("*").single();
-    if (error) throw error;
-    const row = data;
-    hostQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      folder_id: row.folder_id,
-      label: row.label,
-      hostname: row.hostname,
-      port: row.port,
-      username: row.username,
-      auth_type: row.auth_type,
-      key_id: row.key_id,
-      tags: JSON.stringify(row.tags ?? []),
-      synced_at: Date.now()
+    supabase.from("hosts").update(updates).eq("id", id).then(({ error }) => {
+      if (error) console.error("Background sync failed for host update:", error);
     });
-    return rowToHost(row);
+    return {
+      id: updatedHost.id,
+      workspaceId: updatedHost.workspace_id,
+      folderId: updatedHost.folder_id,
+      label: updatedHost.label,
+      hostname: updatedHost.hostname,
+      port: updatedHost.port,
+      username: updatedHost.username,
+      authType: updatedHost.auth_type,
+      password: null,
+      keyId: updatedHost.key_id,
+      tags: JSON.parse(updatedHost.tags),
+      createdAt: new Date(updatedHost.synced_at).toISOString(),
+      updatedAt: new Date(updatedHost.synced_at).toISOString()
+    };
   },
   async deleteHost(supabase, id) {
-    const { error } = await supabase.from("hosts").delete().eq("id", id);
-    if (error) throw error;
     hostQueries.delete(id);
+    supabase.from("hosts").delete().eq("id", id).then(({ error }) => {
+      if (error) console.error("Background sync failed for host delete:", error);
+    });
   },
   async createFolder(supabase, input) {
-    const { data, error } = await supabase.from("host_folders").insert({
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    const newFolder = {
+      id,
+      workspace_id: input.workspaceId,
+      parent_id: input.parentId ?? null,
+      name: input.name,
+      position: input.position ?? 0,
+      synced_at: now
+    };
+    folderQueries.upsert(newFolder);
+    supabase.from("host_folders").insert({
+      id,
       workspace_id: input.workspaceId,
       parent_id: input.parentId ?? null,
       name: input.name,
       position: input.position ?? 0
-    }).select("*").single();
-    if (error) throw error;
-    const row = data;
-    folderQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      parent_id: row.parent_id,
-      name: row.name,
-      position: row.position,
-      synced_at: Date.now()
+    }).then(({ error }) => {
+      if (error) console.error("Background sync failed for folder create:", error);
     });
-    return rowToFolder(row);
+    return {
+      id: newFolder.id,
+      workspaceId: newFolder.workspace_id,
+      parentId: newFolder.parent_id,
+      name: newFolder.name,
+      position: newFolder.position,
+      createdAt: new Date(newFolder.synced_at).toISOString()
+    };
   },
   async updateFolder(supabase, id, name) {
-    const { data, error } = await supabase.from("host_folders").update({ name }).eq("id", id).select("*").single();
-    if (error) throw error;
-    const row = data;
-    folderQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      parent_id: row.parent_id,
-      name: row.name,
-      position: row.position,
+    const existing = folderQueries.getById(id);
+    if (!existing) throw new Error("Folder not found in local cache");
+    const updatedFolder = {
+      ...existing,
+      name,
       synced_at: Date.now()
+    };
+    folderQueries.upsert(updatedFolder);
+    supabase.from("host_folders").update({ name }).eq("id", id).then(({ error }) => {
+      if (error) console.error("Background sync failed for folder update:", error);
     });
-    return rowToFolder(row);
+    return {
+      id: updatedFolder.id,
+      workspaceId: updatedFolder.workspace_id,
+      parentId: updatedFolder.parent_id,
+      name: updatedFolder.name,
+      position: updatedFolder.position,
+      createdAt: new Date(updatedFolder.synced_at).toISOString()
+    };
   },
   async deleteFolder(supabase, id) {
-    const { error: updateError } = await supabase.from("hosts").update({ folder_id: null }).eq("folder_id", id);
-    if (updateError) throw new Error(`Failed to move hosts to root: ${updateError.message}`);
-    try {
-      const db = getDb();
-      db.prepare("update hosts set folder_id = null where folder_id = ?").run(id);
-    } catch (sqliteError) {
-      console.error("SQLite update failed after Supabase update:", sqliteError);
-      throw new Error("Failed to sync folder deletion to local cache");
-    }
-    const { error: deleteError } = await supabase.from("host_folders").delete().eq("id", id);
-    if (deleteError) throw new Error(`Failed to delete folder: ${deleteError.message}`);
+    const db = getDb();
+    db.prepare("update hosts set folder_id = null where folder_id = ?").run(id);
     folderQueries.delete(id);
+    Promise.all([
+      supabase.from("hosts").update({ folder_id: null }).eq("folder_id", id),
+      supabase.from("host_folders").delete().eq("id", id)
+    ]).then(([updateResult, deleteResult]) => {
+      if (updateResult.error) console.error("Background sync failed for moving hosts:", updateResult.error);
+      if (deleteResult.error) console.error("Background sync failed for folder delete:", deleteResult.error);
+    });
   },
   // Sync keys to Supabase (metadata only, no private keys)
   async syncKeyMetadata(supabase, keyId) {

@@ -151,12 +151,35 @@ export const supabaseSync = {
     return rows.map(rowToKey);
   },
 
-  // Hosts CRUD with dual write (SQLite + Supabase)
+  // Hosts CRUD with local-first architecture (SQLite immediate, Supabase background)
   async createHost(supabase: SupabaseClient, input: CreateHostInput): Promise<Host> {
-    // Note: password is not stored in database (security), only used for connection
-    const { data, error } = await supabase
+    // LOCAL-FIRST: Create in SQLite immediately, sync to Supabase in background
+
+    // Generate ID and create local entry immediately
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    const newHost = {
+      id,
+      workspace_id: input.workspaceId,
+      folder_id: input.folderId ?? null,
+      label: input.label,
+      hostname: input.hostname,
+      port: input.port ?? 22,
+      username: input.username,
+      auth_type: input.authType,
+      key_id: input.keyId ?? null,
+      tags: JSON.stringify(input.tags ?? []),
+      synced_at: now,
+    };
+
+    // Write to SQLite immediately (synchronous)
+    hostQueries.upsert(newHost);
+
+    // Sync to Supabase in background
+    supabase
       .from('hosts')
       .insert({
+        id,
         workspace_id: input.workspaceId,
         folder_id: input.folderId ?? null,
         label: input.label,
@@ -167,30 +190,54 @@ export const supabaseSync = {
         key_id: input.keyId ?? null,
         tags: input.tags ?? [],
       })
-      .select('*')
-      .single();
-    if (error) throw error;
+      .then(({ error }) => {
+        if (error) console.error('Background sync failed for host create:', error);
+      });
 
-    const row = data as HostRow;
-    hostQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      folder_id: row.folder_id,
-      label: row.label,
-      hostname: row.hostname,
-      port: row.port,
-      username: row.username,
-      auth_type: row.auth_type,
-      key_id: row.key_id,
-      tags: JSON.stringify(row.tags ?? []),
-      synced_at: Date.now(),
-    });
-    return rowToHost(row);
+    // Return immediately with local data
+    return {
+      id: newHost.id,
+      workspaceId: newHost.workspace_id,
+      folderId: newHost.folder_id,
+      label: newHost.label,
+      hostname: newHost.hostname,
+      port: newHost.port,
+      username: newHost.username,
+      authType: newHost.auth_type,
+      password: null,
+      keyId: newHost.key_id,
+      tags: JSON.parse(newHost.tags),
+      createdAt: new Date(newHost.synced_at).toISOString(),
+      updatedAt: new Date(newHost.synced_at).toISOString(),
+    };
   },
 
   async updateHost(supabase: SupabaseClient, id: string, input: UpdateHostInput): Promise<Host> {
-    // Note: password is not stored in database (security), only used for connection
-    // Filter to only include fields that exist in the database schema
+    // LOCAL-FIRST: Update SQLite immediately, sync to Supabase in background
+
+    // Get current host from SQLite
+    const existingHost = hostQueries.getById(id);
+    if (!existingHost) throw new Error('Host not found in local cache');
+
+    // Apply updates to local copy
+    const updatedHost = {
+      id: existingHost.id,
+      workspace_id: existingHost.workspace_id,
+      folder_id: input.folderId !== undefined ? input.folderId : existingHost.folder_id,
+      label: input.label !== undefined ? input.label : existingHost.label,
+      hostname: input.hostname !== undefined ? input.hostname : existingHost.hostname,
+      port: input.port !== undefined ? input.port : existingHost.port,
+      username: input.username !== undefined ? input.username : existingHost.username,
+      auth_type: (input.authType !== undefined ? input.authType : existingHost.auth_type) as 'password' | 'key',
+      key_id: input.keyId !== undefined ? input.keyId : existingHost.key_id,
+      tags: JSON.stringify(input.tags !== undefined ? input.tags : JSON.parse(existingHost.tags)),
+      synced_at: Date.now(),
+    };
+
+    // Update SQLite immediately (synchronous)
+    hostQueries.upsert(updatedHost);
+
+    // Update Supabase in background (don't await)
     const updates: Record<string, unknown> = {};
     if (input.folderId !== undefined) updates.folder_id = input.folderId;
     if (input.label !== undefined) updates.label = input.label;
@@ -200,108 +247,143 @@ export const supabaseSync = {
     if (input.authType !== undefined) updates.auth_type = input.authType;
     if (input.keyId !== undefined) updates.key_id = input.keyId;
     if (input.tags !== undefined) updates.tags = input.tags;
-    // input.password is intentionally ignored - passwords are not persisted
 
-    const { data, error } = await supabase
+    // Sync to Supabase asynchronously
+    supabase
       .from('hosts')
       .update(updates)
       .eq('id', id)
-      .select('*')
-      .single();
-    if (error) throw error;
+      .then(({ error }) => {
+        if (error) console.error('Background sync failed for host update:', error);
+      });
 
-    const row = data as HostRow;
-    hostQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      folder_id: row.folder_id,
-      label: row.label,
-      hostname: row.hostname,
-      port: row.port,
-      username: row.username,
-      auth_type: row.auth_type,
-      key_id: row.key_id,
-      tags: JSON.stringify(row.tags ?? []),
-      synced_at: Date.now(),
-    });
-    return rowToHost(row);
+    // Return immediately with local data
+    return {
+      id: updatedHost.id,
+      workspaceId: updatedHost.workspace_id,
+      folderId: updatedHost.folder_id,
+      label: updatedHost.label,
+      hostname: updatedHost.hostname,
+      port: updatedHost.port,
+      username: updatedHost.username,
+      authType: updatedHost.auth_type,
+      password: null,
+      keyId: updatedHost.key_id,
+      tags: JSON.parse(updatedHost.tags),
+      createdAt: new Date(updatedHost.synced_at).toISOString(),
+      updatedAt: new Date(updatedHost.synced_at).toISOString(),
+    };
   },
 
   async deleteHost(supabase: SupabaseClient, id: string): Promise<void> {
-    const { error } = await supabase.from('hosts').delete().eq('id', id);
-    if (error) throw error;
+    // LOCAL-FIRST: Delete from SQLite immediately, sync to Supabase in background
+
+    // Delete from SQLite immediately (synchronous)
     hostQueries.delete(id);
+
+    // Sync deletion to Supabase in background
+    supabase
+      .from('hosts')
+      .delete()
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) console.error('Background sync failed for host delete:', error);
+      });
   },
 
   async createFolder(supabase: SupabaseClient, input: CreateFolderInput): Promise<HostFolder> {
-    const { data, error } = await supabase
+    // LOCAL-FIRST: Create in SQLite immediately, sync to Supabase in background
+
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    const newFolder = {
+      id,
+      workspace_id: input.workspaceId,
+      parent_id: input.parentId ?? null,
+      name: input.name,
+      position: input.position ?? 0,
+      synced_at: now,
+    };
+
+    // Write to SQLite immediately
+    folderQueries.upsert(newFolder);
+
+    // Sync to Supabase in background
+    supabase
       .from('host_folders')
       .insert({
+        id,
         workspace_id: input.workspaceId,
         parent_id: input.parentId ?? null,
         name: input.name,
         position: input.position ?? 0,
       })
-      .select('*')
-      .single();
-    if (error) throw error;
+      .then(({ error }) => {
+        if (error) console.error('Background sync failed for folder create:', error);
+      });
 
-    const row = data as FolderRow;
-    folderQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      parent_id: row.parent_id,
-      name: row.name,
-      position: row.position,
-      synced_at: Date.now(),
-    });
-    return rowToFolder(row);
+    return {
+      id: newFolder.id,
+      workspaceId: newFolder.workspace_id,
+      parentId: newFolder.parent_id,
+      name: newFolder.name,
+      position: newFolder.position,
+      createdAt: new Date(newFolder.synced_at).toISOString(),
+    };
   },
 
   async updateFolder(supabase: SupabaseClient, id: string, name: string): Promise<HostFolder> {
-    const { data, error } = await supabase
+    // LOCAL-FIRST: Update SQLite immediately, sync to Supabase in background
+
+    const existing = folderQueries.getById(id);
+    if (!existing) throw new Error('Folder not found in local cache');
+
+    const updatedFolder = {
+      ...existing,
+      name,
+      synced_at: Date.now(),
+    };
+
+    // Update SQLite immediately
+    folderQueries.upsert(updatedFolder);
+
+    // Sync to Supabase in background
+    supabase
       .from('host_folders')
       .update({ name })
       .eq('id', id)
-      .select('*')
-      .single();
-    if (error) throw error;
+      .then(({ error }) => {
+        if (error) console.error('Background sync failed for folder update:', error);
+      });
 
-    const row = data as FolderRow;
-    folderQueries.upsert({
-      id: row.id,
-      workspace_id: row.workspace_id,
-      parent_id: row.parent_id,
-      name: row.name,
-      position: row.position,
-      synced_at: Date.now(),
-    });
-    return rowToFolder(row);
+    return {
+      id: updatedFolder.id,
+      workspaceId: updatedFolder.workspace_id,
+      parentId: updatedFolder.parent_id,
+      name: updatedFolder.name,
+      position: updatedFolder.position,
+      createdAt: new Date(updatedFolder.synced_at).toISOString(),
+    };
   },
 
   async deleteFolder(supabase: SupabaseClient, id: string): Promise<void> {
-    // Move all hosts in this folder to root (folder_id = null)
-    const { error: updateError } = await supabase
-      .from('hosts')
-      .update({ folder_id: null })
-      .eq('folder_id', id);
-    if (updateError) throw new Error(`Failed to move hosts to root: ${updateError.message}`);
+    // LOCAL-FIRST: Update SQLite immediately, sync to Supabase in background
 
-    // Update local SQLite (with error handling)
-    try {
-      const db = getDb();
-      db.prepare('update hosts set folder_id = null where folder_id = ?').run(id);
-    } catch (sqliteError) {
-      console.error('SQLite update failed after Supabase update:', sqliteError);
-      throw new Error('Failed to sync folder deletion to local cache');
-    }
+    // Move all hosts in this folder to root in SQLite
+    const db = getDb();
+    db.prepare('update hosts set folder_id = null where folder_id = ?').run(id);
 
-    // Delete the folder from Supabase
-    const { error: deleteError } = await supabase.from('host_folders').delete().eq('id', id);
-    if (deleteError) throw new Error(`Failed to delete folder: ${deleteError.message}`);
-
-    // Delete the folder from SQLite
+    // Delete folder from SQLite
     folderQueries.delete(id);
+
+    // Sync to Supabase in background
+    Promise.all([
+      supabase.from('hosts').update({ folder_id: null }).eq('folder_id', id),
+      supabase.from('host_folders').delete().eq('id', id),
+    ]).then(([updateResult, deleteResult]) => {
+      if (updateResult.error) console.error('Background sync failed for moving hosts:', updateResult.error);
+      if (deleteResult.error) console.error('Background sync failed for folder delete:', deleteResult.error);
+    });
   },
 
   // Sync keys to Supabase (metadata only, no private keys)
