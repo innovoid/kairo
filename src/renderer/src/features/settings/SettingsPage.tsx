@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import type { AiProvider, CursorStyle, BellStyle, TerminalTheme } from '@shared/types/settings';
 import { TERMINAL_THEMES, TERMINAL_THEME_NAMES } from '@shared/themes/terminal-themes';
 import AccountSettingsTab from './AccountSettingsTab';
+import { WorkspaceSwitcher } from '../workspaces/WorkspaceSwitcher';
 
 export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'account';
 
@@ -31,6 +32,17 @@ interface SettingsPageProps {
 export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPageProps) {
   return (
     <div className="flex flex-col flex-1 h-full bg-background overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b">
+        <div>
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="text-muted-foreground">Manage your application preferences</p>
+        </div>
+        <div className="w-64">
+          <WorkspaceSwitcher />
+        </div>
+      </div>
+
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={onTabChange} orientation="vertical" className="flex flex-1 overflow-hidden">
