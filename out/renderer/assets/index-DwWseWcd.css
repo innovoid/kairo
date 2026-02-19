@@ -1900,6 +1900,14 @@
     cursor: default;
   }
 
+  .cursor-grab {
+    cursor: grab;
+  }
+
+  .cursor-grabbing {
+    cursor: grabbing;
+  }
+
   .cursor-pointer {
     cursor: pointer;
   }
@@ -3053,6 +3061,10 @@
     overflow-wrap: break-word;
   }
 
+  .break-all {
+    word-break: break-all;
+  }
+
   .text-clip {
     text-overflow: clip;
   }
@@ -3255,10 +3267,6 @@
 
   .opacity-50 {
     opacity: .5;
-  }
-
-  .opacity-70 {
-    opacity: .7;
   }
 
   .opacity-100 {

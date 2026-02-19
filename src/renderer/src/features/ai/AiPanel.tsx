@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAiStore } from '@/stores/ai-store';
 import { ChatMessage } from './ChatMessage';
 import { ModelSelector } from './ProviderSelector';
+import { CommandSuggestion } from './CommandSuggestion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -75,6 +76,9 @@ export function AiPanel() {
 
       {/* Model selector */}
       <ModelSelector />
+
+      {/* Quick Command */}
+      <CommandSuggestion />
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">

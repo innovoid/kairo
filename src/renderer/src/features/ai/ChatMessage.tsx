@@ -2,31 +2,60 @@ import type { AiMessage } from '@shared/types/ai';
 import { cn } from '@/lib/utils';
 import { useSessionStore } from '@/stores/session-store';
 import { Button } from '@/components/ui/button';
-import { Terminal } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ChatMessageProps {
   message: AiMessage;
 }
 
-// Simple inline code block extractor for command suggestions
-function extractCommand(content: string): string | null {
-  const match = content.match(/^[`]?([^`\n]+)[`]?$/);
-  if (match && !content.includes(' ') || content.match(/^[\w./-]+(\s+[\w./-]+)*$/)) {
-    return content.trim();
-  }
-  return null;
-}
+// Extract bash commands from code blocks and inline $ commands
+function extractCommands(content: string): string[] {
+  const commands: string[] = [];
 
-export function ChatMessage({ message }: ChatMessageProps) {
-  const { sessions, activeSessionId } = useSessionStore();
-
-  function insertIntoTerminal(command: string) {
-    if (activeSessionId) {
-      window.sshApi.send(activeSessionId, command);
+  // Extract code blocks
+  const codeBlockRegex = /```(?:bash|sh|shell)?\n([\s\S]*?)```/g;
+  let match;
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    const cmd = match[1].trim();
+    if (cmd) {
+      commands.push(cmd);
     }
   }
 
+  // Extract inline commands (lines starting with $)
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('$ ')) {
+      commands.push(trimmed.substring(2));
+    }
+  }
+
+  return commands;
+}
+
+export function ChatMessage({ message }: ChatMessageProps) {
+  const { tabs, activeTabId } = useSessionStore();
+
+  function insertCommand(command: string) {
+    const activeTab = tabs.get(activeTabId ?? '');
+
+    if (!activeTab || activeTab.tabType !== 'terminal') {
+      toast.error('Open a terminal first');
+      return;
+    }
+
+    // Remove leading $ if present
+    const sanitized = command.replace(/^\$\s*/, '');
+
+    // Send to terminal (without \n so user can review before executing)
+    window.sshApi.send(activeTab.sessionId!, sanitized);
+    toast.success('Command inserted');
+  }
+
   const isUser = message.role === 'user';
+  const commands = message.role === 'assistant' ? extractCommands(message.content) : [];
 
   return (
     <div className={cn('flex gap-2 mb-3', isUser ? 'justify-end' : 'justify-start')}>
@@ -46,17 +75,26 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
           {message.content || (message.role === 'assistant' ? '...' : '')}
         </pre>
-        {!isUser && message.content && activeSessionId && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-1 h-6 text-xs px-2 opacity-70 hover:opacity-100"
-            onClick={() => insertIntoTerminal(message.content)}
-            title="Insert into terminal"
-          >
-            <Terminal className="h-3 w-3 mr-1" />
-            Insert
-          </Button>
+
+        {commands.length > 0 && (
+          <div className="space-y-2 mt-2">
+            {commands.map((cmd, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <code className="flex-1 bg-background px-2 py-1 rounded text-xs font-mono">
+                  {cmd}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-xs"
+                  onClick={() => insertCommand(cmd)}
+                >
+                  <ArrowRight className="h-3 w-3 mr-1" />
+                  Insert
+                </Button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

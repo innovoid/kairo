@@ -129,6 +129,7 @@ export function registerWorkspaceIpcHandlers(): void {
   register('sftp.rename', sftpIpcHandlers.rename);
   register('sftp.delete', sftpIpcHandlers.delete);
   register('sftp.chmod', sftpIpcHandlers.chmod);
+  register('sftp.pickUploadFiles', sftpIpcHandlers.pickUploadFiles);
 
   // SSH Keys
   register('keys.list', keysIpcHandlers.list);

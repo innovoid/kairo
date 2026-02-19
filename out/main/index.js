@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow } from "electron";
+import { app, dialog, ipcMain, BrowserWindow } from "electron";
 import { join } from "node:path";
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
@@ -942,19 +942,24 @@ const sftpManager = {
       sftp.stat(remotePath, (statErr, stats) => {
         const totalBytes = statErr ? 0 : stats.size ?? 0;
         let bytesTransferred = 0;
+        let lastUpdate = Date.now();
         const readStream = sftp.createReadStream(remotePath);
         const writeStream = createWriteStream(localPath);
         readStream.on("data", (chunk) => {
           bytesTransferred += chunk.length;
-          const progress = {
-            transferId,
-            filename,
-            direction: "download",
-            bytesTransferred,
-            totalBytes,
-            status: "active"
-          };
-          if (!sender.isDestroyed()) sender.send("sftp:progress", progress);
+          const now = Date.now();
+          if (now - lastUpdate > 100) {
+            const progress = {
+              transferId,
+              filename,
+              direction: "download",
+              bytesTransferred,
+              totalBytes,
+              status: "active"
+            };
+            if (!sender.isDestroyed()) sender.send("sftp:progress", progress);
+            lastUpdate = now;
+          }
         });
         readStream.on("error", (err) => {
           const progress = {
@@ -991,20 +996,25 @@ const sftpManager = {
     const fileStat = await stat(localPath);
     const totalBytes = fileStat.size;
     let bytesTransferred = 0;
+    let lastUpdate = Date.now();
     return new Promise((resolve, reject) => {
       const readStream = createReadStream(localPath);
       const writeStream = sftp.createWriteStream(remotePath);
       readStream.on("data", (chunk) => {
         bytesTransferred += chunk.length;
-        const progress = {
-          transferId,
-          filename,
-          direction: "upload",
-          bytesTransferred,
-          totalBytes,
-          status: "active"
-        };
-        if (!sender.isDestroyed()) sender.send("sftp:progress", progress);
+        const now = Date.now();
+        if (now - lastUpdate > 100) {
+          const progress = {
+            transferId,
+            filename,
+            direction: "upload",
+            bytesTransferred,
+            totalBytes,
+            status: "active"
+          };
+          if (!sender.isDestroyed()) sender.send("sftp:progress", progress);
+          lastUpdate = now;
+        }
       });
       readStream.on("error", (err) => {
         const progress = {
@@ -1084,6 +1094,13 @@ const sftpIpcHandlers = {
   },
   async chmod(event, sessionId, remotePath, mode) {
     await sftpManager.chmod(sessionId, remotePath, mode);
+  },
+  async pickUploadFiles(event) {
+    const result = await dialog.showOpenDialog({
+      properties: ["openFile", "multiSelections"],
+      title: "Select files to upload"
+    });
+    return result.canceled ? null : result.filePaths;
   }
 };
 function getClient$1(event) {
@@ -1194,6 +1211,10 @@ const DEFAULT_SETTINGS = {
   theme: "dark",
   terminalFont: "JetBrains Mono",
   terminalFontSize: 14,
+  scrollbackLines: 1e3,
+  cursorStyle: "block",
+  bellStyle: "none",
+  lineHeight: 1.2,
   aiProvider: "openai",
   openaiApiKeyEncrypted: null,
   anthropicApiKeyEncrypted: null,
@@ -1216,6 +1237,10 @@ const settingsIpcHandlers = {
         theme: data.theme ?? "dark",
         terminalFont: data.terminal_font ?? "JetBrains Mono",
         terminalFontSize: data.terminal_font_size ?? 14,
+        scrollbackLines: data.scrollback_lines ?? 1e3,
+        cursorStyle: data.cursor_style ?? "block",
+        bellStyle: data.bell_style ?? "none",
+        lineHeight: data.line_height ?? 1.2,
         aiProvider: data.ai_provider ?? "openai",
         openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
         anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
@@ -1241,6 +1266,10 @@ const settingsIpcHandlers = {
     if (input.theme !== void 0) updates.theme = input.theme;
     if (input.terminalFont !== void 0) updates.terminal_font = input.terminalFont;
     if (input.terminalFontSize !== void 0) updates.terminal_font_size = input.terminalFontSize;
+    if (input.scrollbackLines !== void 0) updates.scrollback_lines = input.scrollbackLines;
+    if (input.cursorStyle !== void 0) updates.cursor_style = input.cursorStyle;
+    if (input.bellStyle !== void 0) updates.bell_style = input.bellStyle;
+    if (input.lineHeight !== void 0) updates.line_height = input.lineHeight;
     if (input.aiProvider !== void 0) updates.ai_provider = input.aiProvider;
     if (input.openaiApiKey !== void 0) updates.openai_api_key_encrypted = input.openaiApiKey;
     if (input.anthropicApiKey !== void 0) updates.anthropic_api_key_encrypted = input.anthropicApiKey;
@@ -1253,6 +1282,10 @@ const settingsIpcHandlers = {
       theme: data.theme ?? "dark",
       terminalFont: data.terminal_font ?? "JetBrains Mono",
       terminalFontSize: data.terminal_font_size ?? 14,
+      scrollbackLines: data.scrollback_lines ?? 1e3,
+      cursorStyle: data.cursor_style ?? "block",
+      bellStyle: data.bell_style ?? "none",
+      lineHeight: data.line_height ?? 1.2,
       aiProvider: data.ai_provider ?? "openai",
       openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
       anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
@@ -1357,6 +1390,7 @@ function registerWorkspaceIpcHandlers() {
   register("sftp.rename", sftpIpcHandlers.rename);
   register("sftp.delete", sftpIpcHandlers.delete);
   register("sftp.chmod", sftpIpcHandlers.chmod);
+  register("sftp.pickUploadFiles", sftpIpcHandlers.pickUploadFiles);
   register("keys.list", keysIpcHandlers.list);
   register("keys.import", keysIpcHandlers.import);
   register("keys.delete", keysIpcHandlers.delete);
