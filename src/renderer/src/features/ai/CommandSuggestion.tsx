@@ -17,13 +17,9 @@ export function CommandSuggestion() {
   async function handleTranslate() {
     if (!input.trim() || isStreaming || loading) return;
 
-    // Get provider and API key from settings
+    // Get provider from settings, API key from local encrypted storage
     const provider = settings?.aiProvider ?? 'openai';
-    const apiKey =
-      provider === 'openai' ? settings?.openaiApiKeyEncrypted :
-      provider === 'anthropic' ? settings?.anthropicApiKeyEncrypted :
-      provider === 'gemini' ? settings?.geminiApiKeyEncrypted :
-      null;
+    const apiKey = await window.apiKeysApi.get(provider);
 
     if (!apiKey) {
       toast.error(`No API key configured for ${provider}. Go to Settings → AI to add your key.`);

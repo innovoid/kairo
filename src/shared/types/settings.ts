@@ -15,9 +15,6 @@ export interface UserSettings {
   bellStyle: BellStyle;
   lineHeight: number;
   aiProvider: AiProvider;
-  openaiApiKeyEncrypted: string | null;
-  anthropicApiKeyEncrypted: string | null;
-  geminiApiKeyEncrypted: string | null;
   updatedAt: string;
 }
 
@@ -31,7 +28,4 @@ export interface UpdateSettingsInput {
   bellStyle?: BellStyle;
   lineHeight?: number;
   aiProvider?: AiProvider;
-  openaiApiKey?: string | null;
-  anthropicApiKey?: string | null;
-  geminiApiKey?: string | null;
 }

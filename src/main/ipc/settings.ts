@@ -19,9 +19,6 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'userId' | 'updatedAt'> = {
   bellStyle: 'none',
   lineHeight: 1.2,
   aiProvider: 'openai',
-  openaiApiKeyEncrypted: null,
-  anthropicApiKeyEncrypted: null,
-  geminiApiKeyEncrypted: null,
 };
 
 export const settingsIpcHandlers = {
@@ -56,9 +53,6 @@ export const settingsIpcHandlers = {
         bellStyle: data.bell_style ?? 'none',
         lineHeight: data.line_height ?? 1.2,
         aiProvider: data.ai_provider ?? 'openai',
-        openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
-        anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
-        geminiApiKeyEncrypted: data.gemini_api_key_encrypted ?? null,
         updatedAt: data.updated_at,
       };
       settingsQueries.upsert(user.id, JSON.stringify(settings));
@@ -90,9 +84,6 @@ export const settingsIpcHandlers = {
     if (input.bellStyle !== undefined) updates.bell_style = input.bellStyle;
     if (input.lineHeight !== undefined) updates.line_height = input.lineHeight;
     if (input.aiProvider !== undefined) updates.ai_provider = input.aiProvider;
-    if (input.openaiApiKey !== undefined) updates.openai_api_key_encrypted = input.openaiApiKey;
-    if (input.anthropicApiKey !== undefined) updates.anthropic_api_key_encrypted = input.anthropicApiKey;
-    if (input.geminiApiKey !== undefined) updates.gemini_api_key_encrypted = input.geminiApiKey;
 
     const { data, error } = await supabase
       .from('settings')
@@ -114,9 +105,6 @@ export const settingsIpcHandlers = {
       bellStyle: data.bell_style ?? 'none',
       lineHeight: data.line_height ?? 1.2,
       aiProvider: data.ai_provider ?? 'openai',
-      openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
-      anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
-      geminiApiKeyEncrypted: data.gemini_api_key_encrypted ?? null,
       updatedAt: data.updated_at,
     };
 

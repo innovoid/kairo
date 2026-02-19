@@ -320,25 +320,49 @@ function AiTab() {
   const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-exp');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => {
+    fetchSettings();
+    // Load API keys from local encrypted storage
+    Promise.all([
+      window.apiKeysApi.get('openai'),
+      window.apiKeysApi.get('anthropic'),
+      window.apiKeysApi.get('gemini'),
+    ]).then(([oai, anth, gem]) => {
+      setOpenaiKey(oai || '');
+      setAnthropicKey(anth || '');
+      setGeminiKey(gem || '');
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (settings) {
       setAiProvider(settings.aiProvider);
-      setOpenaiKey(settings.openaiApiKeyEncrypted || '');
-      setAnthropicKey(settings.anthropicApiKeyEncrypted || '');
-      setGeminiKey(settings.geminiApiKeyEncrypted || '');
     }
   }, [settings]);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await updateSettings({
-        aiProvider,
-        openaiApiKey: openaiKey || undefined,
-        anthropicApiKey: anthropicKey || undefined,
-        geminiApiKey: geminiKey || undefined,
-      });
+      // Save provider preference to Supabase via settings
+      await updateSettings({ aiProvider });
+
+      // Save API keys to local encrypted storage
+      if (openaiKey) {
+        await window.apiKeysApi.set('openai', openaiKey);
+      } else {
+        await window.apiKeysApi.delete('openai');
+      }
+      if (anthropicKey) {
+        await window.apiKeysApi.set('anthropic', anthropicKey);
+      } else {
+        await window.apiKeysApi.delete('anthropic');
+      }
+      if (geminiKey) {
+        await window.apiKeysApi.set('gemini', geminiKey);
+      } else {
+        await window.apiKeysApi.delete('gemini');
+      }
+
       toast.success('AI settings saved successfully');
     } catch (e) {
       toast.error('Failed to save AI settings');

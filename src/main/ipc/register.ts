@@ -8,6 +8,7 @@ import { sftpIpcHandlers } from './sftp';
 import { keysIpcHandlers } from './keys';
 import { aiIpcHandlers } from './ai';
 import { settingsIpcHandlers } from './settings';
+import { apiKeysIpcHandlers } from './api-keys';
 
 type IpcHandler<TArgs extends unknown[] = unknown[], TResult = unknown> = (
   event: IpcMainInvokeEvent,
@@ -178,4 +179,9 @@ export function registerWorkspaceIpcHandlers(): void {
   // Settings
   register('settings.get', withSupabase(settingsIpcHandlers.get));
   register('settings.update', withSupabase(settingsIpcHandlers.update));
+
+  // API Keys (local-only, no Supabase)
+  register('apiKeys.get', apiKeysIpcHandlers.get);
+  register('apiKeys.set', apiKeysIpcHandlers.set);
+  register('apiKeys.delete', apiKeysIpcHandlers.delete);
 }

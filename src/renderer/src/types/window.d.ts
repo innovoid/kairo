@@ -6,6 +6,7 @@ import type { SftpApi } from '../../../preload/sftp-api';
 import type { KeysApi } from '../../../preload/keys-api';
 import type { AiApi } from '../../../preload/ai-api';
 import type { SettingsApi } from '../../../preload/settings-api';
+import type { ApiKeysApi } from '../../../preload/api-keys-api';
 
 declare global {
   interface Window {
@@ -21,5 +22,6 @@ declare global {
     keysApi: KeysApi;
     aiApi: AiApi;
     settingsApi: SettingsApi;
+    apiKeysApi: ApiKeysApi;
   }
 }

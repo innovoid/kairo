@@ -47,14 +47,10 @@ export const useAiStore = create<AiState>((set, get) => ({
   sendMessage: async (content) => {
     const { model, messages } = get();
 
-    // Read provider + API key from settings store at call time
+    // Read provider from settings store, API key from local encrypted storage
     const settings = useSettingsStore.getState().settings;
     const provider = settings?.aiProvider ?? 'openai';
-    const apiKey =
-      provider === 'openai' ? settings?.openaiApiKeyEncrypted :
-      provider === 'anthropic' ? settings?.anthropicApiKeyEncrypted :
-      provider === 'gemini' ? settings?.geminiApiKeyEncrypted :
-      null;
+    const apiKey = await window.apiKeysApi.get(provider);
 
     if (!apiKey) {
       const errMessage: AiMessage = {
