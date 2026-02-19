@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { WorkspaceSwitcher } from '@/features/workspaces/WorkspaceSwitcher';
 
 export function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -105,9 +106,12 @@ export function ProfilePage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold mb-1">Profile</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-4">
             Manage your account information and security settings
           </p>
+          <div className="w-48">
+            <WorkspaceSwitcher />
+          </div>
         </div>
         <Separator />
 
