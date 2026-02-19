@@ -279,6 +279,67 @@ export const workspaceIpcHandlers = {
     if (error) throw error;
   },
 
+  async updateWorkspace(event: IpcMainInvokeEvent, workspaceId: string, updates: { name: string }): Promise<Workspace> {
+    const supabase = await getAuthedClient(event);
+    const { data, error } = await supabase
+      .from('workspaces')
+      .update(updates)
+      .eq('id', workspaceId)
+      .select('id,name,created_by,created_at,updated_at')
+      .single();
+
+    if (error) throw error;
+    return toWorkspace(data as WorkspaceRow);
+  },
+
+  async deleteWorkspace(event: IpcMainInvokeEvent, workspaceId: string): Promise<void> {
+    const supabase = await getAuthedClient(event);
+
+    // Verify user is owner before allowing deletion
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('created_by')
+      .eq('id', workspaceId)
+      .single();
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (workspace?.created_by !== user!.id) {
+      throw new Error('Only workspace owner can delete workspace');
+    }
+
+    const { error } = await supabase
+      .from('workspaces')
+      .delete()
+      .eq('id', workspaceId);
+
+    if (error) throw error;
+  },
+
+  async leaveWorkspace(event: IpcMainInvokeEvent, workspaceId: string): Promise<void> {
+    const supabase = await getAuthedClient(event);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Check if user is the last owner
+    const { data: owners } = await supabase
+      .from('workspace_members')
+      .select('user_id')
+      .eq('workspace_id', workspaceId)
+      .eq('role', 'owner');
+
+    if (owners && owners.length === 1 && owners[0].user_id === user!.id) {
+      throw new Error('Cannot leave workspace as the last owner. Delete the workspace instead.');
+    }
+
+    const { error } = await supabase
+      .from('workspace_members')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', user!.id);
+
+    if (error) throw error;
+  },
+
   members: {
     async list(event: IpcMainInvokeEvent, workspaceId: string): Promise<WorkspaceMember[]> {
       const supabase = await getAuthedClient(event);
