@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User, Mail, Download, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useDataExport } from './hooks/useDataExport'
+import { useDataExport } from './hooks'
 import {
   Card,
   CardContent,
