@@ -35708,7 +35708,7 @@ function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProf
     loadUser();
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsx(TooltipProvider, { delay: 300, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full px-1 mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceSwitcher, {}) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full px-1 mb-2 flex justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspaceSwitcher, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Server, label: "Hosts", active: activeView === "hosts", onClick: onGoHome }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: KeyRound, label: "SSH Keys", active: activeView === "keys", onClick: onGoKeys }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(NavButton, { icon: Building2, label: "Workspace", active: activeView === "workspace", onClick: onGoWorkspace }),
@@ -59600,8 +59600,8 @@ function ProfilePage() {
       /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: name || "User", size: "lg" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 space-y-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 space-y-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "name", children: "Name" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 Input,
@@ -59613,7 +59613,7 @@ function ProfilePage() {
                 }
               )
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "email", children: "Email" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 Input,
@@ -59636,8 +59636,8 @@ function ProfilePage() {
         /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Change Password" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your password to keep your account secure" })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "current-password", children: "Current Password" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             Input,
@@ -59649,7 +59649,7 @@ function ProfilePage() {
             }
           )
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "new-password", children: "New Password" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             Input,
@@ -59661,7 +59661,7 @@ function ProfilePage() {
             }
           )
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "confirm-password", children: "Confirm New Password" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             Input,
@@ -59698,7 +59698,7 @@ function ProfilePage() {
         /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogTitle, { children: "Are you absolutely sure?" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogDescription, { children: "This action cannot be undone. This will permanently delete your account and remove all your data from our servers." })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-4 space-y-2", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "delete-password", children: "Enter your password to confirm" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           Input,

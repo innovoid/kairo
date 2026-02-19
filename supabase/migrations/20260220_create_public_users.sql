@@ -71,3 +71,11 @@ CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON public.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
+
+-- Add foreign key constraint from workspace_members to public.users
+-- This allows Supabase to automatically join the tables
+ALTER TABLE workspace_members
+  ADD CONSTRAINT workspace_members_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES public.users(id)
+  ON DELETE CASCADE;

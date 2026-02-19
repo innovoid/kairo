@@ -352,7 +352,7 @@ export const workspaceIpcHandlers = {
           user_id,
           role,
           created_at,
-          users:user_id (
+          users!workspace_members_user_id_fkey (
             email,
             name
           )
