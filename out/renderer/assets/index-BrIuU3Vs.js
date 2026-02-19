@@ -52687,12 +52687,16 @@ function FolderSection({
 }) {
   const folderHosts = hosts.filter((h2) => h2.folderId === folder.id);
   const childFolders = allFolders.filter((f) => f.parentId === folder.id);
-  if (folderHosts.length === 0 && childFolders.length === 0) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenu, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(ContextMenuTrigger, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mb-3 cursor-pointer", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(FolderOpen, { className: "h-4 w-4 text-muted-foreground" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-muted-foreground", children: folder.name })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-muted-foreground", children: folder.name }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs text-muted-foreground/60", children: [
+          "(",
+          folderHosts.length,
+          ")"
+        ] })
       ] }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenuContent, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenuItem, { onClick: () => onEditFolder(folder), children: [
@@ -52706,7 +52710,7 @@ function FolderSection({
         ] })
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3", children: folderHosts.map((host) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    folderHosts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-muted-foreground/50 italic ml-6 mb-3", children: "Empty folder - drag hosts here" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3", children: folderHosts.map((host) => /* @__PURE__ */ jsxRuntimeExports.jsx(
       DraggableHostCard,
       {
         host,

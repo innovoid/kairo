@@ -288,8 +288,6 @@ function FolderSection({
   const folderHosts = hosts.filter((h) => h.folderId === folder.id);
   const childFolders = allFolders.filter((f) => f.parentId === folder.id);
 
-  if (folderHosts.length === 0 && childFolders.length === 0) return null;
-
   return (
     <div className="mb-6">
       <ContextMenu>
@@ -297,6 +295,7 @@ function FolderSection({
           <div className="flex items-center gap-2 mb-3 cursor-pointer">
             <FolderOpen className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium text-muted-foreground">{folder.name}</span>
+            <span className="text-xs text-muted-foreground/60">({folderHosts.length})</span>
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -311,16 +310,22 @@ function FolderSection({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3">
-        {folderHosts.map((host) => (
-          <DraggableHostCard
-            key={host.id}
-            host={host}
-            onEdit={onEditHost}
-            onDelete={onDeleteHost}
-          />
-        ))}
-      </div>
+      {folderHosts.length === 0 ? (
+        <div className="text-xs text-muted-foreground/50 italic ml-6 mb-3">
+          Empty folder - drag hosts here
+        </div>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3">
+          {folderHosts.map((host) => (
+            <DraggableHostCard
+              key={host.id}
+              host={host}
+              onEdit={onEditHost}
+              onDelete={onDeleteHost}
+            />
+          ))}
+        </div>
+      )}
       {childFolders.map((sub) => (
         <div key={sub.id} className="ml-4">
           <FolderSection
