@@ -1,6 +1,54 @@
-# ArchTerm Workspace-First Foundation
+# ArchTerm
 
-This repository now includes the mandatory **workspace tenancy** implementation with Supabase RLS, invitation flow, and renderer/main integration scaffolding.
+A modern, workspace-first SSH client built with Electron, React, and Supabase.
+
+## Features
+
+ArchTerm provides a complete SSH client experience with team collaboration and AI-powered assistance:
+
+### 🗂️ Folder Organization
+- Create nested folder structures for organizing hosts
+- Drag-and-drop hosts between folders and root
+- Context menus for rename and delete operations
+- Visual hierarchy with collapsible folder sections
+
+### 📁 SFTP File Transfers
+- Upload files via button or drag-and-drop
+- Download files with double-click
+- Real-time progress tracking with speed display
+- Multiple concurrent transfers
+- Visual progress bars and notifications
+
+### 🤖 AI Command Assistance
+- Natural language to command translation
+- Multi-provider support (OpenAI, Anthropic, Gemini)
+- Command detection in chat messages
+- One-click insertion into active terminal
+- Fast model defaults for quick responses
+
+### 👥 Team Collaboration
+- Workspace-based team management
+- Member invitation system
+- Role-based access control (Owner, Admin, Member)
+- Team page with member list and management
+- Supabase RLS for data isolation
+
+### ⚙️ Enhanced Settings
+- **Terminal**: Cursor style, scrollback lines, line height, bell style
+- **Appearance**: Theme, terminal font, font size
+- **AI**: Collapsible provider sections, masked API keys, model selection, test connection
+- Clean, professional UI with visual feedback
+
+### Core SSH Features
+- Terminal sessions with xterm.js
+- Key-based authentication
+- Password authentication
+- Session management with tabs
+- Connection status indicators
+
+## Architecture
+
+This repository includes the mandatory **workspace tenancy** implementation with Supabase RLS, invitation flow, and renderer/main integration scaffolding.
 
 ## What Was Implemented
 
