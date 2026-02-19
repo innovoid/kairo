@@ -24493,19 +24493,21 @@ const createLucideIcon = (iconName, iconNode) => {
   Component.displayName = toPascalCase(iconName);
   return Component;
 };
-const __iconNode$v = [
+const __iconNode$w = [
   ["path", { d: "m21 16-4 4-4-4", key: "f6ql7i" }],
   ["path", { d: "M17 20V4", key: "1ejh1v" }],
   ["path", { d: "m3 8 4-4 4 4", key: "11wl7u" }],
   ["path", { d: "M7 4v16", key: "1glfcx" }]
 ];
-const ArrowUpDown = createLucideIcon("arrow-up-down", __iconNode$v);
-const __iconNode$u = [["path", { d: "M20 6 9 17l-5-5", key: "1gmf2c" }]];
-const Check = createLucideIcon("check", __iconNode$u);
-const __iconNode$t = [["path", { d: "m6 9 6 6 6-6", key: "qrunsl" }]];
-const ChevronDown = createLucideIcon("chevron-down", __iconNode$t);
-const __iconNode$s = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
-const ChevronLeft = createLucideIcon("chevron-left", __iconNode$s);
+const ArrowUpDown = createLucideIcon("arrow-up-down", __iconNode$w);
+const __iconNode$v = [["path", { d: "M20 6 9 17l-5-5", key: "1gmf2c" }]];
+const Check = createLucideIcon("check", __iconNode$v);
+const __iconNode$u = [["path", { d: "m6 9 6 6 6-6", key: "qrunsl" }]];
+const ChevronDown = createLucideIcon("chevron-down", __iconNode$u);
+const __iconNode$t = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
+const ChevronLeft = createLucideIcon("chevron-left", __iconNode$t);
+const __iconNode$s = [["path", { d: "m9 18 6-6-6-6", key: "mthhwq" }]];
+const ChevronRight = createLucideIcon("chevron-right", __iconNode$s);
 const __iconNode$r = [["path", { d: "m18 15-6-6-6 6", key: "153udz" }]];
 const ChevronUp = createLucideIcon("chevron-up", __iconNode$r);
 const __iconNode$q = [
@@ -47894,6 +47896,18 @@ const MenuRoot = fastComponent(function MenuRoot2(props) {
   }
   return content;
 });
+function MenuSubmenuRoot(props) {
+  const parentMenu = useMenuRootContext().store;
+  const contextValue = reactExports.useMemo(() => ({
+    parentMenu
+  }), [parentMenu]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuSubmenuRootContext.Provider, {
+    value: contextValue,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsx(MenuRoot, {
+      ...props
+    })
+  });
+}
 function useCompositeItem(params = {}) {
   const {
     highlightItemOnHover,
@@ -48245,6 +48259,121 @@ function useMenuParent() {
   }, [contextMenuContext, parentContext, menubarContext]);
   return parent;
 }
+const MenuSubmenuTrigger = /* @__PURE__ */ reactExports.forwardRef(function SubmenuTriggerComponent(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    label,
+    id: idProp,
+    nativeButton = false,
+    openOnHover = true,
+    delay = 100,
+    closeDelay = 0,
+    disabled: disabledProp = false,
+    ...elementProps
+  } = componentProps;
+  const listItem = useCompositeListItem();
+  const menuPositionerContext = useMenuPositionerContext();
+  const {
+    store
+  } = useMenuRootContext();
+  const thisTriggerId = useBaseUiId(idProp);
+  const open = store.useState("open");
+  const floatingRootContext = store.useState("floatingRootContext");
+  const floatingTreeRoot = store.useState("floatingTreeRoot");
+  const baseRegisterTrigger = useTriggerRegistration(thisTriggerId, store);
+  const registerTrigger = reactExports.useCallback((element2) => {
+    const cleanup = baseRegisterTrigger(element2);
+    if (element2 !== null && store.select("open") && store.select("activeTriggerId") == null) {
+      store.update({
+        activeTriggerId: thisTriggerId,
+        activeTriggerElement: element2,
+        closeDelay
+      });
+    }
+    return cleanup;
+  }, [baseRegisterTrigger, closeDelay, store, thisTriggerId]);
+  const triggerElementRef = reactExports.useRef(null);
+  const handleTriggerElementRef = reactExports.useCallback((el2) => {
+    triggerElementRef.current = el2;
+    store.set("activeTriggerElement", el2);
+  }, [store]);
+  const submenuRootContext = useMenuSubmenuRootContext();
+  if (!submenuRootContext?.parentMenu) {
+    throw new Error(formatErrorMessage(37));
+  }
+  store.useSyncedValue("closeDelay", closeDelay);
+  const parentMenuStore = submenuRootContext.parentMenu;
+  const itemProps = parentMenuStore.useState("itemProps");
+  const highlighted = parentMenuStore.useState("isActive", listItem.index);
+  const itemMetadata = reactExports.useMemo(() => ({
+    type: "submenu-trigger",
+    setActive() {
+      parentMenuStore.set("activeIndex", listItem.index);
+    }
+  }), [parentMenuStore, listItem.index]);
+  const rootDisabled = store.useState("disabled");
+  const disabled2 = disabledProp || rootDisabled;
+  const {
+    getItemProps,
+    itemRef
+  } = useMenuItem({
+    closeOnClick: false,
+    disabled: disabled2,
+    highlighted,
+    id: thisTriggerId,
+    store,
+    nativeButton,
+    itemMetadata,
+    nodeId: menuPositionerContext?.nodeId
+  });
+  const hoverEnabled = store.useState("hoverEnabled");
+  const allowMouseEnter = parentMenuStore.useState("allowMouseEnter");
+  const hoverProps = useHoverReferenceInteraction(floatingRootContext, {
+    enabled: hoverEnabled && openOnHover && !disabled2,
+    handleClose: safePolygon({
+      blockPointerEvents: true
+    }),
+    mouseOnly: true,
+    move: true,
+    restMs: delay,
+    delay: allowMouseEnter ? {
+      open: delay,
+      close: closeDelay
+    } : 0,
+    triggerElementRef,
+    externalTree: floatingTreeRoot
+  });
+  const click = useClick(floatingRootContext, {
+    enabled: !disabled2,
+    event: "mousedown",
+    toggle: !openOnHover,
+    ignoreMouse: openOnHover,
+    stickIfOpen: false
+  });
+  const localInteractionProps = useInteractions([click]);
+  const rootTriggerProps = store.useState("triggerProps", true);
+  delete rootTriggerProps.id;
+  const state = {
+    disabled: disabled2,
+    highlighted,
+    open
+  };
+  const element = useRenderElement("div", componentProps, {
+    state,
+    stateAttributesMapping: triggerOpenStateMapping,
+    props: [localInteractionProps.getReferenceProps(), hoverProps, rootTriggerProps, itemProps, {
+      tabIndex: open || highlighted ? 0 : -1,
+      onBlur() {
+        if (highlighted) {
+          parentMenuStore.set("activeIndex", null);
+        }
+      }
+    }, elementProps, getItemProps],
+    ref: [forwardedRef, listItem.ref, itemRef, registerTrigger, handleTriggerElementRef]
+  });
+  return element;
+});
 function DropdownMenu({ ...props }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuRoot, { "data-slot": "dropdown-menu", ...props });
 }
@@ -48653,6 +48782,45 @@ function ContextMenuItem({
         "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:text-destructive focus:*:[svg]:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 group/context-menu-item relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       ),
+      ...props
+    }
+  );
+}
+function ContextMenuSub({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(MenuSubmenuRoot, { "data-slot": "context-menu-sub", ...props });
+}
+function ContextMenuSubTrigger({
+  className,
+  inset,
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    MenuSubmenuTrigger,
+    {
+      "data-slot": "context-menu-sub-trigger",
+      "data-inset": inset,
+      className: cn$2(
+        "focus:bg-accent focus:text-accent-foreground data-open:bg-accent data-open:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 flex cursor-default items-center outline-hidden select-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className
+      ),
+      ...props,
+      children: [
+        children,
+        /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronRight, { className: "ml-auto" })
+      ]
+    }
+  );
+}
+function ContextMenuSubContent({
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    ContextMenuContent,
+    {
+      "data-slot": "context-menu-sub-content",
+      className: "shadow-lg",
+      side: "right",
       ...props
     }
   );
@@ -52653,6 +52821,7 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
         DraggableHostCard,
         {
           host,
+          folders,
           onEdit: onEditHost,
           onDelete: handleDeleteHost
         },
@@ -52682,6 +52851,7 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
 }
 function DraggableHostCard({
   host,
+  folders,
   onEdit,
   onDelete
 }) {
@@ -52692,7 +52862,7 @@ function DraggableHostCard({
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
     opacity: isDragging ? 0.5 : 1
   } : void 0;
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: setNodeRef, style, ...attributes, ...listeners, children: /* @__PURE__ */ jsxRuntimeExports.jsx(HostGridCard, { host, onEdit, onDelete }) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: setNodeRef, style, ...attributes, ...listeners, children: /* @__PURE__ */ jsxRuntimeExports.jsx(HostGridCard, { host, folders, onEdit, onDelete }) });
 }
 function DroppableRootArea({ children }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -52764,6 +52934,7 @@ function FolderSection({
       DraggableHostCard,
       {
         host,
+        folders: allFolders,
         onEdit: onEditHost,
         onDelete: onDeleteHost
       },
@@ -52785,10 +52956,12 @@ function FolderSection({
 }
 function HostGridCard({
   host,
+  folders,
   onEdit,
   onDelete
 }) {
   const { tabs, openTab, setActiveTab } = useSessionStore();
+  const { moveToFolder } = useHostStore();
   const clickTimeout = reactExports.useRef(null);
   const existingTerminalTab = [...tabs.values()].find(
     (t) => t.hostId === host.id && t.tabType === "terminal"
@@ -52919,6 +53092,38 @@ function HostGridCard({
         "Open SFTP"
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(ContextMenuSeparator, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenuSub, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenuSubTrigger, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(FolderOpen, { className: "h-4 w-4 mr-2" }),
+          "Move to Folder"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenuSubContent, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            ContextMenuItem,
+            {
+              onClick: () => moveToFolder(host.id, null),
+              disabled: host.folderId === null,
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Server, { className: "h-4 w-4 mr-2" }),
+                "Root (No Folder)"
+              ]
+            }
+          ),
+          folders.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(ContextMenuSeparator, {}),
+          folders.map((folder) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            ContextMenuItem,
+            {
+              onClick: () => moveToFolder(host.id, folder.id),
+              disabled: host.folderId === folder.id,
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(FolderOpen, { className: "h-4 w-4 mr-2" }),
+                folder.name
+              ]
+            },
+            folder.id
+          ))
+        ] })
+      ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(ContextMenuItem, { onClick: () => onEdit(host), children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(Pencil, { className: "h-4 w-4 mr-2" }),
         "Edit"

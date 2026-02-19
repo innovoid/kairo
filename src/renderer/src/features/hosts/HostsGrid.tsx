@@ -10,6 +10,9 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Plus, Search, FolderOpen, Terminal, Pencil, Trash2, Server } from 'lucide-react';
@@ -159,6 +162,7 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
                   <DraggableHostCard
                     key={host.id}
                     host={host}
+                    folders={folders}
                     onEdit={onEditHost}
                     onDelete={handleDeleteHost}
                   />
@@ -201,10 +205,12 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
 
 function DraggableHostCard({
   host,
+  folders,
   onEdit,
   onDelete,
 }: {
   host: Host;
+  folders: HostFolder[];
   onEdit: (host: Host) => void;
   onDelete: (host: Host) => void;
 }) {
@@ -221,7 +227,7 @@ function DraggableHostCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <HostGridCard host={host} onEdit={onEdit} onDelete={onDelete} />
+      <HostGridCard host={host} folders={folders} onEdit={onEdit} onDelete={onDelete} />
     </div>
   );
 }
@@ -320,6 +326,7 @@ function FolderSection({
             <DraggableHostCard
               key={host.id}
               host={host}
+              folders={allFolders}
               onEdit={onEditHost}
               onDelete={onDeleteHost}
             />
@@ -347,14 +354,17 @@ function FolderSection({
 
 function HostGridCard({
   host,
+  folders,
   onEdit,
   onDelete,
 }: {
   host: Host;
+  folders: HostFolder[];
   onEdit: (host: Host) => void;
   onDelete: (host: Host) => void;
 }) {
   const { tabs, openTab, setActiveTab } = useSessionStore();
+  const { moveToFolder } = useHostStore();
   const clickTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const existingTerminalTab = [...tabs.values()].find(
@@ -486,6 +496,32 @@ function HostGridCard({
           Open SFTP
         </ContextMenuItem>
         <ContextMenuSeparator />
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Move to Folder
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            <ContextMenuItem
+              onClick={() => moveToFolder(host.id, null)}
+              disabled={host.folderId === null}
+            >
+              <Server className="h-4 w-4 mr-2" />
+              Root (No Folder)
+            </ContextMenuItem>
+            {folders.length > 0 && <ContextMenuSeparator />}
+            {folders.map((folder) => (
+              <ContextMenuItem
+                key={folder.id}
+                onClick={() => moveToFolder(host.id, folder.id)}
+                disabled={host.folderId === folder.id}
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                {folder.name}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
         <ContextMenuItem onClick={() => onEdit(host)}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
