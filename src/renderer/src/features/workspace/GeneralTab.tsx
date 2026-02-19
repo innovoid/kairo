@@ -291,11 +291,11 @@ export function GeneralTab({ workspaceId }: GeneralTabProps) {
           {/* Delete (Owner Only) */}
           {isOwner && (
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full">
+              <AlertDialogTrigger render={(props) => (
+                <Button {...props} variant="destructive" className="w-full">
                   Delete Workspace
                 </Button>
-              </AlertDialogTrigger>
+              )} />
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Workspace</AlertDialogTitle>
@@ -329,11 +329,11 @@ export function GeneralTab({ workspaceId }: GeneralTabProps) {
           {/* Leave (Members) */}
           {!isOwner && (
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full text-destructive border-destructive">
+              <AlertDialogTrigger render={(props) => (
+                <Button {...props} variant="outline" className="w-full text-destructive border-destructive">
                   Leave Workspace
                 </Button>
-              </AlertDialogTrigger>
+              )} />
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Leave Workspace</AlertDialogTitle>

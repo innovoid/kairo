@@ -15,10 +15,14 @@ import { getHostActions, getNavigationActions } from './command-actions';
 interface CommandPaletteProps {
   onOpenSettings: () => void;
   onOpenKeys: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CommandPalette({ onOpenSettings, onOpenKeys }: CommandPaletteProps) {
-  const { open, setOpen } = useCommandPalette();
+export function CommandPalette({ onOpenSettings, onOpenKeys, open: externalOpen, onOpenChange }: CommandPaletteProps) {
+  const internal = useCommandPalette();
+  const open = externalOpen !== undefined ? externalOpen : internal.open;
+  const setOpen = onOpenChange !== undefined ? onOpenChange : internal.setOpen;
   const { hosts } = useHostStore();
   const tabs = useSessionStore((s) => s.tabs);
   const openTab = useSessionStore((s) => s.openTab);

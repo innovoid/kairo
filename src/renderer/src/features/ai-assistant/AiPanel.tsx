@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { ChatMessage } from './ChatMessage';
 
 interface AiPanelProps {
   open: boolean;
@@ -76,28 +77,25 @@ export function AiPanel({ open, onOpenChange }: AiPanelProps) {
 
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          <ScrollArea className="flex-1 mt-4" ref={scrollRef}>
             {messages.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                Ask anything about Linux commands, shell scripting, or troubleshooting.
-              </p>
+              <div className="flex items-center justify-center h-full text-muted-foreground p-4">
+                <div className="text-center">
+                  <p className="mb-2">Ask me anything about your terminal or SSH connections</p>
+                  <p className="text-xs">Try: "How do I list large files?" or "Explain this command"</p>
+                </div>
+              </div>
             ) : (
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
-                    >
-                      {message.content}
-                    </div>
-                  </div>
+              <div className="space-y-4 p-4">
+                {messages.map((msg, idx) => (
+                  <ChatMessage
+                    key={idx}
+                    role={msg.role}
+                    content={msg.content}
+                    command={msg.command}
+                    timestamp={msg.timestamp}
+                    onInsertCommand={(cmd) => console.log('Insert command:', cmd)}
+                  />
                 ))}
               </div>
             )}

@@ -138,11 +138,15 @@ const AccountSettingsTab = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild variant="outline" className="w-full sm:w-auto">
-            <a href="/profile" className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => window.location.href = '/profile'}
+          >
+            <span className="flex items-center gap-2">
               Go to Profile
               <ExternalLink className="h-4 w-4" />
-            </a>
+            </span>
           </Button>
         </CardContent>
       </Card>

@@ -110,13 +110,13 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
             <p className="text-sm text-muted-foreground">Manage and connect to your servers</p>
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm">
+            <DropdownMenuTrigger render={(props) => (
+              <Button {...props} size="sm">
                 <Plus className="h-4 w-4 mr-1.5" />
                 Add Host
                 <ChevronDown className="h-4 w-4 ml-1.5" />
               </Button>
-            </DropdownMenuTrigger>
+            )} />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onAddHost}>
                 <Plus className="h-4 w-4 mr-2" />

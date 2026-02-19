@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -57,9 +57,10 @@ export function UserMenu({ children }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        {children}
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger render={(props) => {
+        const child = children as React.ReactElement;
+        return React.cloneElement(child, props);
+      }} />
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex items-center gap-3">

@@ -7010,10 +7010,10 @@ const ReactDOM$1 = /* @__PURE__ */ getDefaultExportFromCjs(clientExports);
 var PopStateEventType = "popstate";
 function createBrowserHistory(options = {}) {
   function createBrowserLocation(window2, globalHistory) {
-    let { pathname, search: search2, hash } = window2.location;
+    let { pathname, search, hash } = window2.location;
     return createLocation(
       "",
-      { pathname, search: search2, hash },
+      { pathname, search, hash },
       // state defaults to `null` because `window.history.state` does
       globalHistory.state && globalHistory.state.usr || null,
       globalHistory.state && globalHistory.state.key || "default"
@@ -7070,11 +7070,11 @@ function createLocation(current, to, state = null, key) {
 }
 function createPath({
   pathname = "/",
-  search: search2 = "",
+  search = "",
   hash = ""
 }) {
-  if (search2 && search2 !== "?")
-    pathname += search2.charAt(0) === "?" ? search2 : "?" + search2;
+  if (search && search !== "?")
+    pathname += search.charAt(0) === "?" ? search : "?" + search;
   if (hash && hash !== "#")
     pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
   return pathname;
@@ -7478,7 +7478,7 @@ var ABSOLUTE_URL_REGEX = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 function resolvePath(to, fromPathname = "/") {
   let {
     pathname: toPathname,
-    search: search2 = "",
+    search = "",
     hash = ""
   } = typeof to === "string" ? parsePath(to) : to;
   let pathname;
@@ -7494,7 +7494,7 @@ function resolvePath(to, fromPathname = "/") {
   }
   return {
     pathname,
-    search: normalizeSearch(search2),
+    search: normalizeSearch(search),
     hash: normalizeHash(hash)
   };
 }
@@ -7572,7 +7572,7 @@ function resolveTo(toArg, routePathnames, locationPathname, isPathRelative = fal
 }
 var joinPaths = (paths) => paths.join("/").replace(/\/\/+/g, "/");
 var normalizePathname = (pathname) => pathname.replace(/\/+$/, "").replace(/^\/*/, "/");
-var normalizeSearch = (search2) => !search2 || search2 === "?" ? "" : search2.startsWith("?") ? search2 : "?" + search2;
+var normalizeSearch = (search) => !search || search === "?" ? "" : search.startsWith("?") ? search : "?" + search;
 var normalizeHash = (hash) => !hash || hash === "#" ? "" : hash.startsWith("#") ? hash : "#" + hash;
 var ErrorResponseImpl = class {
   constructor(status, statusText, data2, internal = false) {
@@ -7713,12 +7713,12 @@ function useHref(to, { relative } = {}) {
     `useHref() may be used only in the context of a <Router> component.`
   );
   let { basename, navigator: navigator2 } = reactExports.useContext(NavigationContext);
-  let { hash, pathname, search: search2 } = useResolvedPath(to, { relative });
+  let { hash, pathname, search } = useResolvedPath(to, { relative });
   let joinedPathname = pathname;
   if (basename !== "/") {
     joinedPathname = pathname === "/" ? basename : joinPaths([basename, pathname]);
   }
-  return navigator2.createHref({ pathname: joinedPathname, search: search2, hash });
+  return navigator2.createHref({ pathname: joinedPathname, search, hash });
 }
 function useInRouterContext() {
   return reactExports.useContext(LocationContext) != null;
@@ -8288,7 +8288,7 @@ function Router({
   }
   let {
     pathname = "/",
-    search: search2 = "",
+    search = "",
     hash = "",
     state = null,
     key = "default"
@@ -8301,17 +8301,17 @@ function Router({
     return {
       location: {
         pathname: trailingPathname,
-        search: search2,
+        search,
         hash,
         state,
         key
       },
       navigationType
     };
-  }, [basename, pathname, search2, hash, state, key, navigationType]);
+  }, [basename, pathname, search, hash, state, key, navigationType]);
   warning(
     locationContext != null,
-    `<Router basename="${basename}"> is not able to match the URL "${pathname}${search2}${hash}" because it does not start with the basename, so the <Router> won't render anything.`
+    `<Router basename="${basename}"> is not able to match the URL "${pathname}${search}${hash}" because it does not start with the basename, so the <Router> won't render anything.`
   );
   if (locationContext == null) {
     return null;
@@ -35657,7 +35657,7 @@ function WorkspaceSwitcher() {
   };
   const workspaceName = activeWorkspace?.name || "Workspace";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(Popover, { open, onOpenChange: setOpen, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverTrigger, { asChild: true, children: /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: workspaceName, size: "sm" }) }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverTrigger, { render: (props) => /* @__PURE__ */ jsxRuntimeExports.jsx("button", { ...props, className: "flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: workspaceName, size: "sm" }) }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverContent, { className: "w-64 p-2", side: "right", align: "start", sideOffset: 8, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-2 py-1.5 text-xs font-semibold text-muted-foreground", children: "Workspaces" }),
       workspaces.map((workspace) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -56006,7 +56006,7 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage and connect to your servers" })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(DropdownMenu, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuTrigger, { asChild: true, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { size: "sm", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(DropdownMenuTrigger, { render: (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { ...props, size: "sm", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
           "Add Host",
           /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "h-4 w-4 ml-1.5" })
@@ -56048,11 +56048,11 @@ function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }) {
         host.id
       )) }) })
     ] }),
-    filtered.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center py-20", children: [
+    hosts.length === 0 && folders.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center py-20", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(Server, { className: "h-12 w-12 mx-auto text-muted-foreground/20 mb-3" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium", children: search ? "No matching hosts" : "No hosts yet" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mt-1 mb-4", children: search ? "Try a different search" : "Add a host to get started" }),
-      !search && /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { variant: "outline", size: "sm", onClick: onAddHost, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium", children: "No hosts yet" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mt-1 mb-4", children: "Add a host to get started" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { variant: "outline", size: "sm", onClick: onAddHost, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-1.5" }),
         "Add your first host"
       ] })
@@ -58826,10 +58826,18 @@ const AccountSettingsTab = () => {
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "View and update your profile settings" })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { asChild: true, variant: "outline", className: "w-full sm:w-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("a", { href: "/profile", className: "flex items-center gap-2", children: [
-        "Go to Profile",
-        /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { className: "h-4 w-4" })
-      ] }) }) })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Button,
+        {
+          variant: "outline",
+          className: "w-full sm:w-auto",
+          onClick: () => window.location.href = "/profile",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+            "Go to Profile",
+            /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { className: "h-4 w-4" })
+          ] })
+        }
+      ) })
     ] })
   ] });
 };
@@ -59316,6 +59324,389 @@ function AiTab() {
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleSave, disabled: saving, children: saving ? "Saving..." : "Save changes" })
   ] });
+}
+function AlertDialogRoot(props) {
+  const {
+    children,
+    open: openProp,
+    defaultOpen = false,
+    onOpenChange,
+    onOpenChangeComplete,
+    actionsRef,
+    handle,
+    triggerId: triggerIdProp,
+    defaultTriggerId: defaultTriggerIdProp = null
+  } = props;
+  const parentDialogRootContext = useDialogRootContext();
+  const nested = Boolean(parentDialogRootContext);
+  const store = useRefWithInit(() => {
+    return handle?.store ?? new DialogStore({
+      open: defaultOpen,
+      openProp,
+      activeTriggerId: defaultTriggerIdProp,
+      triggerIdProp,
+      modal: true,
+      disablePointerDismissal: true,
+      nested,
+      role: "alertdialog"
+    });
+  }).current;
+  store.useControlledProp("openProp", openProp);
+  store.useControlledProp("triggerIdProp", triggerIdProp);
+  store.useSyncedValue("nested", nested);
+  store.useContextCallback("onOpenChange", onOpenChange);
+  store.useContextCallback("onOpenChangeComplete", onOpenChangeComplete);
+  const payload = store.useState("payload");
+  useDialogRoot({
+    store,
+    actionsRef,
+    parentContext: parentDialogRootContext?.store.context
+  });
+  const contextValue = reactExports.useMemo(() => ({
+    store
+  }), [store]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(DialogRootContext.Provider, {
+    value: contextValue,
+    children: typeof children === "function" ? children({
+      payload
+    }) : children
+  });
+}
+function AlertDialog({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogRoot, { "data-slot": "alert-dialog", ...props });
+}
+function AlertDialogPortal({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(DialogPortal$2, { "data-slot": "alert-dialog-portal", ...props });
+}
+function AlertDialogOverlay({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogBackdrop,
+    {
+      "data-slot": "alert-dialog-overlay",
+      className: cn$2(
+        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50",
+        className
+      ),
+      ...props
+    }
+  );
+}
+function AlertDialogContent({
+  className,
+  size: size2 = "default",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogPortal, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogOverlay, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      DialogPopup,
+      {
+        "data-slot": "alert-dialog-content",
+        "data-size": size2,
+        className: cn$2(
+          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 bg-background ring-foreground/10 gap-4 rounded-xl p-4 ring-1 duration-100 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none",
+          className
+        ),
+        ...props
+      }
+    )
+  ] });
+}
+function AlertDialogHeader({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-slot": "alert-dialog-header",
+      className: cn$2("grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-4 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]", className),
+      ...props
+    }
+  );
+}
+function AlertDialogFooter({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-slot": "alert-dialog-footer",
+      className: cn$2(
+        "bg-muted/50 -mx-4 -mb-4 rounded-b-xl border-t p-4 flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
+        className
+      ),
+      ...props
+    }
+  );
+}
+function AlertDialogTitle({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogTitle$2,
+    {
+      "data-slot": "alert-dialog-title",
+      className: cn$2("text-base font-medium sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2", className),
+      ...props
+    }
+  );
+}
+function AlertDialogDescription({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogDescription$2,
+    {
+      "data-slot": "alert-dialog-description",
+      className: cn$2("text-muted-foreground *:[a]:hover:text-foreground text-sm text-balance md:text-pretty *:[a]:underline *:[a]:underline-offset-3", className),
+      ...props
+    }
+  );
+}
+function AlertDialogAction({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Button,
+    {
+      "data-slot": "alert-dialog-action",
+      className: cn$2(className),
+      ...props
+    }
+  );
+}
+function AlertDialogCancel({
+  className,
+  variant = "outline",
+  size: size2 = "default",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DialogClose$1,
+    {
+      "data-slot": "alert-dialog-cancel",
+      className: cn$2(className),
+      render: /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant, size: size2 }),
+      ...props
+    }
+  );
+}
+function ProfilePage() {
+  const [user, setUser] = reactExports.useState(null);
+  const [name, setName] = reactExports.useState("");
+  const [currentPassword, setCurrentPassword] = reactExports.useState("");
+  const [newPassword, setNewPassword] = reactExports.useState("");
+  const [confirmPassword, setConfirmPassword] = reactExports.useState("");
+  const [deletePassword, setDeletePassword] = reactExports.useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = reactExports.useState(false);
+  const [loading, setLoading] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setName(data.user?.user_metadata?.name || "");
+    });
+  }, []);
+  async function handleUpdateProfile() {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { name }
+      });
+      if (error) throw error;
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function handleChangePassword() {
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      if (error) throw error;
+      toast.success("Password changed successfully");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function handleDeleteAccount() {
+    setLoading(true);
+    try {
+      const { error: rpcError } = await supabase.rpc("delete_user_account");
+      if (rpcError) throw rpcError;
+      await supabase.auth.signOut();
+      await window.authApi.setAccessToken(null);
+      toast.success("Account deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete account");
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setShowDeleteDialog(false);
+    }
+  }
+  if (!user) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center h-full", children: "Loading..." });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-2xl mx-auto p-6 space-y-6", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-2xl font-bold mb-1", children: "Profile" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage your account information and security settings" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Profile Information" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your personal details" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: name || "User", size: "lg" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 space-y-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "name", children: "Name" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Input,
+                {
+                  id: "name",
+                  value: name,
+                  onChange: (e) => setName(e.target.value),
+                  placeholder: "Your name"
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "email", children: "Email" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Input,
+                {
+                  id: "email",
+                  value: user.email || "",
+                  disabled: true,
+                  className: "bg-muted"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mt-1", children: "Email cannot be changed" })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleUpdateProfile, disabled: loading, children: "Save Changes" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Change Password" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your password to keep your account secure" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "current-password", children: "Current Password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Input,
+            {
+              id: "current-password",
+              type: "password",
+              value: currentPassword,
+              onChange: (e) => setCurrentPassword(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "new-password", children: "New Password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Input,
+            {
+              id: "new-password",
+              type: "password",
+              value: newPassword,
+              onChange: (e) => setNewPassword(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "confirm-password", children: "Confirm New Password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Input,
+            {
+              id: "confirm-password",
+              type: "password",
+              value: confirmPassword,
+              onChange: (e) => setConfirmPassword(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleChangePassword, disabled: loading, children: "Change Password" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { className: "border-destructive", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { className: "text-destructive", children: "Danger Zone" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Irreversible actions that affect your account" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm mb-2", children: "Once you delete your account, there is no going back. All your data will be permanently deleted." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Button,
+          {
+            variant: "destructive",
+            onClick: () => setShowDeleteDialog(true),
+            children: "Delete Account"
+          }
+        )
+      ] }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialog, { open: showDeleteDialog, onOpenChange: setShowDeleteDialog, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogContent, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogTitle, { children: "Are you absolutely sure?" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogDescription, { children: "This action cannot be undone. This will permanently delete your account and remove all your data from our servers." })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "delete-password", children: "Enter your password to confirm" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Input,
+          {
+            id: "delete-password",
+            type: "password",
+            value: deletePassword,
+            onChange: (e) => setDeletePassword(e.target.value),
+            placeholder: "Password"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogFooter, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogCancel, { children: "Cancel" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          AlertDialogAction,
+          {
+            onClick: handleDeleteAccount,
+            disabled: !deletePassword || loading,
+            className: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+            children: "Delete Account"
+          }
+        )
+      ] })
+    ] }) })
+  ] }) });
 }
 var U$1 = 1, Y$1 = 0.9, H = 0.8, J = 0.17, p = 0.1, u = 0.999, $ = 0.9999;
 var k$1 = 0.99, m = /[\\\/_+.#"@\[\(\{&]/, B$1 = /[\\\/_+.#"@\[\(\{&]/g, K$1 = /[\s-]/, X = /[\s-]/g;
@@ -61779,8 +62170,10 @@ function getNavigationActions({
   }
   return actions;
 }
-function CommandPalette({ onOpenSettings, onOpenKeys }) {
-  const { open, setOpen } = useCommandPalette();
+function CommandPalette({ onOpenSettings, onOpenKeys, open: externalOpen, onOpenChange }) {
+  const internal = useCommandPalette();
+  const open = externalOpen !== void 0 ? externalOpen : internal.open;
+  const setOpen = onOpenChange !== void 0 ? onOpenChange : internal.setOpen;
   const { hosts } = useHostStore();
   const tabs = useSessionStore((s15) => s15.tabs);
   const openTab = useSessionStore((s15) => s15.openTab);
@@ -61948,6 +62341,7 @@ function AppShell() {
   const [editingHost, setEditingHost] = reactExports.useState(null);
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } = useCommandPalette();
   const tabs = useSessionStore((s15) => s15.tabs);
   const activeTabId = useSessionStore((s15) => s15.activeTabId);
   const openTab = useSessionStore((s15) => s15.openTab);
@@ -61983,6 +62377,9 @@ function AppShell() {
   function handleGoSettings() {
     openTab({ tabId: "settings", tabType: "settings", label: "Settings", settingsTab: "terminal" });
   }
+  function handleGoProfile() {
+    openTab({ tabId: "profile", tabType: "profile", label: "Profile" });
+  }
   function handleAddHost() {
     setEditingHost(null);
     setActivePanel("host-form");
@@ -62004,7 +62401,7 @@ function AppShell() {
   if (!workspaceId) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-screen bg-background flex items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted-foreground text-sm", children: "Loading workspace..." }) });
   }
-  const sidebarView = activeTab?.tabType === "settings" ? "settings" : activeTab?.tabType === "keys" ? "keys" : activeTab?.tabType === "workspace" ? "workspace" : "hosts";
+  const sidebarView = activeTab?.tabType === "settings" ? "settings" : activeTab?.tabType === "keys" ? "keys" : activeTab?.tabType === "workspace" ? "workspace" : activeTab?.tabType === "profile" ? "profile" : "hosts";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-screen bg-background text-foreground overflow-hidden", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-1 overflow-hidden", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -62014,6 +62411,7 @@ function AppShell() {
           onGoHome: handleGoHome,
           onGoKeys: handleGoKeys,
           onGoWorkspace: handleGoWorkspace,
+          onOpenProfile: handleGoProfile,
           activeView: sidebarView
         }
       ),
@@ -62047,6 +62445,7 @@ function AppShell() {
               workspaceId
             }
           ),
+          activeTab?.tabType === "profile" && /* @__PURE__ */ jsxRuntimeExports.jsx(ProfilePage, {}),
           (activeTab?.tabType === "terminal" || activeTab?.tabType === "sftp") && /* @__PURE__ */ jsxRuntimeExports.jsx(MainArea, {}),
           activePanel === "host-form" && /* @__PURE__ */ jsxRuntimeExports.jsx(
             HostForm,
@@ -62063,395 +62462,14 @@ function AppShell() {
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       CommandPalette,
       {
+        open: commandPaletteOpen,
+        onOpenChange: setCommandPaletteOpen,
         onOpenSettings: handleGoSettings,
         onOpenKeys: handleGoKeys
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Toaster2, {})
   ] });
-}
-function AlertDialogRoot(props) {
-  const {
-    children,
-    open: openProp,
-    defaultOpen = false,
-    onOpenChange,
-    onOpenChangeComplete,
-    actionsRef,
-    handle,
-    triggerId: triggerIdProp,
-    defaultTriggerId: defaultTriggerIdProp = null
-  } = props;
-  const parentDialogRootContext = useDialogRootContext();
-  const nested = Boolean(parentDialogRootContext);
-  const store = useRefWithInit(() => {
-    return handle?.store ?? new DialogStore({
-      open: defaultOpen,
-      openProp,
-      activeTriggerId: defaultTriggerIdProp,
-      triggerIdProp,
-      modal: true,
-      disablePointerDismissal: true,
-      nested,
-      role: "alertdialog"
-    });
-  }).current;
-  store.useControlledProp("openProp", openProp);
-  store.useControlledProp("triggerIdProp", triggerIdProp);
-  store.useSyncedValue("nested", nested);
-  store.useContextCallback("onOpenChange", onOpenChange);
-  store.useContextCallback("onOpenChangeComplete", onOpenChangeComplete);
-  const payload = store.useState("payload");
-  useDialogRoot({
-    store,
-    actionsRef,
-    parentContext: parentDialogRootContext?.store.context
-  });
-  const contextValue = reactExports.useMemo(() => ({
-    store
-  }), [store]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(DialogRootContext.Provider, {
-    value: contextValue,
-    children: typeof children === "function" ? children({
-      payload
-    }) : children
-  });
-}
-function AlertDialog({ ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogRoot, { "data-slot": "alert-dialog", ...props });
-}
-function AlertDialogPortal({ ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(DialogPortal$2, { "data-slot": "alert-dialog-portal", ...props });
-}
-function AlertDialogOverlay({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    DialogBackdrop,
-    {
-      "data-slot": "alert-dialog-overlay",
-      className: cn$2(
-        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50",
-        className
-      ),
-      ...props
-    }
-  );
-}
-function AlertDialogContent({
-  className,
-  size: size2 = "default",
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogPortal, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogOverlay, {}),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      DialogPopup,
-      {
-        "data-slot": "alert-dialog-content",
-        "data-size": size2,
-        className: cn$2(
-          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 bg-background ring-foreground/10 gap-4 rounded-xl p-4 ring-1 duration-100 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none",
-          className
-        ),
-        ...props
-      }
-    )
-  ] });
-}
-function AlertDialogHeader({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "div",
-    {
-      "data-slot": "alert-dialog-header",
-      className: cn$2("grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-4 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]", className),
-      ...props
-    }
-  );
-}
-function AlertDialogFooter({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "div",
-    {
-      "data-slot": "alert-dialog-footer",
-      className: cn$2(
-        "bg-muted/50 -mx-4 -mb-4 rounded-b-xl border-t p-4 flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
-        className
-      ),
-      ...props
-    }
-  );
-}
-function AlertDialogTitle({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    DialogTitle$2,
-    {
-      "data-slot": "alert-dialog-title",
-      className: cn$2("text-base font-medium sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2", className),
-      ...props
-    }
-  );
-}
-function AlertDialogDescription({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    DialogDescription$2,
-    {
-      "data-slot": "alert-dialog-description",
-      className: cn$2("text-muted-foreground *:[a]:hover:text-foreground text-sm text-balance md:text-pretty *:[a]:underline *:[a]:underline-offset-3", className),
-      ...props
-    }
-  );
-}
-function AlertDialogAction({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    Button,
-    {
-      "data-slot": "alert-dialog-action",
-      className: cn$2(className),
-      ...props
-    }
-  );
-}
-function AlertDialogCancel({
-  className,
-  variant = "outline",
-  size: size2 = "default",
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    DialogClose$1,
-    {
-      "data-slot": "alert-dialog-cancel",
-      className: cn$2(className),
-      render: /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant, size: size2 }),
-      ...props
-    }
-  );
-}
-function ProfilePage() {
-  const [user, setUser] = reactExports.useState(null);
-  const [name, setName] = reactExports.useState("");
-  const [currentPassword, setCurrentPassword] = reactExports.useState("");
-  const [newPassword, setNewPassword] = reactExports.useState("");
-  const [confirmPassword, setConfirmPassword] = reactExports.useState("");
-  const [deletePassword, setDeletePassword] = reactExports.useState("");
-  const [showDeleteDialog, setShowDeleteDialog] = reactExports.useState(false);
-  const [loading, setLoading] = reactExports.useState(false);
-  reactExports.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setName(data.user?.user_metadata?.name || "");
-    });
-  }, []);
-  async function handleUpdateProfile() {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: { name }
-      });
-      if (error) throw error;
-      toast.success("Profile updated successfully");
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-  async function handleChangePassword() {
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-      if (error) throw error;
-      toast.success("Password changed successfully");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-  async function handleDeleteAccount() {
-    setLoading(true);
-    try {
-      const { error: rpcError } = await supabase.rpc("delete_user_account");
-      if (rpcError) throw rpcError;
-      await supabase.auth.signOut();
-      await window.authApi.setAccessToken(null);
-      toast.success("Account deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete account");
-      console.error(error);
-    } finally {
-      setLoading(false);
-      setShowDeleteDialog(false);
-    }
-  }
-  if (!user) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center h-full", children: "Loading..." });
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-2xl mx-auto p-6 space-y-6", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-2xl font-bold mb-1", children: "Profile" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: "Manage your account information and security settings" })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Profile Information" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your personal details" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: name || "User", size: "lg" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 space-y-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "name", children: "Name" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                Input,
-                {
-                  id: "name",
-                  value: name,
-                  onChange: (e) => setName(e.target.value),
-                  placeholder: "Your name"
-                }
-              )
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "email", children: "Email" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                Input,
-                {
-                  id: "email",
-                  value: user.email || "",
-                  disabled: true,
-                  className: "bg-muted"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mt-1", children: "Email cannot be changed" })
-            ] })
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleUpdateProfile, disabled: loading, children: "Save Changes" })
-      ] })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: "Change Password" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Update your password to keep your account secure" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "current-password", children: "Current Password" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            Input,
-            {
-              id: "current-password",
-              type: "password",
-              value: currentPassword,
-              onChange: (e) => setCurrentPassword(e.target.value)
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "new-password", children: "New Password" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            Input,
-            {
-              id: "new-password",
-              type: "password",
-              value: newPassword,
-              onChange: (e) => setNewPassword(e.target.value)
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "confirm-password", children: "Confirm New Password" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            Input,
-            {
-              id: "confirm-password",
-              type: "password",
-              value: confirmPassword,
-              onChange: (e) => setConfirmPassword(e.target.value)
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleChangePassword, disabled: loading, children: "Change Password" })
-      ] })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { className: "border-destructive", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { className: "text-destructive", children: "Danger Zone" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: "Irreversible actions that affect your account" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm mb-2", children: "Once you delete your account, there is no going back. All your data will be permanently deleted." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          Button,
-          {
-            variant: "destructive",
-            onClick: () => setShowDeleteDialog(true),
-            children: "Delete Account"
-          }
-        )
-      ] }) })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialog, { open: showDeleteDialog, onOpenChange: setShowDeleteDialog, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogContent, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogHeader, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogTitle, { children: "Are you absolutely sure?" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogDescription, { children: "This action cannot be undone. This will permanently delete your account and remove all your data from our servers." })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-4", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "delete-password", children: "Enter your password to confirm" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          Input,
-          {
-            id: "delete-password",
-            type: "password",
-            value: deletePassword,
-            onChange: (e) => setDeletePassword(e.target.value),
-            placeholder: "Password"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogFooter, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogCancel, { children: "Cancel" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          AlertDialogAction,
-          {
-            onClick: handleDeleteAccount,
-            disabled: !deletePassword || loading,
-            className: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-            children: "Delete Account"
-          }
-        )
-      ] })
-    ] }) })
-  ] }) });
 }
 function App() {
   return /* @__PURE__ */ jsxRuntimeExports.jsx(BrowserRouter, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
