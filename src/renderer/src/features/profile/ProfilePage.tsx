@@ -137,8 +137,8 @@ export function ProfilePage() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <AvatarInitials name={name || 'User'} size="lg" />
-              <div className="flex-1 space-y-3">
-                <div>
+              <div className="flex-1 space-y-4">
+                <div className="space-y-2">
                   <Label htmlFor="name">Name</Label>
                   <Input
                     id="name"
@@ -147,7 +147,7 @@ export function ProfilePage() {
                     placeholder="Your name"
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -173,8 +173,8 @@ export function ProfilePage() {
             <CardTitle>Change Password</CardTitle>
             <CardDescription>Update your password to keep your account secure</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="current-password">Current Password</Label>
               <Input
                 id="current-password"
@@ -183,7 +183,7 @@ export function ProfilePage() {
                 onChange={e => setCurrentPassword(e.target.value)}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="new-password">New Password</Label>
               <Input
                 id="new-password"
@@ -192,7 +192,7 @@ export function ProfilePage() {
                 onChange={e => setNewPassword(e.target.value)}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm New Password</Label>
               <Input
                 id="confirm-password"
@@ -239,7 +239,7 @@ export function ProfilePage() {
                 This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="py-4">
+            <div className="py-4 space-y-2">
               <Label htmlFor="delete-password">Enter your password to confirm</Label>
               <Input
                 id="delete-password"
