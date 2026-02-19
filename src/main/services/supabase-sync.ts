@@ -215,64 +215,79 @@ export const supabaseSync = {
   async updateHost(supabase: SupabaseClient, id: string, input: UpdateHostInput): Promise<Host> {
     // LOCAL-FIRST: Update SQLite immediately, sync to Supabase in background
 
-    // Get current host from SQLite
-    const existingHost = hostQueries.getById(id);
-    if (!existingHost) throw new Error('Host not found in local cache');
+    try {
+      // Get current host from SQLite
+      const existingHost = hostQueries.getById(id);
+      if (!existingHost) throw new Error(`Host with id ${id} not found in local cache`);
 
-    // Apply updates to local copy
-    const updatedHost = {
-      id: existingHost.id,
-      workspace_id: existingHost.workspace_id,
-      folder_id: input.folderId !== undefined ? input.folderId : existingHost.folder_id,
-      label: input.label !== undefined ? input.label : existingHost.label,
-      hostname: input.hostname !== undefined ? input.hostname : existingHost.hostname,
-      port: input.port !== undefined ? input.port : existingHost.port,
-      username: input.username !== undefined ? input.username : existingHost.username,
-      auth_type: (input.authType !== undefined ? input.authType : existingHost.auth_type) as 'password' | 'key',
-      key_id: input.keyId !== undefined ? input.keyId : existingHost.key_id,
-      tags: JSON.stringify(input.tags !== undefined ? input.tags : JSON.parse(existingHost.tags)),
-      synced_at: Date.now(),
-    };
+      // Parse existing tags safely
+      let existingTags: string[] = [];
+      try {
+        existingTags = JSON.parse(existingHost.tags);
+      } catch (e) {
+        console.error('Failed to parse existing tags:', e);
+        existingTags = [];
+      }
 
-    // Update SQLite immediately (synchronous)
-    hostQueries.upsert(updatedHost);
+      // Apply updates to local copy
+      const updatedHost = {
+        id: existingHost.id,
+        workspace_id: existingHost.workspace_id,
+        folder_id: input.folderId !== undefined ? input.folderId : existingHost.folder_id,
+        label: input.label !== undefined ? input.label : existingHost.label,
+        hostname: input.hostname !== undefined ? input.hostname : existingHost.hostname,
+        port: input.port !== undefined ? input.port : existingHost.port,
+        username: input.username !== undefined ? input.username : existingHost.username,
+        auth_type: (input.authType !== undefined ? input.authType : existingHost.auth_type) as 'password' | 'key',
+        key_id: input.keyId !== undefined ? input.keyId : existingHost.key_id,
+        tags: JSON.stringify(input.tags !== undefined ? input.tags : existingTags),
+        synced_at: Date.now(),
+      };
 
-    // Update Supabase in background (don't await)
-    const updates: Record<string, unknown> = {};
-    if (input.folderId !== undefined) updates.folder_id = input.folderId;
-    if (input.label !== undefined) updates.label = input.label;
-    if (input.hostname !== undefined) updates.hostname = input.hostname;
-    if (input.port !== undefined) updates.port = input.port;
-    if (input.username !== undefined) updates.username = input.username;
-    if (input.authType !== undefined) updates.auth_type = input.authType;
-    if (input.keyId !== undefined) updates.key_id = input.keyId;
-    if (input.tags !== undefined) updates.tags = input.tags;
+      // Update SQLite immediately (synchronous)
+      hostQueries.upsert(updatedHost);
 
-    // Sync to Supabase asynchronously
-    supabase
-      .from('hosts')
-      .update(updates)
-      .eq('id', id)
-      .then(({ error }) => {
-        if (error) console.error('Background sync failed for host update:', error);
-      });
+      // Update Supabase in background (don't await)
+      const updates: Record<string, unknown> = {};
+      if (input.folderId !== undefined) updates.folder_id = input.folderId;
+      if (input.label !== undefined) updates.label = input.label;
+      if (input.hostname !== undefined) updates.hostname = input.hostname;
+      if (input.port !== undefined) updates.port = input.port;
+      if (input.username !== undefined) updates.username = input.username;
+      if (input.authType !== undefined) updates.auth_type = input.authType;
+      if (input.keyId !== undefined) updates.key_id = input.keyId;
+      if (input.tags !== undefined) updates.tags = input.tags;
+      // Note: password is intentionally not included
 
-    // Return immediately with local data
-    return {
-      id: updatedHost.id,
-      workspaceId: updatedHost.workspace_id,
-      folderId: updatedHost.folder_id,
-      label: updatedHost.label,
-      hostname: updatedHost.hostname,
-      port: updatedHost.port,
-      username: updatedHost.username,
-      authType: updatedHost.auth_type,
-      password: null,
-      keyId: updatedHost.key_id,
-      tags: JSON.parse(updatedHost.tags),
-      createdAt: new Date(updatedHost.synced_at).toISOString(),
-      updatedAt: new Date(updatedHost.synced_at).toISOString(),
-    };
+      // Sync to Supabase asynchronously
+      supabase
+        .from('hosts')
+        .update(updates)
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('Background sync failed for host update:', error);
+        });
+
+      // Return immediately with local data
+      return {
+        id: updatedHost.id,
+        workspaceId: updatedHost.workspace_id,
+        folderId: updatedHost.folder_id,
+        label: updatedHost.label,
+        hostname: updatedHost.hostname,
+        port: updatedHost.port,
+        username: updatedHost.username,
+        authType: updatedHost.auth_type,
+        password: null,
+        keyId: updatedHost.key_id,
+        tags: JSON.parse(updatedHost.tags),
+        createdAt: new Date(updatedHost.synced_at).toISOString(),
+        updatedAt: new Date(updatedHost.synced_at).toISOString(),
+      };
+    } catch (error) {
+      console.error('Error updating host in SQLite:', error);
+      throw new Error(`Failed to update host locally: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 
   async deleteHost(supabase: SupabaseClient, id: string): Promise<void> {

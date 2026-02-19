@@ -515,49 +515,61 @@ const supabaseSync = {
     };
   },
   async updateHost(supabase, id, input) {
-    const existingHost = hostQueries.getById(id);
-    if (!existingHost) throw new Error("Host not found in local cache");
-    const updatedHost = {
-      id: existingHost.id,
-      workspace_id: existingHost.workspace_id,
-      folder_id: input.folderId !== void 0 ? input.folderId : existingHost.folder_id,
-      label: input.label !== void 0 ? input.label : existingHost.label,
-      hostname: input.hostname !== void 0 ? input.hostname : existingHost.hostname,
-      port: input.port !== void 0 ? input.port : existingHost.port,
-      username: input.username !== void 0 ? input.username : existingHost.username,
-      auth_type: input.authType !== void 0 ? input.authType : existingHost.auth_type,
-      key_id: input.keyId !== void 0 ? input.keyId : existingHost.key_id,
-      tags: JSON.stringify(input.tags !== void 0 ? input.tags : JSON.parse(existingHost.tags)),
-      synced_at: Date.now()
-    };
-    hostQueries.upsert(updatedHost);
-    const updates = {};
-    if (input.folderId !== void 0) updates.folder_id = input.folderId;
-    if (input.label !== void 0) updates.label = input.label;
-    if (input.hostname !== void 0) updates.hostname = input.hostname;
-    if (input.port !== void 0) updates.port = input.port;
-    if (input.username !== void 0) updates.username = input.username;
-    if (input.authType !== void 0) updates.auth_type = input.authType;
-    if (input.keyId !== void 0) updates.key_id = input.keyId;
-    if (input.tags !== void 0) updates.tags = input.tags;
-    supabase.from("hosts").update(updates).eq("id", id).then(({ error }) => {
-      if (error) console.error("Background sync failed for host update:", error);
-    });
-    return {
-      id: updatedHost.id,
-      workspaceId: updatedHost.workspace_id,
-      folderId: updatedHost.folder_id,
-      label: updatedHost.label,
-      hostname: updatedHost.hostname,
-      port: updatedHost.port,
-      username: updatedHost.username,
-      authType: updatedHost.auth_type,
-      password: null,
-      keyId: updatedHost.key_id,
-      tags: JSON.parse(updatedHost.tags),
-      createdAt: new Date(updatedHost.synced_at).toISOString(),
-      updatedAt: new Date(updatedHost.synced_at).toISOString()
-    };
+    try {
+      const existingHost = hostQueries.getById(id);
+      if (!existingHost) throw new Error(`Host with id ${id} not found in local cache`);
+      let existingTags = [];
+      try {
+        existingTags = JSON.parse(existingHost.tags);
+      } catch (e) {
+        console.error("Failed to parse existing tags:", e);
+        existingTags = [];
+      }
+      const updatedHost = {
+        id: existingHost.id,
+        workspace_id: existingHost.workspace_id,
+        folder_id: input.folderId !== void 0 ? input.folderId : existingHost.folder_id,
+        label: input.label !== void 0 ? input.label : existingHost.label,
+        hostname: input.hostname !== void 0 ? input.hostname : existingHost.hostname,
+        port: input.port !== void 0 ? input.port : existingHost.port,
+        username: input.username !== void 0 ? input.username : existingHost.username,
+        auth_type: input.authType !== void 0 ? input.authType : existingHost.auth_type,
+        key_id: input.keyId !== void 0 ? input.keyId : existingHost.key_id,
+        tags: JSON.stringify(input.tags !== void 0 ? input.tags : existingTags),
+        synced_at: Date.now()
+      };
+      hostQueries.upsert(updatedHost);
+      const updates = {};
+      if (input.folderId !== void 0) updates.folder_id = input.folderId;
+      if (input.label !== void 0) updates.label = input.label;
+      if (input.hostname !== void 0) updates.hostname = input.hostname;
+      if (input.port !== void 0) updates.port = input.port;
+      if (input.username !== void 0) updates.username = input.username;
+      if (input.authType !== void 0) updates.auth_type = input.authType;
+      if (input.keyId !== void 0) updates.key_id = input.keyId;
+      if (input.tags !== void 0) updates.tags = input.tags;
+      supabase.from("hosts").update(updates).eq("id", id).then(({ error }) => {
+        if (error) console.error("Background sync failed for host update:", error);
+      });
+      return {
+        id: updatedHost.id,
+        workspaceId: updatedHost.workspace_id,
+        folderId: updatedHost.folder_id,
+        label: updatedHost.label,
+        hostname: updatedHost.hostname,
+        port: updatedHost.port,
+        username: updatedHost.username,
+        authType: updatedHost.auth_type,
+        password: null,
+        keyId: updatedHost.key_id,
+        tags: JSON.parse(updatedHost.tags),
+        createdAt: new Date(updatedHost.synced_at).toISOString(),
+        updatedAt: new Date(updatedHost.synced_at).toISOString()
+      };
+    } catch (error) {
+      console.error("Error updating host in SQLite:", error);
+      throw new Error(`Failed to update host locally: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
   },
   async deleteHost(supabase, id) {
     hostQueries.delete(id);
@@ -683,40 +695,85 @@ function getClient$2(event) {
 }
 const hostsIpcHandlers = {
   async listHosts(event, workspaceId) {
-    const supabase = getClient$2(event);
-    return supabaseSync.pullHosts(supabase, workspaceId);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.pullHosts(supabase, workspaceId);
+    } catch (error) {
+      console.error("Error in listHosts:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to list hosts");
+    }
   },
   async createHost(event, input) {
-    const supabase = getClient$2(event);
-    return supabaseSync.createHost(supabase, input);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.createHost(supabase, input);
+    } catch (error) {
+      console.error("Error in createHost:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to create host");
+    }
   },
   async updateHost(event, id, input) {
-    const supabase = getClient$2(event);
-    return supabaseSync.updateHost(supabase, id, input);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.updateHost(supabase, id, input);
+    } catch (error) {
+      console.error("Error in updateHost:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to update host");
+    }
   },
   async deleteHost(event, id) {
-    const supabase = getClient$2(event);
-    return supabaseSync.deleteHost(supabase, id);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.deleteHost(supabase, id);
+    } catch (error) {
+      console.error("Error in deleteHost:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to delete host");
+    }
   },
   async moveHostToFolder(event, id, folderId) {
-    const supabase = getClient$2(event);
-    return supabaseSync.updateHost(supabase, id, { folderId });
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.updateHost(supabase, id, { folderId });
+    } catch (error) {
+      console.error("Error in moveHostToFolder:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to move host to folder");
+    }
   },
   async listFolders(event, workspaceId) {
-    const supabase = getClient$2(event);
-    return supabaseSync.pullFolders(supabase, workspaceId);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.pullFolders(supabase, workspaceId);
+    } catch (error) {
+      console.error("Error in listFolders:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to list folders");
+    }
   },
   async createFolder(event, input) {
-    const supabase = getClient$2(event);
-    return supabaseSync.createFolder(supabase, input);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.createFolder(supabase, input);
+    } catch (error) {
+      console.error("Error in createFolder:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to create folder");
+    }
   },
   async updateFolder(event, id, name) {
-    const supabase = getClient$2(event);
-    return supabaseSync.updateFolder(supabase, id, name);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.updateFolder(supabase, id, name);
+    } catch (error) {
+      console.error("Error in updateFolder:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to update folder");
+    }
   },
   async deleteFolder(event, id) {
-    const supabase = getClient$2(event);
-    return supabaseSync.deleteFolder(supabase, id);
+    try {
+      const supabase = getClient$2(event);
+      return await supabaseSync.deleteFolder(supabase, id);
+    } catch (error) {
+      console.error("Error in deleteFolder:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to delete folder");
+    }
   }
 };
 const { utils: sshUtils } = ssh2;

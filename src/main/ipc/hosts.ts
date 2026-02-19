@@ -11,47 +11,92 @@ function getClient(event: IpcMainInvokeEvent): SupabaseClient {
 
 export const hostsIpcHandlers = {
   async listHosts(event: IpcMainInvokeEvent, workspaceId: string) {
-    const supabase = getClient(event);
-    return supabaseSync.pullHosts(supabase, workspaceId);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.pullHosts(supabase, workspaceId);
+    } catch (error) {
+      console.error('Error in listHosts:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to list hosts');
+    }
   },
 
   async createHost(event: IpcMainInvokeEvent, input: CreateHostInput) {
-    const supabase = getClient(event);
-    return supabaseSync.createHost(supabase, input);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.createHost(supabase, input);
+    } catch (error) {
+      console.error('Error in createHost:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to create host');
+    }
   },
 
   async updateHost(event: IpcMainInvokeEvent, id: string, input: UpdateHostInput) {
-    const supabase = getClient(event);
-    return supabaseSync.updateHost(supabase, id, input);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.updateHost(supabase, id, input);
+    } catch (error) {
+      console.error('Error in updateHost:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to update host');
+    }
   },
 
   async deleteHost(event: IpcMainInvokeEvent, id: string) {
-    const supabase = getClient(event);
-    return supabaseSync.deleteHost(supabase, id);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.deleteHost(supabase, id);
+    } catch (error) {
+      console.error('Error in deleteHost:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete host');
+    }
   },
 
   async moveHostToFolder(event: IpcMainInvokeEvent, id: string, folderId: string | null) {
-    const supabase = getClient(event);
-    return supabaseSync.updateHost(supabase, id, { folderId });
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.updateHost(supabase, id, { folderId });
+    } catch (error) {
+      console.error('Error in moveHostToFolder:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to move host to folder');
+    }
   },
 
   async listFolders(event: IpcMainInvokeEvent, workspaceId: string) {
-    const supabase = getClient(event);
-    return supabaseSync.pullFolders(supabase, workspaceId);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.pullFolders(supabase, workspaceId);
+    } catch (error) {
+      console.error('Error in listFolders:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to list folders');
+    }
   },
 
   async createFolder(event: IpcMainInvokeEvent, input: CreateFolderInput) {
-    const supabase = getClient(event);
-    return supabaseSync.createFolder(supabase, input);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.createFolder(supabase, input);
+    } catch (error) {
+      console.error('Error in createFolder:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to create folder');
+    }
   },
 
   async updateFolder(event: IpcMainInvokeEvent, id: string, name: string) {
-    const supabase = getClient(event);
-    return supabaseSync.updateFolder(supabase, id, name);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.updateFolder(supabase, id, name);
+    } catch (error) {
+      console.error('Error in updateFolder:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to update folder');
+    }
   },
 
   async deleteFolder(event: IpcMainInvokeEvent, id: string) {
-    const supabase = getClient(event);
-    return supabaseSync.deleteFolder(supabase, id);
+    try {
+      const supabase = getClient(event);
+      return await supabaseSync.deleteFolder(supabase, id);
+    } catch (error) {
+      console.error('Error in deleteFolder:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete folder');
+    }
   },
 };
