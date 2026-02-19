@@ -32300,20 +32300,23 @@ const createImpl = (createState) => {
 const create = ((createState) => createState ? createImpl(createState) : createImpl);
 const useSessionStore = create((set) => ({
   tabs: /* @__PURE__ */ new Map([
-    ["hosts", { tabId: "hosts", tabType: "hosts", label: "Hosts", closable: false }],
-    ["keys", { tabId: "keys", tabType: "keys", label: "SSH Keys", closable: false }],
-    ["team", { tabId: "team", tabType: "team", label: "Team", closable: false }],
-    ["settings", { tabId: "settings", tabType: "settings", label: "Settings", closable: false, settingsTab: "terminal" }]
+    ["hosts", { tabId: "hosts", tabType: "hosts", label: "Hosts", closable: false }]
   ]),
   activeTabId: "hosts",
   openTab: (tab) => {
     set((state) => {
       const newTabs = new Map(state.tabs);
       const closable = tab.closable ?? true;
-      if (tab.tabType === "hosts" || tab.tabType === "keys" || tab.tabType === "team" || tab.tabType === "settings") {
+      const isStaticTab = tab.tabType === "hosts" || tab.tabType === "keys" || tab.tabType === "team" || tab.tabType === "settings";
+      if (isStaticTab) {
+        for (const [id, t] of newTabs.entries()) {
+          if ((t.tabType === "hosts" || t.tabType === "keys" || t.tabType === "team" || t.tabType === "settings") && t.tabType !== tab.tabType) {
+            newTabs.delete(id);
+          }
+        }
         const existingTab = [...newTabs.values()].find((t) => t.tabType === tab.tabType);
         if (existingTab) {
-          return { activeTabId: existingTab.tabId };
+          return { tabs: newTabs, activeTabId: existingTab.tabId };
         }
       }
       newTabs.set(tab.tabId, { ...tab, closable });
@@ -32375,6 +32378,8 @@ function TabBar() {
         return /* @__PURE__ */ jsxRuntimeExports.jsx(Server, { className: "h-3.5 w-3.5 shrink-0" });
       case "keys":
         return /* @__PURE__ */ jsxRuntimeExports.jsx(KeyRound, { className: "h-3.5 w-3.5 shrink-0" });
+      case "team":
+        return /* @__PURE__ */ jsxRuntimeExports.jsx(Users, { className: "h-3.5 w-3.5 shrink-0" });
       case "settings":
         return /* @__PURE__ */ jsxRuntimeExports.jsx(Settings, { className: "h-3.5 w-3.5 shrink-0" });
       case "sftp":

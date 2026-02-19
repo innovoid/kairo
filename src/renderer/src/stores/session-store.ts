@@ -33,9 +33,6 @@ interface SessionState {
 export const useSessionStore = create<SessionState>((set) => ({
   tabs: new Map([
     ['hosts', { tabId: 'hosts', tabType: 'hosts', label: 'Hosts', closable: false }],
-    ['keys', { tabId: 'keys', tabType: 'keys', label: 'SSH Keys', closable: false }],
-    ['team', { tabId: 'team', tabType: 'team', label: 'Team', closable: false }],
-    ['settings', { tabId: 'settings', tabType: 'settings', label: 'Settings', closable: false, settingsTab: 'terminal' }],
   ]),
   activeTabId: 'hosts',
 
@@ -43,15 +40,25 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => {
       const newTabs = new Map(state.tabs);
       const closable = tab.closable ?? true;
+      const isStaticTab = tab.tabType === 'hosts' || tab.tabType === 'keys' || tab.tabType === 'team' || tab.tabType === 'settings';
 
-      // Check if tab already exists (for hosts, keys, team, settings)
-      if (tab.tabType === 'hosts' || tab.tabType === 'keys' || tab.tabType === 'team' || tab.tabType === 'settings') {
+      // For static tabs (hosts, keys, team, settings): keep only one visible
+      if (isStaticTab) {
+        // Remove all other static tabs
+        for (const [id, t] of newTabs.entries()) {
+          if ((t.tabType === 'hosts' || t.tabType === 'keys' || t.tabType === 'team' || t.tabType === 'settings') && t.tabType !== tab.tabType) {
+            newTabs.delete(id);
+          }
+        }
+
+        // Add or reuse the requested static tab
         const existingTab = [...newTabs.values()].find(t => t.tabType === tab.tabType);
         if (existingTab) {
-          return { activeTabId: existingTab.tabId };
+          return { tabs: newTabs, activeTabId: existingTab.tabId };
         }
       }
 
+      // Add the new tab (static or dynamic)
       newTabs.set(tab.tabId, { ...tab, closable });
       return { tabs: newTabs, activeTabId: tab.tabId };
     });
