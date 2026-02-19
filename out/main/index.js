@@ -1824,8 +1824,8 @@ function registerWorkspaceIpcHandlers() {
   register("sftp.delete", sftpIpcHandlers.delete);
   register("sftp.chmod", sftpIpcHandlers.chmod);
   register("sftp.pickUploadFiles", sftpIpcHandlers.pickUploadFiles);
-  register("keys.list", keysIpcHandlers.list);
-  register("keys.import", keysIpcHandlers.import);
+  register("keys.list", withSupabase(keysIpcHandlers.list));
+  register("keys.import", withSupabase(keysIpcHandlers.import));
   register("keys.delete", keysIpcHandlers.delete);
   register("keys.exportPublic", keysIpcHandlers.exportPublic);
   register("keys.syncEncrypted", withSupabase(keysIpcHandlers.syncEncrypted));
