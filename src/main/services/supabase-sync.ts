@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { hostQueries, folderQueries, keyQueries } from '../db';
+import { hostQueries, folderQueries, keyQueries, getDb } from '../db';
 import type { Host, HostFolder, CreateHostInput, UpdateHostInput, CreateFolderInput } from '../../shared/types/hosts';
 import type { SshKey } from '../../shared/types/keys';
 
@@ -280,15 +280,20 @@ export const supabaseSync = {
       .from('hosts')
       .update({ folder_id: null })
       .eq('folder_id', id);
-    if (updateError) throw updateError;
+    if (updateError) throw new Error(`Failed to move hosts to root: ${updateError.message}`);
 
-    // Update local SQLite
-    const db = require('../db').getDb();
-    db.prepare('update hosts set folder_id = null where folder_id = ?').run(id);
+    // Update local SQLite (with error handling)
+    try {
+      const db = getDb();
+      db.prepare('update hosts set folder_id = null where folder_id = ?').run(id);
+    } catch (sqliteError) {
+      console.error('SQLite update failed after Supabase update:', sqliteError);
+      throw new Error('Failed to sync folder deletion to local cache');
+    }
 
     // Delete the folder from Supabase
     const { error: deleteError } = await supabase.from('host_folders').delete().eq('id', id);
-    if (deleteError) throw deleteError;
+    if (deleteError) throw new Error(`Failed to delete folder: ${deleteError.message}`);
 
     // Delete the folder from SQLite
     folderQueries.delete(id);
