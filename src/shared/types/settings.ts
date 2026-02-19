@@ -1,6 +1,7 @@
 export type AiProvider = 'openai' | 'anthropic' | 'gemini';
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type BellStyle = 'none' | 'sound' | 'visual';
+export type TerminalTheme = 'dracula' | 'tokyo-night' | 'catppuccin-mocha' | 'nord' | 'gruvbox-dark' | 'one-dark' | 'monokai' | 'material' | 'synthwave' | 'ayu-dark' | 'horizon' | 'github-dark';
 
 export interface UserSettings {
   id: string;
@@ -8,6 +9,7 @@ export interface UserSettings {
   theme: 'dark' | 'light';
   terminalFont: string;
   terminalFontSize: number;
+  terminalTheme: TerminalTheme;
   scrollbackLines: number;
   cursorStyle: CursorStyle;
   bellStyle: BellStyle;
@@ -23,6 +25,7 @@ export interface UpdateSettingsInput {
   theme?: 'dark' | 'light';
   terminalFont?: string;
   terminalFontSize?: number;
+  terminalTheme?: TerminalTheme;
   scrollbackLines?: number;
   cursorStyle?: CursorStyle;
   bellStyle?: BellStyle;

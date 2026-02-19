@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { UserSettings } from '@shared/types/settings';
+import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 
 interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -17,33 +18,18 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Get the selected theme or fallback to dracula
+    const themeName = settings?.terminalTheme ?? 'dracula';
+    const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES['dracula'].theme;
+
     const terminal = new Terminal({
       fontFamily: settings?.terminalFont ?? 'JetBrains Mono, Menlo, monospace',
       fontSize: settings?.terminalFontSize ?? 14,
-      theme: {
-        background: '#09090b',
-        foreground: '#e4e4e7',
-        cursor: '#e4e4e7',
-        selectionBackground: '#3f3f46',
-        black: '#18181b',
-        red: '#ef4444',
-        green: '#22c55e',
-        yellow: '#eab308',
-        blue: '#3b82f6',
-        magenta: '#a855f7',
-        cyan: '#06b6d4',
-        white: '#e4e4e7',
-        brightBlack: '#71717a',
-        brightRed: '#f87171',
-        brightGreen: '#4ade80',
-        brightYellow: '#fbbf24',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#c084fc',
-        brightCyan: '#22d3ee',
-        brightWhite: '#fafafa',
-      },
+      theme: selectedTheme,
       cursorBlink: true,
-      scrollback: 10000,
+      cursorStyle: settings?.cursorStyle ?? 'block',
+      scrollback: settings?.scrollbackLines ?? 10000,
+      lineHeight: settings?.lineHeight ?? 1.2,
       allowTransparency: false,
     });
 

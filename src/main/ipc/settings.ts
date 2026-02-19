@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'userId' | 'updatedAt'> = {
   theme: 'dark',
   terminalFont: 'JetBrains Mono',
   terminalFontSize: 14,
+  terminalTheme: 'dracula',
   scrollbackLines: 1000,
   cursorStyle: 'block',
   bellStyle: 'none',
@@ -49,6 +50,7 @@ export const settingsIpcHandlers = {
         theme: data.theme ?? 'dark',
         terminalFont: data.terminal_font ?? 'JetBrains Mono',
         terminalFontSize: data.terminal_font_size ?? 14,
+        terminalTheme: data.terminal_theme ?? 'dracula',
         scrollbackLines: data.scrollback_lines ?? 1000,
         cursorStyle: data.cursor_style ?? 'block',
         bellStyle: data.bell_style ?? 'none',
@@ -82,6 +84,7 @@ export const settingsIpcHandlers = {
     if (input.theme !== undefined) updates.theme = input.theme;
     if (input.terminalFont !== undefined) updates.terminal_font = input.terminalFont;
     if (input.terminalFontSize !== undefined) updates.terminal_font_size = input.terminalFontSize;
+    if (input.terminalTheme !== undefined) updates.terminal_theme = input.terminalTheme;
     if (input.scrollbackLines !== undefined) updates.scrollback_lines = input.scrollbackLines;
     if (input.cursorStyle !== undefined) updates.cursor_style = input.cursorStyle;
     if (input.bellStyle !== undefined) updates.bell_style = input.bellStyle;
@@ -105,6 +108,7 @@ export const settingsIpcHandlers = {
       theme: data.theme ?? 'dark',
       terminalFont: data.terminal_font ?? 'JetBrains Mono',
       terminalFontSize: data.terminal_font_size ?? 14,
+      terminalTheme: data.terminal_theme ?? 'dracula',
       scrollbackLines: data.scrollback_lines ?? 1000,
       cursorStyle: data.cursor_style ?? 'block',
       bellStyle: data.bell_style ?? 'none',

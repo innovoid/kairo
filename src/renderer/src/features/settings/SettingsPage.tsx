@@ -16,7 +16,8 @@ import {
 import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { AiProvider, CursorStyle, BellStyle } from '@shared/types/settings';
+import type { AiProvider, CursorStyle, BellStyle, TerminalTheme } from '@shared/types/settings';
+import { TERMINAL_THEMES, TERMINAL_THEME_NAMES } from '@shared/themes/terminal-themes';
 
 export type SettingsTab = 'terminal' | 'appearance' | 'ai';
 
@@ -65,6 +66,7 @@ function TerminalTab() {
   const { settings, fetchSettings, updateSettings } = useSettingsStore();
   const [terminalFont, setTerminalFont] = useState('JetBrains Mono');
   const [terminalFontSize, setTerminalFontSize] = useState('14');
+  const [terminalTheme, setTerminalTheme] = useState<TerminalTheme>('dracula');
   const [scrollback, setScrollback] = useState('1000');
   const [cursorStyle, setCursorStyle] = useState<CursorStyle>('block');
   const [bellStyle, setBellStyle] = useState<BellStyle>('none');
@@ -79,6 +81,7 @@ function TerminalTab() {
     if (settings) {
       setTerminalFont(settings.terminalFont);
       setTerminalFontSize(String(settings.terminalFontSize));
+      setTerminalTheme(settings.terminalTheme ?? 'dracula');
       setScrollback(String(settings.scrollbackLines ?? 1000));
       setCursorStyle(settings.cursorStyle ?? 'block');
       setBellStyle(settings.bellStyle ?? 'none');
@@ -92,6 +95,7 @@ function TerminalTab() {
       await updateSettings({
         terminalFont,
         terminalFontSize: parseInt(terminalFontSize),
+        terminalTheme,
         scrollbackLines: parseInt(scrollback),
         cursorStyle,
         bellStyle,
@@ -131,6 +135,51 @@ function TerminalTab() {
         <div className="space-y-2">
           <Label>Font Size</Label>
           <Input type="number" value={terminalFontSize} onChange={(e) => setTerminalFontSize(e.target.value)} min={8} max={32} className="w-24" />
+        </div>
+        <div className="space-y-2">
+          <Label>Color Theme</Label>
+          <p className="text-xs text-muted-foreground mb-3">Choose a color scheme for your terminal</p>
+          <div className="grid grid-cols-2 gap-3">
+            {TERMINAL_THEME_NAMES.map((name) => {
+              const themeConfig = TERMINAL_THEMES[name];
+              const theme = themeConfig.theme;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setTerminalTheme(name)}
+                  className={cn(
+                    'relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02]',
+                    terminalTheme === name
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/50'
+                  )}
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{themeConfig.name}</span>
+                      {terminalTheme === name && (
+                        <Badge variant="default" className="h-4 px-1.5 text-[10px]">Active</Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">{themeConfig.description}</p>
+                    {/* Color preview */}
+                    <div
+                      className="h-16 rounded border overflow-hidden font-mono text-[10px] p-2 leading-tight"
+                      style={{
+                        backgroundColor: theme.background as string,
+                        color: theme.foreground as string,
+                      }}
+                    >
+                      <div style={{ color: theme.green as string }}>$ npm run dev</div>
+                      <div style={{ color: theme.blue as string }}>Server running</div>
+                      <div style={{ color: theme.yellow as string }}>Port: 3000</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="line-height">Line Height</Label>

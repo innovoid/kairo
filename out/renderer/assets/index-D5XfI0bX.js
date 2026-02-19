@@ -40969,38 +40969,360 @@ var L$1 = class L {
     this._linkProvider?.dispose();
   }
 };
+const TERMINAL_THEMES = {
+  "dracula": {
+    name: "Dracula",
+    description: "Dark theme with purple accents",
+    theme: {
+      background: "#282a36",
+      foreground: "#f8f8f2",
+      cursor: "#f8f8f2",
+      cursorAccent: "#282a36",
+      selectionBackground: "#44475a",
+      selectionForeground: "#f8f8f2",
+      black: "#21222c",
+      red: "#ff5555",
+      green: "#50fa7b",
+      yellow: "#f1fa8c",
+      blue: "#bd93f9",
+      magenta: "#ff79c6",
+      cyan: "#8be9fd",
+      white: "#f8f8f2",
+      brightBlack: "#6272a4",
+      brightRed: "#ff6e6e",
+      brightGreen: "#69ff94",
+      brightYellow: "#ffffa5",
+      brightBlue: "#d6acff",
+      brightMagenta: "#ff92df",
+      brightCyan: "#a4ffff",
+      brightWhite: "#ffffff"
+    }
+  },
+  "tokyo-night": {
+    name: "Tokyo Night",
+    description: "Vibrant dark theme inspired by Tokyo at night",
+    theme: {
+      background: "#1a1b26",
+      foreground: "#c0caf5",
+      cursor: "#c0caf5",
+      cursorAccent: "#1a1b26",
+      selectionBackground: "#33467c",
+      selectionForeground: "#c0caf5",
+      black: "#15161e",
+      red: "#f7768e",
+      green: "#9ece6a",
+      yellow: "#e0af68",
+      blue: "#7aa2f7",
+      magenta: "#bb9af7",
+      cyan: "#7dcfff",
+      white: "#a9b1d6",
+      brightBlack: "#414868",
+      brightRed: "#f7768e",
+      brightGreen: "#9ece6a",
+      brightYellow: "#e0af68",
+      brightBlue: "#7aa2f7",
+      brightMagenta: "#bb9af7",
+      brightCyan: "#7dcfff",
+      brightWhite: "#c0caf5"
+    }
+  },
+  "catppuccin-mocha": {
+    name: "Catppuccin Mocha",
+    description: "Soothing pastel theme",
+    theme: {
+      background: "#1e1e2e",
+      foreground: "#cdd6f4",
+      cursor: "#f5e0dc",
+      cursorAccent: "#1e1e2e",
+      selectionBackground: "#585b70",
+      selectionForeground: "#cdd6f4",
+      black: "#45475a",
+      red: "#f38ba8",
+      green: "#a6e3a1",
+      yellow: "#f9e2af",
+      blue: "#89b4fa",
+      magenta: "#f5c2e7",
+      cyan: "#94e2d5",
+      white: "#bac2de",
+      brightBlack: "#585b70",
+      brightRed: "#f38ba8",
+      brightGreen: "#a6e3a1",
+      brightYellow: "#f9e2af",
+      brightBlue: "#89b4fa",
+      brightMagenta: "#f5c2e7",
+      brightCyan: "#94e2d5",
+      brightWhite: "#a6adc8"
+    }
+  },
+  "nord": {
+    name: "Nord",
+    description: "Arctic, north-bluish color palette",
+    theme: {
+      background: "#2e3440",
+      foreground: "#d8dee9",
+      cursor: "#d8dee9",
+      cursorAccent: "#2e3440",
+      selectionBackground: "#4c566a",
+      selectionForeground: "#d8dee9",
+      black: "#3b4252",
+      red: "#bf616a",
+      green: "#a3be8c",
+      yellow: "#ebcb8b",
+      blue: "#81a1c1",
+      magenta: "#b48ead",
+      cyan: "#88c0d0",
+      white: "#e5e9f0",
+      brightBlack: "#4c566a",
+      brightRed: "#bf616a",
+      brightGreen: "#a3be8c",
+      brightYellow: "#ebcb8b",
+      brightBlue: "#81a1c1",
+      brightMagenta: "#b48ead",
+      brightCyan: "#8fbcbb",
+      brightWhite: "#eceff4"
+    }
+  },
+  "gruvbox-dark": {
+    name: "Gruvbox Dark",
+    description: "Retro groove color scheme",
+    theme: {
+      background: "#282828",
+      foreground: "#ebdbb2",
+      cursor: "#ebdbb2",
+      cursorAccent: "#282828",
+      selectionBackground: "#504945",
+      selectionForeground: "#ebdbb2",
+      black: "#282828",
+      red: "#cc241d",
+      green: "#98971a",
+      yellow: "#d79921",
+      blue: "#458588",
+      magenta: "#b16286",
+      cyan: "#689d6a",
+      white: "#a89984",
+      brightBlack: "#928374",
+      brightRed: "#fb4934",
+      brightGreen: "#b8bb26",
+      brightYellow: "#fabd2f",
+      brightBlue: "#83a598",
+      brightMagenta: "#d3869b",
+      brightCyan: "#8ec07c",
+      brightWhite: "#ebdbb2"
+    }
+  },
+  "one-dark": {
+    name: "One Dark",
+    description: "Iconic Atom editor theme",
+    theme: {
+      background: "#282c34",
+      foreground: "#abb2bf",
+      cursor: "#528bff",
+      cursorAccent: "#282c34",
+      selectionBackground: "#3e4451",
+      selectionForeground: "#abb2bf",
+      black: "#282c34",
+      red: "#e06c75",
+      green: "#98c379",
+      yellow: "#e5c07b",
+      blue: "#61afef",
+      magenta: "#c678dd",
+      cyan: "#56b6c2",
+      white: "#abb2bf",
+      brightBlack: "#5c6370",
+      brightRed: "#e06c75",
+      brightGreen: "#98c379",
+      brightYellow: "#e5c07b",
+      brightBlue: "#61afef",
+      brightMagenta: "#c678dd",
+      brightCyan: "#56b6c2",
+      brightWhite: "#ffffff"
+    }
+  },
+  "monokai": {
+    name: "Monokai",
+    description: "Classic code editor theme",
+    theme: {
+      background: "#272822",
+      foreground: "#f8f8f2",
+      cursor: "#f8f8f0",
+      cursorAccent: "#272822",
+      selectionBackground: "#49483e",
+      selectionForeground: "#f8f8f2",
+      black: "#272822",
+      red: "#f92672",
+      green: "#a6e22e",
+      yellow: "#f4bf75",
+      blue: "#66d9ef",
+      magenta: "#ae81ff",
+      cyan: "#a1efe4",
+      white: "#f8f8f2",
+      brightBlack: "#75715e",
+      brightRed: "#f92672",
+      brightGreen: "#a6e22e",
+      brightYellow: "#f4bf75",
+      brightBlue: "#66d9ef",
+      brightMagenta: "#ae81ff",
+      brightCyan: "#a1efe4",
+      brightWhite: "#f9f8f5"
+    }
+  },
+  "material": {
+    name: "Material",
+    description: "Google Material Design colors",
+    theme: {
+      background: "#263238",
+      foreground: "#eeffff",
+      cursor: "#ffcc00",
+      cursorAccent: "#263238",
+      selectionBackground: "#546e7a",
+      selectionForeground: "#eeffff",
+      black: "#263238",
+      red: "#ff5370",
+      green: "#c3e88d",
+      yellow: "#ffcb6b",
+      blue: "#82aaff",
+      magenta: "#c792ea",
+      cyan: "#89ddff",
+      white: "#eeffff",
+      brightBlack: "#546e7a",
+      brightRed: "#ff5370",
+      brightGreen: "#c3e88d",
+      brightYellow: "#ffcb6b",
+      brightBlue: "#82aaff",
+      brightMagenta: "#c792ea",
+      brightCyan: "#89ddff",
+      brightWhite: "#ffffff"
+    }
+  },
+  "synthwave": {
+    name: "Synthwave",
+    description: "Retro 80s neon theme",
+    theme: {
+      background: "#2a2139",
+      foreground: "#f92aad",
+      cursor: "#f4eee4",
+      cursorAccent: "#2a2139",
+      selectionBackground: "#463465",
+      selectionForeground: "#f92aad",
+      black: "#2a2139",
+      red: "#fe4450",
+      green: "#72f1b8",
+      yellow: "#f97e72",
+      blue: "#36f9f6",
+      magenta: "#fe4450",
+      cyan: "#72f1b8",
+      white: "#f4eee4",
+      brightBlack: "#463465",
+      brightRed: "#fe4450",
+      brightGreen: "#72f1b8",
+      brightYellow: "#fede5d",
+      brightBlue: "#36f9f6",
+      brightMagenta: "#ff8b39",
+      brightCyan: "#b6b1b3",
+      brightWhite: "#ffffff"
+    }
+  },
+  "ayu-dark": {
+    name: "Ayu Dark",
+    description: "Modern dark theme with orange accents",
+    theme: {
+      background: "#0a0e14",
+      foreground: "#b3b1ad",
+      cursor: "#e6b450",
+      cursorAccent: "#0a0e14",
+      selectionBackground: "#253340",
+      selectionForeground: "#b3b1ad",
+      black: "#01060e",
+      red: "#ea6c73",
+      green: "#91b362",
+      yellow: "#f9af4f",
+      blue: "#53bdfa",
+      magenta: "#fae994",
+      cyan: "#90e1c6",
+      white: "#c7c7c7",
+      brightBlack: "#686868",
+      brightRed: "#f07178",
+      brightGreen: "#c2d94c",
+      brightYellow: "#ffb454",
+      brightBlue: "#59c2ff",
+      brightMagenta: "#ffee99",
+      brightCyan: "#95e6cb",
+      brightWhite: "#ffffff"
+    }
+  },
+  "horizon": {
+    name: "Horizon",
+    description: "Warm dark theme with red accents",
+    theme: {
+      background: "#1c1e26",
+      foreground: "#e5e5e5",
+      cursor: "#f43e5c",
+      cursorAccent: "#1c1e26",
+      selectionBackground: "#2e303e",
+      selectionForeground: "#e5e5e5",
+      black: "#16161c",
+      red: "#e95678",
+      green: "#29d398",
+      yellow: "#fab795",
+      blue: "#26bbd9",
+      magenta: "#ee64ac",
+      cyan: "#59e1e3",
+      white: "#e5e5e5",
+      brightBlack: "#5b5858",
+      brightRed: "#ec6a88",
+      brightGreen: "#3fdaa4",
+      brightYellow: "#fbc3a7",
+      brightBlue: "#3fc4de",
+      brightMagenta: "#f075b5",
+      brightCyan: "#6be4e6",
+      brightWhite: "#ffffff"
+    }
+  },
+  "github-dark": {
+    name: "GitHub Dark",
+    description: "GitHub dark mode colors",
+    theme: {
+      background: "#0d1117",
+      foreground: "#c9d1d9",
+      cursor: "#58a6ff",
+      cursorAccent: "#0d1117",
+      selectionBackground: "#264f78",
+      selectionForeground: "#c9d1d9",
+      black: "#484f58",
+      red: "#ff7b72",
+      green: "#3fb950",
+      yellow: "#d29922",
+      blue: "#58a6ff",
+      magenta: "#bc8cff",
+      cyan: "#39c5cf",
+      white: "#b1bac4",
+      brightBlack: "#6e7681",
+      brightRed: "#ffa198",
+      brightGreen: "#56d364",
+      brightYellow: "#e3b341",
+      brightBlue: "#79c0ff",
+      brightMagenta: "#d2a8ff",
+      brightCyan: "#56d4dd",
+      brightWhite: "#f0f6fc"
+    }
+  }
+};
+const TERMINAL_THEME_NAMES = Object.keys(TERMINAL_THEMES);
 function useTerminal({ containerRef, sessionId, settings }) {
   const terminalRef = reactExports.useRef(null);
   const fitAddonRef = reactExports.useRef(null);
   reactExports.useEffect(() => {
     if (!containerRef.current) return;
+    const themeName = settings?.terminalTheme ?? "dracula";
+    const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES["dracula"].theme;
     const terminal = new Dl({
       fontFamily: settings?.terminalFont ?? "JetBrains Mono, Menlo, monospace",
       fontSize: settings?.terminalFontSize ?? 14,
-      theme: {
-        background: "#09090b",
-        foreground: "#e4e4e7",
-        cursor: "#e4e4e7",
-        selectionBackground: "#3f3f46",
-        black: "#18181b",
-        red: "#ef4444",
-        green: "#22c55e",
-        yellow: "#eab308",
-        blue: "#3b82f6",
-        magenta: "#a855f7",
-        cyan: "#06b6d4",
-        white: "#e4e4e7",
-        brightBlack: "#71717a",
-        brightRed: "#f87171",
-        brightGreen: "#4ade80",
-        brightYellow: "#fbbf24",
-        brightBlue: "#60a5fa",
-        brightMagenta: "#c084fc",
-        brightCyan: "#22d3ee",
-        brightWhite: "#fafafa"
-      },
+      theme: selectedTheme,
       cursorBlink: true,
-      scrollback: 1e4,
+      cursorStyle: settings?.cursorStyle ?? "block",
+      scrollback: settings?.scrollbackLines ?? 1e4,
+      lineHeight: settings?.lineHeight ?? 1.2,
       allowTransparency: false
     });
     const fitAddon = new o();
@@ -55454,6 +55776,7 @@ function TerminalTab() {
   const { settings, fetchSettings, updateSettings } = useSettingsStore();
   const [terminalFont, setTerminalFont] = reactExports.useState("JetBrains Mono");
   const [terminalFontSize, setTerminalFontSize] = reactExports.useState("14");
+  const [terminalTheme, setTerminalTheme] = reactExports.useState("dracula");
   const [scrollback, setScrollback] = reactExports.useState("1000");
   const [cursorStyle, setCursorStyle] = reactExports.useState("block");
   const [bellStyle, setBellStyle] = reactExports.useState("none");
@@ -55466,6 +55789,7 @@ function TerminalTab() {
     if (settings) {
       setTerminalFont(settings.terminalFont);
       setTerminalFontSize(String(settings.terminalFontSize));
+      setTerminalTheme(settings.terminalTheme ?? "dracula");
       setScrollback(String(settings.scrollbackLines ?? 1e3));
       setCursorStyle(settings.cursorStyle ?? "block");
       setBellStyle(settings.bellStyle ?? "none");
@@ -55478,6 +55802,7 @@ function TerminalTab() {
       await updateSettings({
         terminalFont,
         terminalFontSize: parseInt(terminalFontSize),
+        terminalTheme,
         scrollbackLines: parseInt(scrollback),
         cursorStyle,
         bellStyle,
@@ -55515,6 +55840,48 @@ function TerminalTab() {
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: "Font Size" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(Input, { type: "number", value: terminalFontSize, onChange: (e) => setTerminalFontSize(e.target.value), min: 8, max: 32, className: "w-24" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: "Color Theme" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mb-3", children: "Choose a color scheme for your terminal" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-2 gap-3", children: TERMINAL_THEME_NAMES.map((name) => {
+          const themeConfig = TERMINAL_THEMES[name];
+          const theme = themeConfig.theme;
+          return /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => setTerminalTheme(name),
+              className: cn$2(
+                "relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02]",
+                terminalTheme === name ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50"
+              ),
+              children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium", children: themeConfig.name }),
+                  terminalTheme === name && /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "default", className: "h-4 px-1.5 text-[10px]", children: "Active" })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[10px] text-muted-foreground line-clamp-1", children: themeConfig.description }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "div",
+                  {
+                    className: "h-16 rounded border overflow-hidden font-mono text-[10px] p-2 leading-tight",
+                    style: {
+                      backgroundColor: theme.background,
+                      color: theme.foreground
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: theme.green }, children: "$ npm run dev" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: theme.blue }, children: "Server running" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: theme.yellow }, children: "Port: 3000" })
+                    ]
+                  }
+                )
+              ] })
+            },
+            name
+          );
+        }) })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "line-height", children: "Line Height" }),

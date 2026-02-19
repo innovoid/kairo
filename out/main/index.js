@@ -1621,6 +1621,7 @@ const DEFAULT_SETTINGS = {
   theme: "dark",
   terminalFont: "JetBrains Mono",
   terminalFontSize: 14,
+  terminalTheme: "dracula",
   scrollbackLines: 1e3,
   cursorStyle: "block",
   bellStyle: "none",
@@ -1647,6 +1648,7 @@ const settingsIpcHandlers = {
         theme: data.theme ?? "dark",
         terminalFont: data.terminal_font ?? "JetBrains Mono",
         terminalFontSize: data.terminal_font_size ?? 14,
+        terminalTheme: data.terminal_theme ?? "dracula",
         scrollbackLines: data.scrollback_lines ?? 1e3,
         cursorStyle: data.cursor_style ?? "block",
         bellStyle: data.bell_style ?? "none",
@@ -1676,6 +1678,7 @@ const settingsIpcHandlers = {
     if (input.theme !== void 0) updates.theme = input.theme;
     if (input.terminalFont !== void 0) updates.terminal_font = input.terminalFont;
     if (input.terminalFontSize !== void 0) updates.terminal_font_size = input.terminalFontSize;
+    if (input.terminalTheme !== void 0) updates.terminal_theme = input.terminalTheme;
     if (input.scrollbackLines !== void 0) updates.scrollback_lines = input.scrollbackLines;
     if (input.cursorStyle !== void 0) updates.cursor_style = input.cursorStyle;
     if (input.bellStyle !== void 0) updates.bell_style = input.bellStyle;
@@ -1692,6 +1695,7 @@ const settingsIpcHandlers = {
       theme: data.theme ?? "dark",
       terminalFont: data.terminal_font ?? "JetBrains Mono",
       terminalFontSize: data.terminal_font_size ?? 14,
+      terminalTheme: data.terminal_theme ?? "dracula",
       scrollbackLines: data.scrollback_lines ?? 1e3,
       cursorStyle: data.cursor_style ?? "block",
       bellStyle: data.bell_style ?? "none",
