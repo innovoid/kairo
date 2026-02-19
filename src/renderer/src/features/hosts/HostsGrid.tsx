@@ -15,6 +15,7 @@ import {
 import { Plus, Search, FolderOpen, Terminal, Pencil, Trash2, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Workspace } from '@shared/types/workspace';
+import { FolderDialog } from './FolderDialog';
 
 interface HostsGridProps {
   workspaceId: string;
@@ -24,8 +25,10 @@ interface HostsGridProps {
 }
 
 export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }: HostsGridProps) {
-  const { hosts, folders, fetchHosts, deleteHost } = useHostStore();
+  const { hosts, folders, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder } = useHostStore();
   const [search, setSearch] = useState('');
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<HostFolder | null>(null);
 
   useEffect(() => {
     fetchHosts(workspaceId);
@@ -34,6 +37,30 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
   async function handleDeleteHost(host: Host) {
     if (!window.confirm(`Delete "${host.label}"?`)) return;
     await deleteHost(host.id);
+  }
+
+  function handleCreateFolder() {
+    setEditingFolder(null);
+    setFolderDialogOpen(true);
+  }
+
+  async function handleSaveFolder(name: string, folderId?: string) {
+    if (folderId) {
+      await updateFolder(folderId, name);
+    } else {
+      await createFolder({ workspaceId, name });
+    }
+    setFolderDialogOpen(false);
+  }
+
+  function handleEditFolder(folder: HostFolder) {
+    setEditingFolder(folder);
+    setFolderDialogOpen(true);
+  }
+
+  async function handleDeleteFolder(folder: HostFolder) {
+    if (!window.confirm(`Delete folder "${folder.name}"? Hosts inside will move to root.`)) return;
+    await deleteFolder(folder.id);
   }
 
   const filtered = search
@@ -59,6 +86,10 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
           <div className="w-48">
             <WorkspaceSwitcher onWorkspaceChange={onWorkspaceChange} />
           </div>
+          <Button size="sm" variant="outline" onClick={handleCreateFolder}>
+            <FolderOpen className="h-4 w-4 mr-1.5" />
+            New Folder
+          </Button>
           <Button size="sm" onClick={onAddHost}>
             <Plus className="h-4 w-4 mr-1.5" />
             Add Host
@@ -86,6 +117,8 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
               allFolders={folders}
               onEditHost={onEditHost}
               onDeleteHost={handleDeleteHost}
+              onEditFolder={handleEditFolder}
+              onDeleteFolder={handleDeleteFolder}
             />
           ))}
 
@@ -114,6 +147,14 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
             )}
           </div>
         )}
+
+        <FolderDialog
+          open={folderDialogOpen}
+          folder={editingFolder}
+          workspaceId={workspaceId}
+          onClose={() => setFolderDialogOpen(false)}
+          onSave={handleSaveFolder}
+        />
       </div>
     </div>
   );
@@ -127,12 +168,16 @@ function FolderSection({
   allFolders,
   onEditHost,
   onDeleteHost,
+  onEditFolder,
+  onDeleteFolder,
 }: {
   folder: HostFolder;
   hosts: Host[];
   allFolders: HostFolder[];
   onEditHost: (host: Host) => void;
   onDeleteHost: (host: Host) => void;
+  onEditFolder: (folder: HostFolder) => void;
+  onDeleteFolder: (folder: HostFolder) => void;
 }) {
   const folderHosts = hosts.filter((h) => h.folderId === folder.id);
   const childFolders = allFolders.filter((f) => f.parentId === folder.id);
@@ -141,10 +186,25 @@ function FolderSection({
 
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <FolderOpen className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-muted-foreground">{folder.name}</span>
-      </div>
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <div className="flex items-center gap-2 mb-3 cursor-pointer">
+            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">{folder.name}</span>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => onEditFolder(folder)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Rename
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => onDeleteFolder(folder)} className="text-destructive focus:text-destructive">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3">
         {folderHosts.map((host) => (
           <HostGridCard key={host.id} host={host} onEdit={onEditHost} onDelete={onDeleteHost} />
@@ -158,6 +218,8 @@ function FolderSection({
             allFolders={allFolders}
             onEditHost={onEditHost}
             onDeleteHost={onDeleteHost}
+            onEditFolder={onEditFolder}
+            onDeleteFolder={onDeleteFolder}
           />
         </div>
       ))}
