@@ -555,6 +555,22 @@ const supabaseSync = {
         synced_at: Date.now()
       };
       hostQueries.upsert(updatedHost);
+      if (input.keyId !== void 0 && input.keyId !== null) {
+        const keyRow = keyQueries.getById(input.keyId);
+        if (keyRow) {
+          await supabase.from("ssh_keys").upsert({
+            id: keyRow.id,
+            workspace_id: keyRow.workspace_id,
+            name: keyRow.name,
+            key_type: keyRow.key_type,
+            public_key: keyRow.public_key,
+            fingerprint: keyRow.fingerprint,
+            has_encrypted_sync: keyRow.has_encrypted_sync === 1
+          }).then(({ error }) => {
+            if (error) console.error("[supabaseSync.updateHost] Failed to sync key metadata:", error);
+          });
+        }
+      }
       const updates = {};
       if (input.folderId !== void 0) updates.folder_id = input.folderId;
       if (input.label !== void 0) updates.label = input.label;

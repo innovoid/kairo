@@ -267,6 +267,25 @@ export const supabaseSync = {
       // Update SQLite immediately (synchronous)
       hostQueries.upsert(updatedHost);
 
+      // Sync key metadata to Supabase first if keyId is being set
+      if (input.keyId !== undefined && input.keyId !== null) {
+        const keyRow = keyQueries.getById(input.keyId);
+        if (keyRow) {
+          // Sync key metadata to Supabase before updating host
+          await supabase.from('ssh_keys').upsert({
+            id: keyRow.id,
+            workspace_id: keyRow.workspace_id,
+            name: keyRow.name,
+            key_type: keyRow.key_type,
+            public_key: keyRow.public_key,
+            fingerprint: keyRow.fingerprint,
+            has_encrypted_sync: keyRow.has_encrypted_sync === 1,
+          }).then(({ error }) => {
+            if (error) console.error('[supabaseSync.updateHost] Failed to sync key metadata:', error);
+          });
+        }
+      }
+
       // Update Supabase in background (don't await)
       const updates: Record<string, unknown> = {};
       if (input.folderId !== undefined) updates.folder_id = input.folderId;
