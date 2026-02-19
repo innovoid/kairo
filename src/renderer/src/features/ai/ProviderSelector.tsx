@@ -18,7 +18,9 @@ export function ModelSelector() {
     <div className="px-3 py-2 border-b">
       <Select value={model} onValueChange={(v) => { if (v) setModel(v); }}>
         <SelectTrigger className="h-7 text-xs">
-          <SelectValue placeholder="Select model" />
+          <SelectValue placeholder="Select model">
+            {models.find((m) => m.value === model)?.label || 'Select model'}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {models.map((m) => (

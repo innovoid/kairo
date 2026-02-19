@@ -191,7 +191,9 @@ function TerminalTab() {
           <Label htmlFor="bell-style">Bell</Label>
           <Select value={bellStyle} onValueChange={(v) => setBellStyle(v as BellStyle)}>
             <SelectTrigger id="bell-style" className="w-56">
-              <SelectValue />
+              <SelectValue>
+                {bellStyle === 'none' ? 'None (silent)' : bellStyle === 'sound' ? 'Sound (system beep)' : 'Visual (flash)'}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None (silent)</SelectItem>
@@ -233,7 +235,9 @@ function AppearanceTab() {
           <Label>Theme</Label>
           <Select value={theme} onValueChange={(v) => { if (v) setTheme(v as 'dark' | 'light'); }}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue>
+                {theme === 'dark' ? 'Dark' : 'Light'}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="dark">Dark</SelectItem>
@@ -345,7 +349,9 @@ function AiTab() {
               <Label>Default Model</Label>
               <Select value={openaiModel} onValueChange={setOpenaiModel}>
                 <SelectTrigger className="h-8">
-                  <SelectValue />
+                  <SelectValue>
+                    {openaiModel === 'gpt-4o' ? 'GPT-4o' : openaiModel === 'gpt-4o-mini' ? 'GPT-4o mini' : 'GPT-4 Turbo'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gpt-4o">GPT-4o</SelectItem>
@@ -406,7 +412,9 @@ function AiTab() {
               <Label>Default Model</Label>
               <Select value={anthropicModel} onValueChange={setAnthropicModel}>
                 <SelectTrigger className="h-8">
-                  <SelectValue />
+                  <SelectValue>
+                    {anthropicModel === 'claude-3-5-sonnet-20241022' ? 'Claude 3.5 Sonnet' : anthropicModel === 'claude-3-opus-20240229' ? 'Claude 3 Opus' : 'Claude 3 Haiku'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
@@ -467,7 +475,9 @@ function AiTab() {
               <Label>Default Model</Label>
               <Select value={geminiModel} onValueChange={setGeminiModel}>
                 <SelectTrigger className="h-8">
-                  <SelectValue />
+                  <SelectValue>
+                    {geminiModel === 'gemini-2.0-flash-exp' ? 'Gemini 2.0 Flash' : geminiModel === 'gemini-1.5-pro' ? 'Gemini 1.5 Pro' : 'Gemini 1.5 Flash'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash</SelectItem>

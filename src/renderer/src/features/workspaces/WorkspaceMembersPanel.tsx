@@ -85,7 +85,9 @@ export function WorkspaceMembersPanel({ workspaceId }: WorkspaceMembersPanelProp
           />
           <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as WorkspaceRole)}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {inviteRole === 'member' ? 'Member' : 'Admin'}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="member">Member</SelectItem>

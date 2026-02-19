@@ -127,7 +127,9 @@ export function TeamPage({ workspaceId }: TeamPageProps) {
                           onValueChange={(role) => handleRoleChange(member.userId, role as WorkspaceRole)}
                         >
                           <SelectTrigger className="w-28 h-8">
-                            <SelectValue />
+                            <SelectValue>
+                              {member.role === 'admin' ? 'Admin' : 'Member'}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="admin">Admin</SelectItem>
