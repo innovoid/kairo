@@ -1,0 +1,25 @@
+import type { IpcMainInvokeEvent } from 'electron';
+import { sshManager } from '../services/ssh-manager';
+import type { SshSessionConfig } from '../../shared/types/ssh';
+
+export const sshIpcHandlers = {
+  async connect(
+    event: IpcMainInvokeEvent,
+    sessionId: string,
+    config: SshSessionConfig & { hostId: string }
+  ): Promise<void> {
+    await sshManager.connect(sessionId, config, event.sender);
+  },
+
+  disconnect(_event: IpcMainInvokeEvent, sessionId: string): void {
+    sshManager.disconnect(sessionId);
+  },
+
+  send(_event: IpcMainInvokeEvent, sessionId: string, data: string): void {
+    sshManager.send(sessionId, data);
+  },
+
+  resize(_event: IpcMainInvokeEvent, sessionId: string, cols: number, rows: number): void {
+    sshManager.resize(sessionId, cols, rows);
+  },
+};

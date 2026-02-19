@@ -1,0 +1,322 @@
+import { useEffect, useState, useRef } from 'react';
+import type { Host, HostFolder } from '@shared/types/hosts';
+import { useHostStore } from '@/stores/host-store';
+import { useSessionStore } from '@/stores/session-store';
+import { WorkspaceSwitcher } from '@/features/workspaces/WorkspaceSwitcher';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import { Plus, Search, FolderOpen, Terminal, Pencil, Trash2, Server } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { Workspace } from '@shared/types/workspace';
+
+interface HostsGridProps {
+  workspaceId: string;
+  onAddHost: () => void;
+  onEditHost: (host: Host) => void;
+  onWorkspaceChange: (ws: Workspace) => void;
+}
+
+export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }: HostsGridProps) {
+  const { hosts, folders, fetchHosts, deleteHost } = useHostStore();
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    fetchHosts(workspaceId);
+  }, [workspaceId]);
+
+  async function handleDeleteHost(host: Host) {
+    if (!window.confirm(`Delete "${host.label}"?`)) return;
+    await deleteHost(host.id);
+  }
+
+  const filtered = search
+    ? hosts.filter(
+        (h) =>
+          h.label.toLowerCase().includes(search.toLowerCase()) ||
+          h.hostname.toLowerCase().includes(search.toLowerCase()),
+      )
+    : hosts;
+
+  const rootFolders = folders.filter((f) => !f.parentId);
+  const rootHosts = filtered.filter((h) => !h.folderId);
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex-1">
+            <h1 className="text-lg font-semibold">Hosts</h1>
+            <p className="text-sm text-muted-foreground">Manage and connect to your servers</p>
+          </div>
+          <div className="w-48">
+            <WorkspaceSwitcher onWorkspaceChange={onWorkspaceChange} />
+          </div>
+          <Button size="sm" onClick={onAddHost}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add Host
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-6 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search hosts..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        {/* Folder sections */}
+        {!search &&
+          rootFolders.map((folder) => (
+            <FolderSection
+              key={folder.id}
+              folder={folder}
+              hosts={filtered}
+              allFolders={folders}
+              onEditHost={onEditHost}
+              onDeleteHost={handleDeleteHost}
+            />
+          ))}
+
+        {/* Root hosts (no folder) */}
+        {rootHosts.length > 0 && (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+            {rootHosts.map((host) => (
+              <HostGridCard key={host.id} host={host} onEdit={onEditHost} onDelete={handleDeleteHost} />
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {filtered.length === 0 && (
+          <div className="text-center py-20">
+            <Server className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
+            <p className="text-sm font-medium">{search ? 'No matching hosts' : 'No hosts yet'}</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">
+              {search ? 'Try a different search' : 'Add a host to get started'}
+            </p>
+            {!search && (
+              <Button variant="outline" size="sm" onClick={onAddHost}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add your first host
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Folder Section ──────────────────────────────────────────────────────────
+
+function FolderSection({
+  folder,
+  hosts,
+  allFolders,
+  onEditHost,
+  onDeleteHost,
+}: {
+  folder: HostFolder;
+  hosts: Host[];
+  allFolders: HostFolder[];
+  onEditHost: (host: Host) => void;
+  onDeleteHost: (host: Host) => void;
+}) {
+  const folderHosts = hosts.filter((h) => h.folderId === folder.id);
+  const childFolders = allFolders.filter((f) => f.parentId === folder.id);
+
+  if (folderHosts.length === 0 && childFolders.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <FolderOpen className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium text-muted-foreground">{folder.name}</span>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3">
+        {folderHosts.map((host) => (
+          <HostGridCard key={host.id} host={host} onEdit={onEditHost} onDelete={onDeleteHost} />
+        ))}
+      </div>
+      {childFolders.map((sub) => (
+        <div key={sub.id} className="ml-4">
+          <FolderSection
+            folder={sub}
+            hosts={hosts}
+            allFolders={allFolders}
+            onEditHost={onEditHost}
+            onDeleteHost={onDeleteHost}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Host Grid Card ──────────────────────────────────────────────────────────
+
+function HostGridCard({
+  host,
+  onEdit,
+  onDelete,
+}: {
+  host: Host;
+  onEdit: (host: Host) => void;
+  onDelete: (host: Host) => void;
+}) {
+  const { tabs, openTab, setActiveTab } = useSessionStore();
+  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const existingTerminalTab = [...tabs.values()].find(
+    (t) => t.hostId === host.id && t.tabType === 'terminal',
+  );
+  const isConnected = existingTerminalTab?.status === 'connected';
+
+  useEffect(() => {
+    return () => {
+      if (clickTimeout.current) {
+        clearTimeout(clickTimeout.current);
+      }
+    };
+  }, []);
+
+  function handleSingleClick() {
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current);
+    }
+    clickTimeout.current = setTimeout(() => {
+      onEdit(host);
+    }, 250); // Delay to detect double-click
+  }
+
+  function handleDoubleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current);
+      clickTimeout.current = null;
+    }
+    connect();
+  }
+
+  function connect() {
+    if (existingTerminalTab) {
+      setActiveTab(existingTerminalTab.tabId);
+      return;
+    }
+
+    const sessionId = crypto.randomUUID();
+    openTab({
+      tabId: sessionId,
+      tabType: 'terminal',
+      label: host.label,
+      hostId: host.id,
+      hostname: host.hostname,
+      sessionId,
+      status: 'connecting',
+    });
+
+    window.sshApi.connect(sessionId, {
+      host: host.hostname,
+      port: host.port,
+      username: host.username,
+      authType: host.authType,
+      privateKeyId: host.keyId ?? undefined,
+      hostId: host.id,
+    });
+  }
+
+  function openSftp() {
+    const terminalSessionId = existingTerminalTab?.sessionId ?? crypto.randomUUID();
+
+    if (!existingTerminalTab) {
+      openTab({
+        tabId: terminalSessionId,
+        tabType: 'terminal',
+        label: host.label,
+        hostId: host.id,
+        hostname: host.hostname,
+        sessionId: terminalSessionId,
+        status: 'connecting',
+      });
+
+      window.sshApi.connect(terminalSessionId, {
+        host: host.hostname,
+        port: host.port,
+        username: host.username,
+        authType: host.authType,
+        privateKeyId: host.keyId ?? undefined,
+        hostId: host.id,
+      });
+    }
+
+    const sftpTabId = `sftp-${terminalSessionId}`;
+    openTab({
+      tabId: sftpTabId,
+      tabType: 'sftp',
+      label: `SFTP: ${host.label}`,
+      hostId: host.id,
+      hostname: host.hostname,
+      sessionId: terminalSessionId,
+      status: 'connected',
+    });
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <div
+          className="flex flex-col gap-2 p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+          onClick={handleSingleClick}
+          onDoubleClick={handleDoubleClick}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className={cn(
+                'w-2 h-2 rounded-full shrink-0',
+                isConnected ? 'bg-green-500' : 'bg-muted-foreground/30',
+              )}
+            />
+            <span className="font-medium text-sm truncate">{host.label}</span>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <p className="font-mono truncate">
+              {host.username}@{host.hostname}:{host.port}
+            </p>
+            <p className="capitalize">{host.authType} auth</p>
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={connect}>
+          <Terminal className="h-4 w-4 mr-2" />
+          Connect (Terminal)
+        </ContextMenuItem>
+        <ContextMenuItem onClick={openSftp}>
+          <FolderOpen className="h-4 w-4 mr-2" />
+          Open SFTP
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onEdit(host)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onDelete(host)} className="text-destructive focus:text-destructive">
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}

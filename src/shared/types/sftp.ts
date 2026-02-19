@@ -1,0 +1,19 @@
+export interface SftpEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'directory' | 'symlink' | 'other';
+  size: number;
+  permissions: string;
+  modifiedAt: string;
+  owner: string;
+}
+
+export interface TransferProgress {
+  transferId: string;
+  filename: string;
+  direction: 'upload' | 'download';
+  bytesTransferred: number;
+  totalBytes: number;
+  status: 'active' | 'done' | 'error';
+  error?: string;
+}
