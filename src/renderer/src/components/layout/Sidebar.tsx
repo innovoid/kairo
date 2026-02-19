@@ -49,7 +49,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
     <TooltipProvider delay={300}>
       <div className="flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1">
         {/* Workspace Switcher */}
-        <div className="w-full px-1 mb-2">
+        <div className="w-full px-1 mb-2 flex justify-center">
           <WorkspaceSwitcher />
         </div>
 
