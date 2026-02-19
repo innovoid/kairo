@@ -23,6 +23,9 @@ const sftpApi = {
     ipcRenderer.on('sftp:progress', listener);
     return () => void ipcRenderer.removeListener('sftp:progress', listener);
   },
+
+  pickUploadFiles: (): Promise<string[] | null> =>
+    ipcRenderer.invoke('sftp.pickUploadFiles'),
 };
 
 contextBridge.exposeInMainWorld('sftpApi', sftpApi);
