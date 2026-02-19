@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import Database from "better-sqlite3";
 import { mkdirSync, createReadStream, createWriteStream } from "node:fs";
 import ssh2 from "ssh2";
-import { createDecipheriv, createHash, randomBytes, createCipheriv } from "node:crypto";
+import { createDecipheriv, createHash, randomBytes, createCipheriv, pbkdf2Sync } from "node:crypto";
 import { stat } from "node:fs/promises";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
@@ -1258,6 +1258,188 @@ const sftpIpcHandlers = {
     return result.canceled ? null : result.filePaths;
   }
 };
+const PBKDF2_ITERATIONS = 1e5;
+const KEY_LENGTH = 32;
+const SALT_LENGTH = 32;
+function deriveKey(passphrase, salt) {
+  return pbkdf2Sync(passphrase, salt, PBKDF2_ITERATIONS, KEY_LENGTH, "sha256");
+}
+function createVerificationHash(passphrase, salt) {
+  const key = deriveKey(passphrase, salt);
+  return createHash("sha256").update(key).digest("hex");
+}
+function encrypt(data, key) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(data, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return {
+    encrypted: encrypted.toString("base64"),
+    iv: iv.toString("base64"),
+    authTag: authTag.toString("base64")
+  };
+}
+function decrypt(encrypted, iv, authTag, key) {
+  const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64"));
+  decipher.setAuthTag(Buffer.from(authTag, "base64"));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encrypted, "base64")),
+    decipher.final()
+  ]);
+  return decrypted.toString("utf8");
+}
+const workspaceEncryption = {
+  /**
+   * Initialize encryption for a workspace (first time setup)
+   * Returns the salt to be stored in the database
+   */
+  async initializeWorkspace(supabase, workspaceId, passphrase) {
+    const salt = randomBytes(SALT_LENGTH);
+    const saltBase64 = salt.toString("base64");
+    const verificationHash = createVerificationHash(passphrase, salt);
+    const { error } = await supabase.rpc("init_workspace_encryption", {
+      p_workspace_id: workspaceId,
+      p_salt: saltBase64,
+      p_verification_hash: verificationHash
+    });
+    if (error) throw new Error(`Failed to initialize workspace encryption: ${error.message}`);
+  },
+  /**
+   * Verify a passphrase against the stored verification hash
+   */
+  async verifyPassphrase(supabase, workspaceId, passphrase) {
+    const { data, error } = await supabase.from("workspace_encryption").select("salt, verification_hash").eq("workspace_id", workspaceId).single();
+    if (error || !data) return false;
+    const salt = Buffer.from(data.salt, "base64");
+    const computedHash = createVerificationHash(passphrase, salt);
+    return computedHash === data.verification_hash;
+  },
+  /**
+   * Check if workspace has encryption initialized
+   */
+  async isInitialized(supabase, workspaceId) {
+    const { data, error } = await supabase.from("workspace_encryption").select("workspace_id").eq("workspace_id", workspaceId).single();
+    return !error && !!data;
+  },
+  /**
+   * Encrypt and upload a private key to Supabase Storage
+   */
+  async syncKeyToCloud(supabase, workspaceId, keyId, passphrase) {
+    const initialized = await this.isInitialized(supabase, workspaceId);
+    if (!initialized) {
+      await this.initializeWorkspace(supabase, workspaceId, passphrase);
+    } else {
+      const valid = await this.verifyPassphrase(supabase, workspaceId, passphrase);
+      if (!valid) throw new Error("Invalid workspace passphrase");
+    }
+    const pk = privateKeyQueries.get(keyId);
+    if (!pk) throw new Error("Private key not found in local storage");
+    const keyBuf = Buffer.alloc(32);
+    Buffer.from("archterm-v1-secret-key-padding!!").copy(keyBuf);
+    const localDecipher = createDecipheriv("aes-256-gcm", keyBuf, Buffer.from(pk.iv, "base64"));
+    localDecipher.setAuthTag(Buffer.from(pk.auth_tag, "base64"));
+    const privateKeyData = Buffer.concat([
+      localDecipher.update(Buffer.from(pk.encrypted_blob, "base64")),
+      localDecipher.final()
+    ]).toString("utf8");
+    const { data: encData, error: encError } = await supabase.from("workspace_encryption").select("salt").eq("workspace_id", workspaceId).single();
+    if (encError || !encData) throw new Error("Workspace encryption not initialized");
+    const salt = Buffer.from(encData.salt, "base64");
+    const encryptionKey = deriveKey(passphrase, salt);
+    const { encrypted, iv, authTag } = encrypt(privateKeyData, encryptionKey);
+    const payload = JSON.stringify({ encrypted, iv, authTag });
+    const storagePath = `${workspaceId}/${keyId}.enc`;
+    const { error: uploadError } = await supabase.storage.from("encrypted-keys").upload(storagePath, payload, {
+      contentType: "application/octet-stream",
+      upsert: true
+    });
+    if (uploadError) throw new Error(`Failed to upload encrypted key: ${uploadError.message}`);
+    keyQueries.upsert({
+      ...keyQueries.getById(keyId),
+      has_encrypted_sync: 1,
+      synced_at: Date.now()
+    });
+    const keyMetadata = keyQueries.getById(keyId);
+    if (keyMetadata) {
+      await supabase.from("ssh_keys").upsert({
+        id: keyMetadata.id,
+        workspace_id: keyMetadata.workspace_id,
+        name: keyMetadata.name,
+        key_type: keyMetadata.key_type,
+        public_key: keyMetadata.public_key,
+        fingerprint: keyMetadata.fingerprint,
+        has_encrypted_sync: true
+      });
+    }
+  },
+  /**
+   * Download and decrypt a key from Supabase Storage
+   */
+  async downloadKeyFromCloud(supabase, workspaceId, keyId, passphrase) {
+    const valid = await this.verifyPassphrase(supabase, workspaceId, passphrase);
+    if (!valid) throw new Error("Invalid workspace passphrase");
+    const storagePath = `${workspaceId}/${keyId}.enc`;
+    const { data: blob, error: downloadError } = await supabase.storage.from("encrypted-keys").download(storagePath);
+    if (downloadError) throw new Error(`Failed to download encrypted key: ${downloadError.message}`);
+    const payloadText = await blob.text();
+    const { encrypted, iv, authTag } = JSON.parse(payloadText);
+    const { data: encData, error: encError } = await supabase.from("workspace_encryption").select("salt").eq("workspace_id", workspaceId).single();
+    if (encError || !encData) throw new Error("Workspace encryption not initialized");
+    const salt = Buffer.from(encData.salt, "base64");
+    const decryptionKey = deriveKey(passphrase, salt);
+    return decrypt(encrypted, iv, authTag, decryptionKey);
+  },
+  /**
+   * Delete encrypted key from cloud
+   */
+  async deleteKeyFromCloud(supabase, workspaceId, keyId) {
+    const storagePath = `${workspaceId}/${keyId}.enc`;
+    const { error } = await supabase.storage.from("encrypted-keys").remove([storagePath]);
+    if (error) console.error("Failed to delete encrypted key from cloud:", error);
+  },
+  /**
+   * Change workspace passphrase (re-encrypt all keys)
+   */
+  async changePassphrase(supabase, workspaceId, oldPassphrase, newPassphrase) {
+    const valid = await this.verifyPassphrase(supabase, workspaceId, oldPassphrase);
+    if (!valid) throw new Error("Invalid current passphrase");
+    const keys = keyQueries.listByWorkspace(workspaceId).filter((k) => k.has_encrypted_sync === 1);
+    if (keys.length === 0) {
+      const salt = randomBytes(SALT_LENGTH);
+      const saltBase64 = salt.toString("base64");
+      const verificationHash = createVerificationHash(newPassphrase, salt);
+      await supabase.from("workspace_encryption").update({
+        salt: saltBase64,
+        verification_hash: verificationHash,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("workspace_id", workspaceId);
+      return;
+    }
+    for (const key of keys) {
+      try {
+        const privateKeyData = await this.downloadKeyFromCloud(
+          supabase,
+          workspaceId,
+          key.id,
+          oldPassphrase
+        );
+        keyQueries.upsert({ ...key, has_encrypted_sync: 0 });
+        const newSalt = randomBytes(SALT_LENGTH);
+        const newSaltBase64 = newSalt.toString("base64");
+        const newVerificationHash = createVerificationHash(newPassphrase, newSalt);
+        await supabase.from("workspace_encryption").update({
+          salt: newSaltBase64,
+          verification_hash: newVerificationHash,
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        }).eq("workspace_id", workspaceId);
+        await this.syncKeyToCloud(supabase, workspaceId, key.id, newPassphrase);
+      } catch (error) {
+        console.error(`Failed to re-encrypt key ${key.id}:`, error);
+        throw error;
+      }
+    }
+  }
+};
 function getClient$1(event) {
   const client = event.supabase;
   if (!client) throw new Error("Not authenticated");
@@ -1279,6 +1461,35 @@ const keysIpcHandlers = {
   async syncEncrypted(event, id) {
     const supabase = getClient$1(event);
     await supabaseSync.syncKeyMetadata(supabase, id);
+  },
+  // Workspace encryption methods
+  async isWorkspaceEncryptionInitialized(event, workspaceId) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.isInitialized(supabase, workspaceId);
+  },
+  async initializeWorkspaceEncryption(event, workspaceId, passphrase) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.initializeWorkspace(supabase, workspaceId, passphrase);
+  },
+  async verifyWorkspacePassphrase(event, workspaceId, passphrase) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.verifyPassphrase(supabase, workspaceId, passphrase);
+  },
+  async syncKeyToCloud(event, workspaceId, keyId, passphrase) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.syncKeyToCloud(supabase, workspaceId, keyId, passphrase);
+  },
+  async downloadKeyFromCloud(event, workspaceId, keyId, passphrase) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.downloadKeyFromCloud(supabase, workspaceId, keyId, passphrase);
+  },
+  async deleteKeyFromCloud(event, workspaceId, keyId) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.deleteKeyFromCloud(supabase, workspaceId, keyId);
+  },
+  async changeWorkspacePassphrase(event, workspaceId, oldPassphrase, newPassphrase) {
+    const supabase = getClient$1(event);
+    return workspaceEncryption.changePassphrase(supabase, workspaceId, oldPassphrase, newPassphrase);
   }
 };
 async function streamText(provider, apiKey, modelId, messages, requestId, sender) {
@@ -1489,14 +1700,44 @@ function getSupabaseClientForSender(senderId) {
 }
 function withSupabase(handler) {
   return async (event, ...args) => {
-    const scopedEvent = event;
-    scopedEvent.supabase = getSupabaseClientForSender(event.sender.id);
-    return handler(scopedEvent, ...args);
+    try {
+      console.log("[withSupabase] Middleware called, sender:", event.sender.id, "args:", args);
+      const scopedEvent = event;
+      scopedEvent.supabase = getSupabaseClientForSender(event.sender.id);
+      console.log("[withSupabase] Supabase client obtained, calling handler...");
+      const result = await handler(scopedEvent, ...args);
+      console.log("[withSupabase] Handler returned successfully");
+      return result;
+    } catch (error) {
+      console.error("[withSupabase] ERROR in middleware:", {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : void 0,
+        senderId: event.sender.id,
+        argsCount: args.length
+      });
+      throw error;
+    }
   };
 }
 function register(channel, handler) {
+  console.log("[register] Registering IPC handler for channel:", channel);
   ipcMain.removeHandler(channel);
-  ipcMain.handle(channel, handler);
+  ipcMain.handle(channel, async (event, ...args) => {
+    console.log(`[IPC:${channel}] Handler invoked with args:`, args);
+    try {
+      const result = await handler(event, ...args);
+      console.log(`[IPC:${channel}] Handler completed successfully`);
+      return result;
+    } catch (error) {
+      console.error(`[IPC:${channel}] Handler error:`, {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : void 0
+      });
+      throw error;
+    }
+  });
 }
 function registerWorkspaceIpcHandlers() {
   register("auth.setAccessToken", async (event, accessToken) => {
