@@ -31244,7 +31244,7 @@ class ReactStore extends Store {
     });
   }
 }
-const selectors$4 = {
+const selectors$5 = {
   open: createSelector((state) => state.open),
   domReferenceElement: createSelector((state) => state.domReferenceElement),
   referenceElement: createSelector((state) => state.positionReference ?? state.referenceElement),
@@ -31273,7 +31273,7 @@ class FloatingRootStore extends ReactStore {
       nested,
       noEmit,
       triggerElements
-    }, selectors$4);
+    }, selectors$5);
   }
   /**
    * Emits the `openchange` event through the internal event emitter and calls the `onOpenChange` handler with the provided arguments.
@@ -33312,7 +33312,7 @@ function safePolygon(options = {}) {
   };
   return fn2;
 }
-const selectors$3 = {
+const selectors$4 = {
   ...popupStoreSelectors,
   disabled: createSelector((state) => state.disabled),
   instantType: createSelector((state) => state.instantType),
@@ -33326,14 +33326,14 @@ const selectors$3 = {
 class TooltipStore extends ReactStore {
   constructor(initialState) {
     super({
-      ...createInitialState$2(),
+      ...createInitialState$3(),
       ...initialState
     }, {
       popupRef: /* @__PURE__ */ reactExports.createRef(),
       onOpenChange: void 0,
       onOpenChangeComplete: void 0,
       triggerElements: new PopupTriggerMap()
-    }, selectors$3);
+    }, selectors$4);
   }
   setOpen = (nextOpen, eventDetails) => {
     const reason = eventDetails.reason;
@@ -33385,7 +33385,7 @@ class TooltipStore extends ReactStore {
     return store;
   }
 }
-function createInitialState$2() {
+function createInitialState$3() {
   return {
     ...createInitialPopupStoreState(),
     disabled: false,
@@ -33585,7 +33585,7 @@ let TooltipTriggerDataAttributes = (function(TooltipTriggerDataAttributes2) {
   TooltipTriggerDataAttributes2["triggerDisabled"] = "data-trigger-disabled";
   return TooltipTriggerDataAttributes2;
 })({});
-const OPEN_DELAY = 600;
+const OPEN_DELAY$1 = 600;
 const TooltipTrigger$1 = fastComponentRef(function TooltipTrigger2(componentProps, forwardedRef) {
   const {
     className,
@@ -33608,7 +33608,7 @@ const TooltipTrigger$1 = fastComponentRef(function TooltipTrigger2(componentProp
   const isOpenedByThisTrigger = store.useState("isOpenedByTrigger", thisTriggerId);
   const floatingRootContext = store.useState("floatingRootContext");
   const triggerElementRef = reactExports.useRef(null);
-  const delayWithDefault = delay ?? OPEN_DELAY;
+  const delayWithDefault = delay ?? OPEN_DELAY$1;
   const closeDelayWithDefault = closeDelay ?? 0;
   const {
     registerTrigger,
@@ -34330,7 +34330,7 @@ const TooltipPositioner = /* @__PURE__ */ reactExports.forwardRef(function Toolt
     children: element
   });
 });
-const stateAttributesMapping$7 = {
+const stateAttributesMapping$8 = {
   ...popupStateMapping,
   ...transitionStatusMapping
 };
@@ -34376,7 +34376,7 @@ const TooltipPopup = /* @__PURE__ */ reactExports.forwardRef(function TooltipPop
     state,
     ref: [forwardedRef, store.context.popupRef, store.useStateSetter("popupElement")],
     props: [popupProps, getDisabledMountTransitionStyles(transitionStatus), elementProps],
-    stateAttributesMapping: stateAttributesMapping$7
+    stateAttributesMapping: stateAttributesMapping$8
   });
   return element;
 });
@@ -34594,986 +34594,6 @@ const useWorkspaceStore = create((set) => ({
     }
   }
 }));
-const SelectRootContext = /* @__PURE__ */ reactExports.createContext(null);
-const SelectFloatingContext = /* @__PURE__ */ reactExports.createContext(null);
-function useSelectRootContext() {
-  const context = reactExports.useContext(SelectRootContext);
-  if (context === null) {
-    throw new Error(formatErrorMessage(60));
-  }
-  return context;
-}
-function useSelectFloatingContext() {
-  const context = reactExports.useContext(SelectFloatingContext);
-  if (context === null) {
-    throw new Error(formatErrorMessage(61));
-  }
-  return context;
-}
-const defaultItemEquality = (itemValue, selectedValue) => Object.is(itemValue, selectedValue);
-function compareItemEquality(itemValue, selectedValue, comparer) {
-  if (itemValue == null || selectedValue == null) {
-    return Object.is(itemValue, selectedValue);
-  }
-  return comparer(itemValue, selectedValue);
-}
-function selectedValueIncludes(selectedValues, itemValue, comparer) {
-  if (!selectedValues || selectedValues.length === 0) {
-    return false;
-  }
-  return selectedValues.some((selectedValue) => {
-    if (selectedValue === void 0) {
-      return false;
-    }
-    return compareItemEquality(itemValue, selectedValue, comparer);
-  });
-}
-function findItemIndex(itemValues, selectedValue, comparer) {
-  if (!itemValues || itemValues.length === 0) {
-    return -1;
-  }
-  return itemValues.findIndex((itemValue) => {
-    if (itemValue === void 0) {
-      return false;
-    }
-    return compareItemEquality(itemValue, selectedValue, comparer);
-  });
-}
-function removeItem(selectedValues, itemValue, comparer) {
-  return selectedValues.filter((selectedValue) => !compareItemEquality(itemValue, selectedValue, comparer));
-}
-function serializeValue(value) {
-  if (value == null) {
-    return "";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-function isGroupedItems(items) {
-  return items != null && items.length > 0 && typeof items[0] === "object" && items[0] != null && "items" in items[0];
-}
-function hasNullItemLabel(items) {
-  if (!Array.isArray(items)) {
-    return items != null && !("null" in items);
-  }
-  if (isGroupedItems(items)) {
-    for (const group of items) {
-      for (const item of group.items) {
-        if (item && item.value == null && item.label != null) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  for (const item of items) {
-    if (item && item.value == null && item.label != null) {
-      return true;
-    }
-  }
-  return false;
-}
-function stringifyAsLabel(item, itemToStringLabel) {
-  if (itemToStringLabel && item != null) {
-    return itemToStringLabel(item) ?? "";
-  }
-  if (item && typeof item === "object") {
-    if ("label" in item && item.label != null) {
-      return String(item.label);
-    }
-    if ("value" in item) {
-      return String(item.value);
-    }
-  }
-  return serializeValue(item);
-}
-function stringifyAsValue(item, itemToStringValue) {
-  if (itemToStringValue && item != null) {
-    return itemToStringValue(item) ?? "";
-  }
-  if (item && typeof item === "object" && "value" in item && "label" in item) {
-    return serializeValue(item.value);
-  }
-  return serializeValue(item);
-}
-function resolveSelectedLabel(value, items, itemToStringLabel) {
-  function fallback() {
-    return stringifyAsLabel(value, itemToStringLabel);
-  }
-  if (itemToStringLabel && value != null) {
-    return itemToStringLabel(value);
-  }
-  if (value && typeof value === "object" && "label" in value && value.label != null) {
-    return value.label;
-  }
-  if (items && !Array.isArray(items)) {
-    return items[value] ?? fallback();
-  }
-  if (Array.isArray(items)) {
-    const flatItems = isGroupedItems(items) ? items.flatMap((g2) => g2.items) : items;
-    if (value == null || typeof value !== "object") {
-      const match = flatItems.find((item) => item.value === value);
-      if (match && match.label != null) {
-        return match.label;
-      }
-      return fallback();
-    }
-    if ("value" in value) {
-      const match = flatItems.find((item) => item && item.value === value.value);
-      if (match && match.label != null) {
-        return match.label;
-      }
-    }
-  }
-  return fallback();
-}
-function resolveMultipleLabels(values, items, itemToStringLabel) {
-  return values.reduce((acc, value, index2) => {
-    if (index2 > 0) {
-      acc.push(", ");
-    }
-    acc.push(/* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
-      children: resolveSelectedLabel(value, items, itemToStringLabel)
-    }, index2));
-    return acc;
-  }, []);
-}
-const selectors$2 = {
-  id: createSelector((state) => state.id),
-  modal: createSelector((state) => state.modal),
-  multiple: createSelector((state) => state.multiple),
-  items: createSelector((state) => state.items),
-  itemToStringLabel: createSelector((state) => state.itemToStringLabel),
-  itemToStringValue: createSelector((state) => state.itemToStringValue),
-  isItemEqualToValue: createSelector((state) => state.isItemEqualToValue),
-  value: createSelector((state) => state.value),
-  hasSelectedValue: createSelector((state) => {
-    const {
-      value,
-      multiple,
-      itemToStringValue
-    } = state;
-    if (value == null) {
-      return false;
-    }
-    if (multiple && Array.isArray(value)) {
-      return value.length > 0;
-    }
-    return stringifyAsValue(value, itemToStringValue) !== "";
-  }),
-  hasNullItemLabel: createSelector((state, enabled) => {
-    return enabled ? hasNullItemLabel(state.items) : false;
-  }),
-  open: createSelector((state) => state.open),
-  mounted: createSelector((state) => state.mounted),
-  forceMount: createSelector((state) => state.forceMount),
-  transitionStatus: createSelector((state) => state.transitionStatus),
-  openMethod: createSelector((state) => state.openMethod),
-  activeIndex: createSelector((state) => state.activeIndex),
-  selectedIndex: createSelector((state) => state.selectedIndex),
-  isActive: createSelector((state, index2) => state.activeIndex === index2),
-  isSelected: createSelector((state, index2, itemValue) => {
-    const comparer = state.isItemEqualToValue;
-    const storeValue = state.value;
-    if (state.multiple) {
-      return Array.isArray(storeValue) && storeValue.some((selectedItem) => compareItemEquality(itemValue, selectedItem, comparer));
-    }
-    if (state.selectedIndex === index2 && state.selectedIndex !== null) {
-      return true;
-    }
-    return compareItemEquality(itemValue, storeValue, comparer);
-  }),
-  isSelectedByFocus: createSelector((state, index2) => {
-    return state.selectedIndex === index2;
-  }),
-  popupProps: createSelector((state) => state.popupProps),
-  triggerProps: createSelector((state) => state.triggerProps),
-  triggerElement: createSelector((state) => state.triggerElement),
-  positionerElement: createSelector((state) => state.positionerElement),
-  listElement: createSelector((state) => state.listElement),
-  scrollUpArrowVisible: createSelector((state) => state.scrollUpArrowVisible),
-  scrollDownArrowVisible: createSelector((state) => state.scrollDownArrowVisible),
-  hasScrollArrows: createSelector((state) => state.hasScrollArrows)
-};
-function useValueChanged(value, onChange) {
-  const valueRef = reactExports.useRef(value);
-  const onChangeCallback = useStableCallback(onChange);
-  useIsoLayoutEffect(() => {
-    if (valueRef.current === value) {
-      return;
-    }
-    onChangeCallback(valueRef.current);
-  }, [value, onChangeCallback]);
-  useIsoLayoutEffect(() => {
-    valueRef.current = value;
-  }, [value]);
-}
-function useEnhancedClickHandler(handler) {
-  const lastClickInteractionTypeRef = reactExports.useRef("");
-  const handlePointerDown = reactExports.useCallback((event) => {
-    if (event.defaultPrevented) {
-      return;
-    }
-    lastClickInteractionTypeRef.current = event.pointerType;
-    handler(event, event.pointerType);
-  }, [handler]);
-  const handleClick = reactExports.useCallback((event) => {
-    if (event.detail === 0) {
-      handler(event, "keyboard");
-      return;
-    }
-    if ("pointerType" in event) {
-      handler(event, event.pointerType);
-    } else {
-      handler(event, lastClickInteractionTypeRef.current);
-    }
-    lastClickInteractionTypeRef.current = "";
-  }, [handler]);
-  return {
-    onClick: handleClick,
-    onPointerDown: handlePointerDown
-  };
-}
-function useOpenInteractionType(open) {
-  const [openMethod, setOpenMethod] = reactExports.useState(null);
-  const handleTriggerClick = useStableCallback((_2, interactionType) => {
-    if (!open) {
-      setOpenMethod(interactionType || // On iOS Safari, the hitslop around touch targets means tapping outside an element's
-      // bounds does not fire `pointerdown` but does fire `mousedown`. The `interactionType`
-      // will be "" in that case.
-      (isIOS ? "touch" : ""));
-    }
-  });
-  const reset = reactExports.useCallback(() => {
-    setOpenMethod(null);
-  }, []);
-  const {
-    onClick,
-    onPointerDown
-  } = useEnhancedClickHandler(handleTriggerClick);
-  return reactExports.useMemo(() => ({
-    openMethod,
-    reset,
-    triggerProps: {
-      onClick,
-      onPointerDown
-    }
-  }), [openMethod, reset, onClick, onPointerDown]);
-}
-function SelectRoot(props) {
-  const {
-    id,
-    value: valueProp,
-    defaultValue: defaultValue2 = null,
-    onValueChange,
-    open: openProp,
-    defaultOpen = false,
-    onOpenChange,
-    name: nameProp,
-    autoComplete,
-    disabled: disabledProp = false,
-    readOnly = false,
-    required = false,
-    modal = true,
-    actionsRef,
-    inputRef,
-    onOpenChangeComplete,
-    items,
-    multiple = false,
-    itemToStringLabel,
-    itemToStringValue,
-    isItemEqualToValue = defaultItemEquality,
-    highlightItemOnHover = true,
-    children
-  } = props;
-  const {
-    clearErrors
-  } = useFormContext();
-  const {
-    setDirty,
-    setTouched,
-    setFocused,
-    shouldValidateOnChange,
-    validityData,
-    setFilled,
-    name: fieldName,
-    disabled: fieldDisabled,
-    validation,
-    validationMode
-  } = useFieldRootContext();
-  const generatedId = useLabelableId({
-    id
-  });
-  const disabled2 = fieldDisabled || disabledProp;
-  const name = fieldName ?? nameProp;
-  const [value, setValueUnwrapped] = useControlled({
-    controlled: valueProp,
-    default: multiple ? defaultValue2 ?? EMPTY_ARRAY$1 : defaultValue2,
-    name: "Select",
-    state: "value"
-  });
-  const [open, setOpenUnwrapped] = useControlled({
-    controlled: openProp,
-    default: defaultOpen,
-    name: "Select",
-    state: "open"
-  });
-  const listRef = reactExports.useRef([]);
-  const labelsRef = reactExports.useRef([]);
-  const popupRef = reactExports.useRef(null);
-  const scrollHandlerRef = reactExports.useRef(null);
-  const scrollArrowsMountedCountRef = reactExports.useRef(0);
-  const valueRef = reactExports.useRef(null);
-  const valuesRef = reactExports.useRef([]);
-  const typingRef = reactExports.useRef(false);
-  const keyboardActiveRef = reactExports.useRef(false);
-  const selectedItemTextRef = reactExports.useRef(null);
-  const selectionRef = reactExports.useRef({
-    allowSelectedMouseUp: false,
-    allowUnselectedMouseUp: false
-  });
-  const alignItemWithTriggerActiveRef = reactExports.useRef(false);
-  const {
-    mounted,
-    setMounted,
-    transitionStatus
-  } = useTransitionStatus(open);
-  const {
-    openMethod,
-    triggerProps: interactionTypeProps,
-    reset: resetOpenInteractionType
-  } = useOpenInteractionType(open);
-  const store = useRefWithInit(() => new Store({
-    id: generatedId,
-    modal,
-    multiple,
-    itemToStringLabel,
-    itemToStringValue,
-    isItemEqualToValue,
-    value,
-    open,
-    mounted,
-    transitionStatus,
-    items,
-    forceMount: false,
-    openMethod: null,
-    activeIndex: null,
-    selectedIndex: null,
-    popupProps: {},
-    triggerProps: {},
-    triggerElement: null,
-    positionerElement: null,
-    listElement: null,
-    scrollUpArrowVisible: false,
-    scrollDownArrowVisible: false,
-    hasScrollArrows: false
-  })).current;
-  const activeIndex = useStore$1(store, selectors$2.activeIndex);
-  const selectedIndex = useStore$1(store, selectors$2.selectedIndex);
-  const triggerElement = useStore$1(store, selectors$2.triggerElement);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const serializedValue = reactExports.useMemo(() => {
-    if (multiple && Array.isArray(value) && value.length === 0) {
-      return "";
-    }
-    return stringifyAsValue(value, itemToStringValue);
-  }, [multiple, value, itemToStringValue]);
-  const fieldStringValue = reactExports.useMemo(() => {
-    if (multiple && Array.isArray(value)) {
-      return value.map((currentValue) => stringifyAsValue(currentValue, itemToStringValue));
-    }
-    return stringifyAsValue(value, itemToStringValue);
-  }, [multiple, value, itemToStringValue]);
-  const controlRef = useValueAsRef(store.state.triggerElement);
-  useField({
-    id: generatedId,
-    commit: validation.commit,
-    value,
-    controlRef,
-    name,
-    getValue: () => fieldStringValue
-  });
-  const initialValueRef = reactExports.useRef(value);
-  useIsoLayoutEffect(() => {
-    if (value !== initialValueRef.current) {
-      store.set("forceMount", true);
-    }
-  }, [store, value]);
-  useIsoLayoutEffect(() => {
-    setFilled(multiple ? Array.isArray(value) && value.length > 0 : value != null);
-  }, [multiple, value, setFilled]);
-  useIsoLayoutEffect(function syncSelectedIndex() {
-    if (open) {
-      return;
-    }
-    const registry = valuesRef.current;
-    if (multiple) {
-      const currentValue = Array.isArray(value) ? value : [];
-      if (currentValue.length === 0) {
-        store.set("selectedIndex", null);
-        return;
-      }
-      const lastValue = currentValue[currentValue.length - 1];
-      const lastIndex = findItemIndex(registry, lastValue, isItemEqualToValue);
-      store.set("selectedIndex", lastIndex === -1 ? null : lastIndex);
-      return;
-    }
-    const index2 = findItemIndex(registry, value, isItemEqualToValue);
-    store.set("selectedIndex", index2 === -1 ? null : index2);
-  }, [multiple, open, value, valuesRef, isItemEqualToValue, store]);
-  useValueChanged(value, () => {
-    clearErrors(name);
-    setDirty(value !== validityData.initialValue);
-    if (shouldValidateOnChange()) {
-      validation.commit(value);
-    } else {
-      validation.commit(value, true);
-    }
-  });
-  const setOpen = useStableCallback((nextOpen, eventDetails) => {
-    onOpenChange?.(nextOpen, eventDetails);
-    if (eventDetails.isCanceled) {
-      return;
-    }
-    setOpenUnwrapped(nextOpen);
-    if (!nextOpen && (eventDetails.reason === focusOut || eventDetails.reason === outsidePress)) {
-      setTouched(true);
-      setFocused(false);
-      if (validationMode === "onBlur") {
-        validation.commit(value);
-      }
-    }
-    if (!nextOpen && store.state.activeIndex !== null) {
-      const activeOption = listRef.current[store.state.activeIndex];
-      queueMicrotask(() => {
-        activeOption?.setAttribute("tabindex", "-1");
-      });
-    }
-  });
-  const handleUnmount = useStableCallback(() => {
-    setMounted(false);
-    store.set("activeIndex", null);
-    resetOpenInteractionType();
-    onOpenChangeComplete?.(false);
-  });
-  useOpenChangeComplete({
-    enabled: !actionsRef,
-    open,
-    ref: popupRef,
-    onComplete() {
-      if (!open) {
-        handleUnmount();
-      }
-    }
-  });
-  reactExports.useImperativeHandle(actionsRef, () => ({
-    unmount: handleUnmount
-  }), [handleUnmount]);
-  const setValue = useStableCallback((nextValue, eventDetails) => {
-    onValueChange?.(nextValue, eventDetails);
-    if (eventDetails.isCanceled) {
-      return;
-    }
-    setValueUnwrapped(nextValue);
-  });
-  const handleScrollArrowVisibility = useStableCallback(() => {
-    const scroller = store.state.listElement || popupRef.current;
-    if (!scroller) {
-      return;
-    }
-    const viewportTop = scroller.scrollTop;
-    const viewportBottom = scroller.scrollTop + scroller.clientHeight;
-    const shouldShowUp = viewportTop > 1;
-    const shouldShowDown = viewportBottom < scroller.scrollHeight - 1;
-    if (store.state.scrollUpArrowVisible !== shouldShowUp) {
-      store.set("scrollUpArrowVisible", shouldShowUp);
-    }
-    if (store.state.scrollDownArrowVisible !== shouldShowDown) {
-      store.set("scrollDownArrowVisible", shouldShowDown);
-    }
-  });
-  const floatingContext = useFloatingRootContext({
-    open,
-    onOpenChange: setOpen,
-    elements: {
-      reference: triggerElement,
-      floating: positionerElement
-    }
-  });
-  const click = useClick(floatingContext, {
-    enabled: !readOnly && !disabled2,
-    event: "mousedown"
-  });
-  const dismiss = useDismiss(floatingContext, {
-    bubbles: false
-  });
-  const listNavigation2 = useListNavigation(floatingContext, {
-    enabled: !readOnly && !disabled2,
-    listRef,
-    activeIndex,
-    selectedIndex,
-    disabledIndices: EMPTY_ARRAY$1,
-    onNavigate(nextActiveIndex) {
-      if (nextActiveIndex === null && !open) {
-        return;
-      }
-      store.set("activeIndex", nextActiveIndex);
-    },
-    // Implement our own listeners since `onPointerLeave` on each option fires while scrolling with
-    // the `alignItemWithTrigger=true`, causing a performance issue on Chrome.
-    focusItemOnHover: false
-  });
-  const typeahead = useTypeahead(floatingContext, {
-    enabled: !readOnly && !disabled2 && (open || !multiple),
-    listRef: labelsRef,
-    activeIndex,
-    selectedIndex,
-    onMatch(index2) {
-      if (open) {
-        store.set("activeIndex", index2);
-      } else {
-        setValue(valuesRef.current[index2], createChangeEventDetails("none"));
-      }
-    },
-    onTypingChange(typing) {
-      typingRef.current = typing;
-    }
-  });
-  const {
-    getReferenceProps,
-    getFloatingProps,
-    getItemProps
-  } = useInteractions([click, dismiss, listNavigation2, typeahead]);
-  const mergedTriggerProps = reactExports.useMemo(() => {
-    return mergeProps$2(getReferenceProps(), interactionTypeProps, generatedId ? {
-      id: generatedId
-    } : EMPTY_OBJECT);
-  }, [getReferenceProps, interactionTypeProps, generatedId]);
-  useOnFirstRender(() => {
-    store.update({
-      popupProps: getFloatingProps(),
-      triggerProps: mergedTriggerProps
-    });
-  });
-  useIsoLayoutEffect(() => {
-    store.update({
-      id: generatedId,
-      modal,
-      multiple,
-      value,
-      open,
-      mounted,
-      transitionStatus,
-      popupProps: getFloatingProps(),
-      triggerProps: mergedTriggerProps,
-      items,
-      itemToStringLabel,
-      itemToStringValue,
-      isItemEqualToValue,
-      openMethod
-    });
-  }, [store, generatedId, modal, multiple, value, open, mounted, transitionStatus, getFloatingProps, mergedTriggerProps, items, itemToStringLabel, itemToStringValue, isItemEqualToValue, openMethod]);
-  const contextValue = reactExports.useMemo(() => ({
-    store,
-    name,
-    required,
-    disabled: disabled2,
-    readOnly,
-    multiple,
-    itemToStringLabel,
-    itemToStringValue,
-    highlightItemOnHover,
-    setValue,
-    setOpen,
-    listRef,
-    popupRef,
-    scrollHandlerRef,
-    handleScrollArrowVisibility,
-    scrollArrowsMountedCountRef,
-    getItemProps,
-    events: floatingContext.context.events,
-    valueRef,
-    valuesRef,
-    labelsRef,
-    typingRef,
-    selectionRef,
-    selectedItemTextRef,
-    validation,
-    onOpenChangeComplete,
-    keyboardActiveRef,
-    alignItemWithTriggerActiveRef,
-    initialValueRef
-  }), [store, name, required, disabled2, readOnly, multiple, itemToStringLabel, itemToStringValue, highlightItemOnHover, setValue, setOpen, getItemProps, floatingContext.context.events, validation, onOpenChangeComplete, handleScrollArrowVisibility]);
-  const ref = useMergedRefs(inputRef, validation.inputRef);
-  const hasMultipleSelection = multiple && Array.isArray(value) && value.length > 0;
-  const hiddenInputs = reactExports.useMemo(() => {
-    if (!multiple || !Array.isArray(value) || !name) {
-      return null;
-    }
-    return value.map((v3) => {
-      const currentSerializedValue = stringifyAsValue(v3, itemToStringValue);
-      return /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
-        type: "hidden",
-        name,
-        value: currentSerializedValue
-      }, currentSerializedValue);
-    });
-  }, [multiple, value, name, itemToStringValue]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectRootContext.Provider, {
-    value: contextValue,
-    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectFloatingContext.Provider, {
-      value: floatingContext,
-      children: [children, /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
-        ...validation.getInputValidationProps({
-          onFocus() {
-            store.state.triggerElement?.focus({
-              // Supported in Chrome from 144 (January 2026)
-              // @ts-expect-error - focusVisible is not yet in the lib.dom.d.ts
-              focusVisible: true
-            });
-          },
-          // Handle browser autofill.
-          onChange(event) {
-            if (event.nativeEvent.defaultPrevented) {
-              return;
-            }
-            const nextValue = event.target.value;
-            const details = createChangeEventDetails(none, event.nativeEvent);
-            function handleChange() {
-              if (multiple) {
-                return;
-              }
-              const matchingValue = valuesRef.current.find((v3) => {
-                const candidate = stringifyAsValue(v3, itemToStringValue);
-                if (candidate.toLowerCase() === nextValue.toLowerCase()) {
-                  return true;
-                }
-                return false;
-              });
-              if (matchingValue != null) {
-                setDirty(matchingValue !== validityData.initialValue);
-                setValue(matchingValue, details);
-                if (shouldValidateOnChange()) {
-                  validation.commit(matchingValue);
-                }
-              }
-            }
-            store.set("forceMount", true);
-            queueMicrotask(handleChange);
-          }
-        }),
-        name: multiple ? void 0 : name,
-        autoComplete,
-        value: serializedValue,
-        disabled: disabled2,
-        required: required && !hasMultipleSelection,
-        readOnly,
-        ref,
-        style: name ? visuallyHiddenInput : visuallyHidden,
-        tabIndex: -1,
-        "aria-hidden": true
-      }), hiddenInputs]
-    })
-  });
-}
-function getPseudoElementBounds(element) {
-  const elementRect = element.getBoundingClientRect();
-  const beforeStyles = window.getComputedStyle(element, "::before");
-  const afterStyles = window.getComputedStyle(element, "::after");
-  const hasPseudoElements = beforeStyles.content !== "none" || afterStyles.content !== "none";
-  if (!hasPseudoElements) {
-    return elementRect;
-  }
-  const beforeWidth = parseFloat(beforeStyles.width) || 0;
-  const beforeHeight = parseFloat(beforeStyles.height) || 0;
-  const afterWidth = parseFloat(afterStyles.width) || 0;
-  const afterHeight = parseFloat(afterStyles.height) || 0;
-  const totalWidth = Math.max(elementRect.width, beforeWidth, afterWidth);
-  const totalHeight = Math.max(elementRect.height, beforeHeight, afterHeight);
-  const widthDiff = totalWidth - elementRect.width;
-  const heightDiff = totalHeight - elementRect.height;
-  return {
-    left: elementRect.left - widthDiff / 2,
-    right: elementRect.right + widthDiff / 2,
-    top: elementRect.top - heightDiff / 2,
-    bottom: elementRect.bottom + heightDiff / 2
-  };
-}
-const BOUNDARY_OFFSET$1 = 2;
-const SELECTED_DELAY = 400;
-const UNSELECTED_DELAY = 200;
-const stateAttributesMapping$6 = {
-  ...pressableTriggerOpenStateMapping,
-  ...fieldValidityMapping,
-  value: () => null
-};
-const SelectTrigger$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectTrigger2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    id: idProp,
-    disabled: disabledProp = false,
-    nativeButton = true,
-    ...elementProps
-  } = componentProps;
-  const {
-    setTouched,
-    setFocused,
-    validationMode,
-    state: fieldState,
-    disabled: fieldDisabled
-  } = useFieldRootContext();
-  const {
-    labelId
-  } = useLabelableContext();
-  const {
-    store,
-    setOpen,
-    selectionRef,
-    validation,
-    readOnly,
-    required,
-    alignItemWithTriggerActiveRef,
-    disabled: selectDisabled,
-    keyboardActiveRef
-  } = useSelectRootContext();
-  const disabled2 = fieldDisabled || selectDisabled || disabledProp;
-  const open = useStore$1(store, selectors$2.open);
-  const value = useStore$1(store, selectors$2.value);
-  const triggerProps = useStore$1(store, selectors$2.triggerProps);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const listElement = useStore$1(store, selectors$2.listElement);
-  const rootId = useStore$1(store, selectors$2.id);
-  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
-  const shouldCheckNullItemLabel = !hasSelectedValue && open;
-  const hasNullItemLabel2 = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
-  const id = idProp ?? rootId;
-  useLabelableId({
-    id
-  });
-  const positionerRef = useValueAsRef(positionerElement);
-  const triggerRef = reactExports.useRef(null);
-  const {
-    getButtonProps,
-    buttonRef
-  } = useButton({
-    disabled: disabled2,
-    native: nativeButton
-  });
-  const setTriggerElement = useStableCallback((element) => {
-    store.set("triggerElement", element);
-  });
-  const mergedRef = useMergedRefs(forwardedRef, triggerRef, buttonRef, setTriggerElement);
-  const timeoutFocus = useTimeout();
-  const timeoutMouseDown = useTimeout();
-  const selectedDelayTimeout = useTimeout();
-  const unselectedDelayTimeout = useTimeout();
-  reactExports.useEffect(() => {
-    if (open) {
-      const hasSelectedItemInList = hasSelectedValue || hasNullItemLabel2;
-      const shouldDelayUnselectedMouseUpLonger = !hasSelectedItemInList;
-      if (shouldDelayUnselectedMouseUpLonger) {
-        selectedDelayTimeout.start(SELECTED_DELAY, () => {
-          selectionRef.current.allowUnselectedMouseUp = true;
-          selectionRef.current.allowSelectedMouseUp = true;
-        });
-      } else {
-        unselectedDelayTimeout.start(UNSELECTED_DELAY, () => {
-          selectionRef.current.allowUnselectedMouseUp = true;
-          selectedDelayTimeout.start(UNSELECTED_DELAY, () => {
-            selectionRef.current.allowSelectedMouseUp = true;
-          });
-        });
-      }
-      return () => {
-        selectedDelayTimeout.clear();
-        unselectedDelayTimeout.clear();
-      };
-    }
-    selectionRef.current = {
-      allowSelectedMouseUp: false,
-      allowUnselectedMouseUp: false
-    };
-    timeoutMouseDown.clear();
-    return void 0;
-  }, [open, hasSelectedValue, hasNullItemLabel2, selectionRef, timeoutMouseDown, selectedDelayTimeout, unselectedDelayTimeout]);
-  const ariaControlsId = reactExports.useMemo(() => {
-    return listElement?.id ?? getFloatingFocusElement(positionerElement)?.id;
-  }, [listElement, positionerElement]);
-  const props = mergeProps$2(triggerProps, {
-    id,
-    role: "combobox",
-    "aria-expanded": open ? "true" : "false",
-    "aria-haspopup": "listbox",
-    "aria-controls": open ? ariaControlsId : void 0,
-    "aria-labelledby": labelId,
-    "aria-readonly": readOnly || void 0,
-    "aria-required": required || void 0,
-    tabIndex: disabled2 ? -1 : 0,
-    ref: mergedRef,
-    onFocus(event) {
-      setFocused(true);
-      if (open && alignItemWithTriggerActiveRef.current) {
-        setOpen(false, createChangeEventDetails(none, event.nativeEvent));
-      }
-      timeoutFocus.start(0, () => {
-        store.set("forceMount", true);
-      });
-    },
-    onBlur(event) {
-      if (contains(positionerElement, event.relatedTarget)) {
-        return;
-      }
-      setTouched(true);
-      setFocused(false);
-      if (validationMode === "onBlur") {
-        validation.commit(value);
-      }
-    },
-    onPointerMove() {
-      keyboardActiveRef.current = false;
-    },
-    onKeyDown() {
-      keyboardActiveRef.current = true;
-    },
-    onMouseDown(event) {
-      if (open) {
-        return;
-      }
-      const doc = ownerDocument(event.currentTarget);
-      function handleMouseUp(mouseEvent) {
-        if (!triggerRef.current) {
-          return;
-        }
-        const mouseUpTarget = mouseEvent.target;
-        if (contains(triggerRef.current, mouseUpTarget) || contains(positionerRef.current, mouseUpTarget) || mouseUpTarget === triggerRef.current) {
-          return;
-        }
-        const bounds = getPseudoElementBounds(triggerRef.current);
-        if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET$1 && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET$1 && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET$1 && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET$1) {
-          return;
-        }
-        setOpen(false, createChangeEventDetails(cancelOpen, mouseEvent));
-      }
-      timeoutMouseDown.start(0, () => {
-        doc.addEventListener("mouseup", handleMouseUp, {
-          once: true
-        });
-      });
-    }
-  }, validation.getValidationProps, elementProps, getButtonProps);
-  props.role = "combobox";
-  const state = {
-    ...fieldState,
-    open,
-    disabled: disabled2,
-    value,
-    readOnly,
-    placeholder: !hasSelectedValue
-  };
-  return useRenderElement("button", componentProps, {
-    ref: [forwardedRef, triggerRef],
-    state,
-    stateAttributesMapping: stateAttributesMapping$6,
-    props
-  });
-});
-const stateAttributesMapping$5 = {
-  value: () => null
-};
-const SelectValue$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectValue2(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    children: childrenProp,
-    placeholder,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    valueRef
-  } = useSelectRootContext();
-  const value = useStore$1(store, selectors$2.value);
-  const items = useStore$1(store, selectors$2.items);
-  const itemToStringLabel = useStore$1(store, selectors$2.itemToStringLabel);
-  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
-  const shouldCheckNullItemLabel = !hasSelectedValue && placeholder != null && childrenProp == null;
-  const hasNullLabel = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
-  const state = {
-    value,
-    placeholder: !hasSelectedValue
-  };
-  let children = null;
-  if (typeof childrenProp === "function") {
-    children = childrenProp(value);
-  } else if (childrenProp != null) {
-    children = childrenProp;
-  } else if (!hasSelectedValue && placeholder != null && !hasNullLabel) {
-    children = placeholder;
-  } else if (Array.isArray(value)) {
-    children = resolveMultipleLabels(value, items, itemToStringLabel);
-  } else {
-    children = resolveSelectedLabel(value, items, itemToStringLabel);
-  }
-  const element = useRenderElement("span", componentProps, {
-    state,
-    ref: [forwardedRef, valueRef],
-    props: [{
-      children
-    }, elementProps],
-    stateAttributesMapping: stateAttributesMapping$5
-  });
-  return element;
-});
-const SelectIcon = /* @__PURE__ */ reactExports.forwardRef(function SelectIcon2(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    ...elementProps
-  } = componentProps;
-  const {
-    store
-  } = useSelectRootContext();
-  const open = useStore$1(store, selectors$2.open);
-  const state = {
-    open
-  };
-  const element = useRenderElement("span", componentProps, {
-    state,
-    ref: forwardedRef,
-    props: [{
-      "aria-hidden": true,
-      children: "▼"
-    }, elementProps],
-    stateAttributesMapping: triggerOpenStateMapping
-  });
-  return element;
-});
-const SelectPortalContext = /* @__PURE__ */ reactExports.createContext(void 0);
-const SelectPortal = /* @__PURE__ */ reactExports.forwardRef(function SelectPortal2(portalProps, forwardedRef) {
-  const {
-    store
-  } = useSelectRootContext();
-  const mounted = useStore$1(store, selectors$2.mounted);
-  const forceMount = useStore$1(store, selectors$2.forceMount);
-  const shouldRender = mounted || forceMount;
-  if (!shouldRender) {
-    return null;
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortalContext.Provider, {
-    value: true,
-    children: /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingPortal, {
-      ref: forwardedRef,
-      ...portalProps
-    })
-  });
-});
 let originalHtmlStyles = {};
 let originalBodyStyles = {};
 let originalHtmlScrollBehavior = "";
@@ -35770,155 +34790,470 @@ function useScrollLock(enabled = true, referenceElement = null) {
     return SCROLL_LOCKER.acquire(referenceElement);
   }, [enabled, referenceElement]);
 }
-const CompositeListContext = /* @__PURE__ */ reactExports.createContext({
-  register: () => {
-  },
-  unregister: () => {
-  },
-  subscribeMapChange: () => {
-    return () => {
-    };
-  },
-  elementsRef: {
-    current: []
-  },
-  nextIndexRef: {
-    current: 0
+const PopoverRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function usePopoverRootContext(optional) {
+  const context = reactExports.useContext(PopoverRootContext);
+  if (context === void 0 && !optional) {
+    throw new Error(formatErrorMessage(47));
   }
-});
-function useCompositeListContext() {
-  return reactExports.useContext(CompositeListContext);
+  return context;
 }
-function CompositeList(props) {
+function createInitialState$2() {
+  return {
+    ...createInitialPopupStoreState(),
+    disabled: false,
+    modal: false,
+    instantType: void 0,
+    openMethod: null,
+    openChangeReason: null,
+    titleElementId: void 0,
+    descriptionElementId: void 0,
+    stickIfOpen: true,
+    nested: false,
+    openOnHover: false,
+    closeDelay: 0,
+    hasViewport: false
+  };
+}
+const selectors$3 = {
+  ...popupStoreSelectors,
+  disabled: createSelector((state) => state.disabled),
+  instantType: createSelector((state) => state.instantType),
+  openMethod: createSelector((state) => state.openMethod),
+  openChangeReason: createSelector((state) => state.openChangeReason),
+  modal: createSelector((state) => state.modal),
+  stickIfOpen: createSelector((state) => state.stickIfOpen),
+  titleElementId: createSelector((state) => state.titleElementId),
+  descriptionElementId: createSelector((state) => state.descriptionElementId),
+  openOnHover: createSelector((state) => state.openOnHover),
+  closeDelay: createSelector((state) => state.closeDelay),
+  hasViewport: createSelector((state) => state.hasViewport)
+};
+class PopoverStore extends ReactStore {
+  constructor(initialState) {
+    const initial = {
+      ...createInitialState$2(),
+      ...initialState
+    };
+    if (initial.open && initialState?.mounted === void 0) {
+      initial.mounted = true;
+    }
+    super(initial, {
+      popupRef: /* @__PURE__ */ reactExports.createRef(),
+      backdropRef: /* @__PURE__ */ reactExports.createRef(),
+      internalBackdropRef: /* @__PURE__ */ reactExports.createRef(),
+      onOpenChange: void 0,
+      onOpenChangeComplete: void 0,
+      triggerFocusTargetRef: /* @__PURE__ */ reactExports.createRef(),
+      beforeContentFocusGuardRef: /* @__PURE__ */ reactExports.createRef(),
+      stickIfOpenTimeout: new Timeout(),
+      triggerElements: new PopupTriggerMap()
+    }, selectors$3);
+  }
+  setOpen = (nextOpen, eventDetails) => {
+    const isHover = eventDetails.reason === triggerHover;
+    const isKeyboardClick = eventDetails.reason === triggerPress && eventDetails.event.detail === 0;
+    const isDismissClose = !nextOpen && (eventDetails.reason === escapeKey || eventDetails.reason == null);
+    eventDetails.preventUnmountOnClose = () => {
+      this.set("preventUnmountingOnClose", true);
+    };
+    this.context.onOpenChange?.(nextOpen, eventDetails);
+    if (eventDetails.isCanceled) {
+      return;
+    }
+    const details = {
+      open: nextOpen,
+      nativeEvent: eventDetails.event,
+      reason: eventDetails.reason,
+      nested: this.state.nested,
+      triggerElement: eventDetails.trigger
+    };
+    const floatingEvents = this.state.floatingRootContext.context.events;
+    floatingEvents?.emit("openchange", details);
+    const changeState = () => {
+      const updatedState = {
+        open: nextOpen,
+        openChangeReason: eventDetails.reason
+      };
+      const newTriggerId = eventDetails.trigger?.id ?? null;
+      if (newTriggerId || nextOpen) {
+        updatedState.activeTriggerId = newTriggerId;
+        updatedState.activeTriggerElement = eventDetails.trigger ?? null;
+      }
+      this.update(updatedState);
+    };
+    if (isHover) {
+      this.set("stickIfOpen", true);
+      this.context.stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
+        this.set("stickIfOpen", false);
+      });
+      reactDomExports.flushSync(changeState);
+    } else {
+      changeState();
+    }
+    if (isKeyboardClick || isDismissClose) {
+      this.set("instantType", isKeyboardClick ? "click" : "dismiss");
+    } else if (eventDetails.reason === focusOut) {
+      this.set("instantType", "focus");
+    } else {
+      this.set("instantType", void 0);
+    }
+  };
+  static useStore(externalStore, initialState) {
+    const internalStore = useRefWithInit(() => {
+      return new PopoverStore(initialState);
+    }).current;
+    const store = externalStore ?? internalStore;
+    useOnMount(internalStore.disposeEffect);
+    return store;
+  }
+  disposeEffect = () => {
+    return this.context.stickIfOpenTimeout.disposeEffect();
+  };
+}
+function useEnhancedClickHandler(handler) {
+  const lastClickInteractionTypeRef = reactExports.useRef("");
+  const handlePointerDown = reactExports.useCallback((event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    lastClickInteractionTypeRef.current = event.pointerType;
+    handler(event, event.pointerType);
+  }, [handler]);
+  const handleClick = reactExports.useCallback((event) => {
+    if (event.detail === 0) {
+      handler(event, "keyboard");
+      return;
+    }
+    if ("pointerType" in event) {
+      handler(event, event.pointerType);
+    } else {
+      handler(event, lastClickInteractionTypeRef.current);
+    }
+    lastClickInteractionTypeRef.current = "";
+  }, [handler]);
+  return {
+    onClick: handleClick,
+    onPointerDown: handlePointerDown
+  };
+}
+function useOpenInteractionType(open) {
+  const [openMethod, setOpenMethod] = reactExports.useState(null);
+  const handleTriggerClick = useStableCallback((_2, interactionType) => {
+    if (!open) {
+      setOpenMethod(interactionType || // On iOS Safari, the hitslop around touch targets means tapping outside an element's
+      // bounds does not fire `pointerdown` but does fire `mousedown`. The `interactionType`
+      // will be "" in that case.
+      (isIOS ? "touch" : ""));
+    }
+  });
+  const reset = reactExports.useCallback(() => {
+    setOpenMethod(null);
+  }, []);
+  const {
+    onClick,
+    onPointerDown
+  } = useEnhancedClickHandler(handleTriggerClick);
+  return reactExports.useMemo(() => ({
+    openMethod,
+    reset,
+    triggerProps: {
+      onClick,
+      onPointerDown
+    }
+  }), [openMethod, reset, onClick, onPointerDown]);
+}
+function PopoverRootComponent({
+  props
+}) {
   const {
     children,
-    elementsRef,
-    labelsRef,
-    onMapChange: onMapChangeProp
+    open: openProp,
+    defaultOpen = false,
+    onOpenChange,
+    onOpenChangeComplete,
+    modal = false,
+    handle,
+    triggerId: triggerIdProp,
+    defaultTriggerId: defaultTriggerIdProp = null
   } = props;
-  const onMapChange = useStableCallback(onMapChangeProp);
-  const nextIndexRef = reactExports.useRef(0);
-  const listeners = useRefWithInit(createListeners).current;
-  const map = useRefWithInit(createMap).current;
-  const [mapTick, setMapTick] = reactExports.useState(0);
-  const lastTickRef = reactExports.useRef(mapTick);
-  const register2 = useStableCallback((node, metadata) => {
-    map.set(node, metadata ?? null);
-    lastTickRef.current += 1;
-    setMapTick(lastTickRef.current);
+  const store = PopoverStore.useStore(handle?.store, {
+    modal,
+    open: defaultOpen,
+    openProp,
+    activeTriggerId: defaultTriggerIdProp,
+    triggerIdProp
   });
-  const unregister = useStableCallback((node) => {
-    map.delete(node);
-    lastTickRef.current += 1;
-    setMapTick(lastTickRef.current);
-  });
-  const sortedMap = reactExports.useMemo(() => {
-    const newMap = /* @__PURE__ */ new Map();
-    const sortedNodes = Array.from(map.keys()).filter((node) => node.isConnected).sort(sortByDocumentPosition);
-    sortedNodes.forEach((node, index2) => {
-      const metadata = map.get(node) ?? {};
-      newMap.set(node, {
-        ...metadata,
-        index: index2
+  useOnFirstRender(() => {
+    if (openProp === void 0 && store.state.open === false && defaultOpen === true) {
+      store.update({
+        open: true,
+        activeTriggerId: defaultTriggerIdProp
       });
-    });
-    return newMap;
-  }, [map, mapTick]);
-  useIsoLayoutEffect(() => {
-    if (typeof MutationObserver !== "function" || sortedMap.size === 0) {
-      return void 0;
     }
-    const mutationObserver = new MutationObserver((entries) => {
-      const diff = /* @__PURE__ */ new Set();
-      const updateDiff = (node) => diff.has(node) ? diff.delete(node) : diff.add(node);
-      entries.forEach((entry) => {
-        entry.removedNodes.forEach(updateDiff);
-        entry.addedNodes.forEach(updateDiff);
+  });
+  store.useControlledProp("openProp", openProp);
+  store.useControlledProp("triggerIdProp", triggerIdProp);
+  const open = store.useState("open");
+  const positionerElement = store.useState("positionerElement");
+  const payload = store.useState("payload");
+  const openReason = store.useState("openChangeReason");
+  store.useContextCallback("onOpenChange", onOpenChange);
+  store.useContextCallback("onOpenChangeComplete", onOpenChangeComplete);
+  const {
+    openMethod,
+    triggerProps: interactionTypeTriggerProps,
+    reset: resetOpenInteractionType
+  } = useOpenInteractionType(open);
+  useImplicitActiveTrigger(store);
+  const {
+    forceUnmount
+  } = useOpenStateTransitions(open, store, () => {
+    store.update({
+      stickIfOpen: true,
+      openChangeReason: null
+    });
+    resetOpenInteractionType();
+  });
+  useScrollLock(open && modal === true && openReason !== triggerHover && openMethod !== "touch", positionerElement);
+  reactExports.useEffect(() => {
+    if (!open) {
+      store.context.stickIfOpenTimeout.clear();
+    }
+  }, [store, open]);
+  const createPopoverEventDetails = reactExports.useCallback((reason) => {
+    const details = createChangeEventDetails(reason);
+    details.preventUnmountOnClose = () => {
+      store.set("preventUnmountingOnClose", true);
+    };
+    return details;
+  }, [store]);
+  const handleImperativeClose = reactExports.useCallback(() => {
+    store.setOpen(false, createPopoverEventDetails(imperativeAction));
+  }, [store, createPopoverEventDetails]);
+  reactExports.useImperativeHandle(props.actionsRef, () => ({
+    unmount: forceUnmount,
+    close: handleImperativeClose
+  }), [forceUnmount, handleImperativeClose]);
+  const floatingRootContext = useSyncedFloatingRootContext({
+    popupStore: store,
+    onOpenChange: store.setOpen
+  });
+  const dismiss = useDismiss(floatingRootContext, {
+    outsidePressEvent: {
+      // Ensure `aria-hidden` on outside elements is removed immediately
+      // on outside press when trapping focus.
+      mouse: modal === "trap-focus" ? "sloppy" : "intentional",
+      touch: "sloppy"
+    }
+  });
+  const role = useRole(floatingRootContext);
+  const {
+    getReferenceProps,
+    getFloatingProps,
+    getTriggerProps
+  } = useInteractions([dismiss, role]);
+  const activeTriggerProps = reactExports.useMemo(() => {
+    return getReferenceProps(interactionTypeTriggerProps);
+  }, [getReferenceProps, interactionTypeTriggerProps]);
+  const inactiveTriggerProps = reactExports.useMemo(() => {
+    return getTriggerProps(interactionTypeTriggerProps);
+  }, [getTriggerProps, interactionTypeTriggerProps]);
+  const popupProps = reactExports.useMemo(() => {
+    return getFloatingProps();
+  }, [getFloatingProps]);
+  store.useSyncedValues({
+    modal,
+    openMethod,
+    activeTriggerProps,
+    inactiveTriggerProps,
+    popupProps,
+    floatingRootContext,
+    nested: useFloatingParentNodeId() != null
+  });
+  const popoverContext = reactExports.useMemo(() => ({
+    store
+  }), [store]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverRootContext.Provider, {
+    value: popoverContext,
+    children: typeof children === "function" ? children({
+      payload
+    }) : children
+  });
+}
+function PopoverRoot(props) {
+  if (usePopoverRootContext(true)) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverRootComponent, {
+      props
+    });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingTree, {
+    children: /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverRootComponent, {
+      props
+    })
+  });
+}
+const OPEN_DELAY = 300;
+const PopoverTrigger$1 = /* @__PURE__ */ reactExports.forwardRef(function PopoverTrigger2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    disabled: disabled2 = false,
+    nativeButton = true,
+    handle,
+    payload,
+    openOnHover = false,
+    delay = OPEN_DELAY,
+    closeDelay = 0,
+    id: idProp,
+    ...elementProps
+  } = componentProps;
+  const rootContext = usePopoverRootContext(true);
+  const store = handle?.store ?? rootContext?.store;
+  if (!store) {
+    throw new Error(formatErrorMessage(74));
+  }
+  const thisTriggerId = useBaseUiId(idProp);
+  const isTriggerActive = store.useState("isTriggerActive", thisTriggerId);
+  const floatingContext = store.useState("floatingRootContext");
+  const isOpenedByThisTrigger = store.useState("isOpenedByTrigger", thisTriggerId);
+  const triggerElementRef = reactExports.useRef(null);
+  const {
+    registerTrigger,
+    isMountedByThisTrigger
+  } = useTriggerDataForwarding(thisTriggerId, triggerElementRef, store, {
+    payload,
+    disabled: disabled2,
+    openOnHover,
+    closeDelay
+  });
+  const openReason = store.useState("openChangeReason");
+  const stickIfOpen = store.useState("stickIfOpen");
+  const openMethod = store.useState("openMethod");
+  const hoverProps = useHoverReferenceInteraction(floatingContext, {
+    enabled: floatingContext != null && openOnHover && (openMethod !== "touch" || openReason !== triggerPress),
+    mouseOnly: true,
+    move: false,
+    handleClose: safePolygon(),
+    restMs: delay,
+    delay: {
+      close: closeDelay
+    },
+    triggerElementRef,
+    isActiveTrigger: isTriggerActive
+  });
+  const click = useClick(floatingContext, {
+    enabled: floatingContext != null,
+    stickIfOpen
+  });
+  const localProps = useInteractions([click]);
+  const rootTriggerProps = store.useState("triggerProps", isMountedByThisTrigger);
+  const state = {
+    disabled: disabled2,
+    open: isOpenedByThisTrigger
+  };
+  const {
+    getButtonProps,
+    buttonRef
+  } = useButton({
+    disabled: disabled2,
+    native: nativeButton
+  });
+  const stateAttributesMapping2 = reactExports.useMemo(() => ({
+    open(value) {
+      if (value && openReason === triggerPress) {
+        return pressableTriggerOpenStateMapping.open(value);
+      }
+      return triggerOpenStateMapping.open(value);
+    }
+  }), [openReason]);
+  const element = useRenderElement("button", componentProps, {
+    state,
+    ref: [buttonRef, forwardedRef, registerTrigger, triggerElementRef],
+    props: [localProps.getReferenceProps(), hoverProps, rootTriggerProps, {
+      [CLICK_TRIGGER_IDENTIFIER]: "",
+      id: thisTriggerId
+    }, elementProps, getButtonProps],
+    stateAttributesMapping: stateAttributesMapping2
+  });
+  const preFocusGuardRef = reactExports.useRef(null);
+  const handlePreFocusGuardFocus = useStableCallback((event) => {
+    reactDomExports.flushSync(() => {
+      store.setOpen(false, createChangeEventDetails(focusOut, event.nativeEvent, event.currentTarget));
+    });
+    const previousTabbable = getTabbableBeforeElement(preFocusGuardRef.current);
+    previousTabbable?.focus();
+  });
+  const handleFocusTargetFocus = useStableCallback((event) => {
+    const positionerElement = store.select("positionerElement");
+    if (positionerElement && isOutsideEvent(event, positionerElement)) {
+      store.context.beforeContentFocusGuardRef.current?.focus();
+    } else {
+      reactDomExports.flushSync(() => {
+        store.setOpen(false, createChangeEventDetails(focusOut, event.nativeEvent, event.currentTarget));
       });
-      if (diff.size === 0) {
-        lastTickRef.current += 1;
-        setMapTick(lastTickRef.current);
+      let nextTabbable = getTabbableAfterElement(store.context.triggerFocusTargetRef.current || triggerElementRef.current);
+      while (nextTabbable !== null && contains(positionerElement, nextTabbable)) {
+        const prevTabbable = nextTabbable;
+        nextTabbable = getNextTabbable(nextTabbable);
+        if (nextTabbable === prevTabbable) {
+          break;
+        }
       }
-    });
-    sortedMap.forEach((_2, node) => {
-      if (node.parentElement) {
-        mutationObserver.observe(node.parentElement, {
-          childList: true
-        });
-      }
-    });
-    return () => {
-      mutationObserver.disconnect();
-    };
-  }, [sortedMap]);
-  useIsoLayoutEffect(() => {
-    const shouldUpdateLengths = lastTickRef.current === mapTick;
-    if (shouldUpdateLengths) {
-      if (elementsRef.current.length !== sortedMap.size) {
-        elementsRef.current.length = sortedMap.size;
-      }
-      if (labelsRef && labelsRef.current.length !== sortedMap.size) {
-        labelsRef.current.length = sortedMap.size;
-      }
-      nextIndexRef.current = sortedMap.size;
+      nextTabbable?.focus();
     }
-    onMapChange(sortedMap);
-  }, [onMapChange, sortedMap, elementsRef, labelsRef, mapTick]);
-  useIsoLayoutEffect(() => {
-    return () => {
-      elementsRef.current = [];
-    };
-  }, [elementsRef]);
-  useIsoLayoutEffect(() => {
-    return () => {
-      if (labelsRef) {
-        labelsRef.current = [];
-      }
-    };
-  }, [labelsRef]);
-  const subscribeMapChange = useStableCallback((fn2) => {
-    listeners.add(fn2);
-    return () => {
-      listeners.delete(fn2);
-    };
   });
-  useIsoLayoutEffect(() => {
-    listeners.forEach((l2) => l2(sortedMap));
-  }, [listeners, sortedMap]);
-  const contextValue = reactExports.useMemo(() => ({
-    register: register2,
-    unregister,
-    subscribeMapChange,
-    elementsRef,
-    labelsRef,
-    nextIndexRef
-  }), [register2, unregister, subscribeMapChange, elementsRef, labelsRef, nextIndexRef]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeListContext.Provider, {
-    value: contextValue,
-    children
+  if (isTriggerActive) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
+      children: [/* @__PURE__ */ jsxRuntimeExports.jsx(FocusGuard, {
+        ref: preFocusGuardRef,
+        onFocus: handlePreFocusGuardFocus
+      }), /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
+        children: element
+      }, thisTriggerId), /* @__PURE__ */ jsxRuntimeExports.jsx(FocusGuard, {
+        ref: store.context.triggerFocusTargetRef,
+        onFocus: handleFocusTargetFocus
+      })]
+    });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
+    children: element
+  }, thisTriggerId);
+});
+const PopoverPortalContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function usePopoverPortalContext() {
+  const value = reactExports.useContext(PopoverPortalContext);
+  if (value === void 0) {
+    throw new Error(formatErrorMessage(45));
+  }
+  return value;
+}
+const PopoverPortal = /* @__PURE__ */ reactExports.forwardRef(function PopoverPortal2(props, forwardedRef) {
+  const {
+    keepMounted = false,
+    ...portalProps
+  } = props;
+  const {
+    store
+  } = usePopoverRootContext();
+  const mounted = store.useState("mounted");
+  const shouldRender = mounted || keepMounted;
+  if (!shouldRender) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverPortalContext.Provider, {
+    value: keepMounted,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingPortal, {
+      ref: forwardedRef,
+      ...portalProps
+    })
   });
-}
-function createMap() {
-  return /* @__PURE__ */ new Map();
-}
-function createListeners() {
-  return /* @__PURE__ */ new Set();
-}
-function sortByDocumentPosition(a, b2) {
-  const position = a.compareDocumentPosition(b2);
-  if (position & Node.DOCUMENT_POSITION_FOLLOWING || position & Node.DOCUMENT_POSITION_CONTAINED_BY) {
-    return -1;
-  }
-  if (position & Node.DOCUMENT_POSITION_PRECEDING || position & Node.DOCUMENT_POSITION_CONTAINS) {
-    return 1;
-  }
-  return 0;
-}
-const SelectPositionerContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useSelectPositionerContext() {
-  const context = reactExports.useContext(SelectPositionerContext);
+});
+const PopoverPositionerContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function usePopoverPositionerContext() {
+  const context = reactExports.useContext(PopoverPositionerContext);
   if (!context) {
-    throw new Error(formatErrorMessage(59));
+    throw new Error(formatErrorMessage(46));
   }
   return context;
 }
@@ -35957,79 +35292,41 @@ const InternalBackdrop = /* @__PURE__ */ reactExports.forwardRef(function Intern
     }
   });
 });
-function clearStyles(element, originalStyles) {
-  if (element) {
-    Object.assign(element.style, originalStyles);
-  }
-}
-const LIST_FUNCTIONAL_STYLES = {
-  position: "relative",
-  maxHeight: "100%",
-  overflowX: "hidden",
-  overflowY: "auto"
-};
-const FIXED = {
-  position: "fixed"
-};
-const SelectPositioner = /* @__PURE__ */ reactExports.forwardRef(function SelectPositioner2(componentProps, forwardedRef) {
+const PopoverPositioner = /* @__PURE__ */ reactExports.forwardRef(function PopoverPositioner2(componentProps, forwardedRef) {
   const {
+    render,
+    className,
     anchor,
     positionMethod = "absolute",
-    className,
-    render,
     side = "bottom",
     align = "center",
     sideOffset = 0,
     alignOffset = 0,
     collisionBoundary = "clipping-ancestors",
-    collisionPadding,
+    collisionPadding = 5,
     arrowPadding = 5,
     sticky = false,
-    disableAnchorTracking,
-    alignItemWithTrigger = true,
-    collisionAvoidance = DROPDOWN_COLLISION_AVOIDANCE,
+    disableAnchorTracking = false,
+    collisionAvoidance = POPUP_COLLISION_AVOIDANCE,
     ...elementProps
   } = componentProps;
   const {
-    store,
-    listRef,
-    labelsRef,
-    alignItemWithTriggerActiveRef,
-    selectedItemTextRef,
-    valuesRef,
-    initialValueRef,
-    popupRef,
-    setValue
-  } = useSelectRootContext();
-  const floatingRootContext = useSelectFloatingContext();
-  const open = useStore$1(store, selectors$2.open);
-  const mounted = useStore$1(store, selectors$2.mounted);
-  const modal = useStore$1(store, selectors$2.modal);
-  const value = useStore$1(store, selectors$2.value);
-  const openMethod = useStore$1(store, selectors$2.openMethod);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const triggerElement = useStore$1(store, selectors$2.triggerElement);
-  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
-  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
-  const scrollUpArrowRef = reactExports.useRef(null);
-  const scrollDownArrowRef = reactExports.useRef(null);
-  const [controlledAlignItemWithTrigger, setControlledAlignItemWithTrigger] = reactExports.useState(alignItemWithTrigger);
-  const alignItemWithTriggerActive = mounted && controlledAlignItemWithTrigger && openMethod !== "touch";
-  if (!mounted && controlledAlignItemWithTrigger !== alignItemWithTrigger) {
-    setControlledAlignItemWithTrigger(alignItemWithTrigger);
-  }
-  useIsoLayoutEffect(() => {
-    if (!mounted) {
-      if (selectors$2.scrollUpArrowVisible(store.state)) {
-        store.set("scrollUpArrowVisible", false);
-      }
-      if (selectors$2.scrollDownArrowVisible(store.state)) {
-        store.set("scrollDownArrowVisible", false);
-      }
-    }
-  }, [store, mounted]);
-  reactExports.useImperativeHandle(alignItemWithTriggerActiveRef, () => alignItemWithTriggerActive);
-  useScrollLock((alignItemWithTriggerActive || modal) && open && openMethod !== "touch", triggerElement);
+    store
+  } = usePopoverRootContext();
+  const keepMounted = usePopoverPortalContext();
+  const nodeId = useFloatingNodeId();
+  const floatingRootContext = store.useState("floatingRootContext");
+  const mounted = store.useState("mounted");
+  const open = store.useState("open");
+  const openReason = store.useState("openChangeReason");
+  const triggerElement = store.useState("activeTriggerElement");
+  const modal = store.useState("modal");
+  const positionerElement = store.useState("positionerElement");
+  const instantType = store.useState("instantType");
+  const transitionStatus = store.useState("transitionStatus");
+  const hasViewport = store.useState("hasViewport");
+  const prevTriggerElementRef = reactExports.useRef(null);
+  const runOnceAnimationsFinish = useAnimationsFinished(positionerElement, false, false);
   const positioning = useAnchorPositioning({
     anchor,
     floatingRootContext,
@@ -36043,12 +35340,12 @@ const SelectPositioner = /* @__PURE__ */ reactExports.forwardRef(function Select
     collisionBoundary,
     collisionPadding,
     sticky,
-    disableAnchorTracking: disableAnchorTracking ?? alignItemWithTriggerActive,
+    disableAnchorTracking,
+    keepMounted,
+    nodeId,
     collisionAvoidance,
-    keepMounted: true
+    adaptiveOrigin: hasViewport ? adaptiveOrigin : void 0
   });
-  const renderedSide = alignItemWithTriggerActive ? "none" : positioning.side;
-  const positionerStyles = alignItemWithTriggerActive ? FIXED : positioning.positionerStyles;
   const defaultProps = reactExports.useMemo(() => {
     const hiddenStyles2 = {};
     if (!open) {
@@ -36058,119 +35355,62 @@ const SelectPositioner = /* @__PURE__ */ reactExports.forwardRef(function Select
       role: "presentation",
       hidden: !mounted,
       style: {
-        ...positionerStyles,
+        ...positioning.positionerStyles,
         ...hiddenStyles2
       }
     };
-  }, [open, mounted, positionerStyles]);
+  }, [open, mounted, positioning.positionerStyles]);
+  const positioner = reactExports.useMemo(() => ({
+    props: defaultProps,
+    ...positioning
+  }), [defaultProps, positioning]);
+  const domReference = floatingRootContext.useState("domReferenceElement");
+  useIsoLayoutEffect(() => {
+    const currentTriggerElement = domReference;
+    const prevTriggerElement = prevTriggerElementRef.current;
+    if (currentTriggerElement) {
+      prevTriggerElementRef.current = currentTriggerElement;
+    }
+    if (prevTriggerElement && currentTriggerElement && currentTriggerElement !== prevTriggerElement) {
+      store.set("instantType", void 0);
+      const ac2 = new AbortController();
+      runOnceAnimationsFinish(() => {
+        store.set("instantType", "trigger-change");
+      }, ac2.signal);
+      return () => {
+        ac2.abort();
+      };
+    }
+    return void 0;
+  }, [domReference, runOnceAnimationsFinish, store]);
   const state = {
     open,
-    side: renderedSide,
-    align: positioning.align,
-    anchorHidden: positioning.anchorHidden
+    side: positioner.side,
+    align: positioner.align,
+    anchorHidden: positioner.anchorHidden,
+    instant: instantType
   };
-  const setPositionerElement = useStableCallback((element2) => {
+  const setPositionerElement = reactExports.useCallback((element2) => {
     store.set("positionerElement", element2);
-  });
+  }, [store]);
   const element = useRenderElement("div", componentProps, {
-    ref: [forwardedRef, setPositionerElement],
     state,
-    stateAttributesMapping: popupStateMapping,
-    props: [defaultProps, getDisabledMountTransitionStyles(transitionStatus), elementProps]
+    props: [positioner.props, getDisabledMountTransitionStyles(transitionStatus), elementProps],
+    ref: [forwardedRef, setPositionerElement],
+    stateAttributesMapping: popupStateMapping
   });
-  const prevMapSizeRef = reactExports.useRef(0);
-  const onMapChange = useStableCallback((map) => {
-    if (map.size === 0 && prevMapSizeRef.current === 0) {
-      return;
-    }
-    if (valuesRef.current.length === 0) {
-      return;
-    }
-    const prevSize = prevMapSizeRef.current;
-    prevMapSizeRef.current = map.size;
-    if (map.size === prevSize) {
-      return;
-    }
-    const eventDetails = createChangeEventDetails(none);
-    if (prevSize !== 0 && !store.state.multiple && value !== null) {
-      const selectedValueIndex = findItemIndex(valuesRef.current, value, isItemEqualToValue);
-      if (selectedValueIndex === -1) {
-        const initialSelectedValue = initialValueRef.current;
-        const hasInitial = initialSelectedValue != null && findItemIndex(valuesRef.current, initialSelectedValue, isItemEqualToValue) !== -1;
-        const nextValue = hasInitial ? initialSelectedValue : null;
-        setValue(nextValue, eventDetails);
-        if (nextValue === null) {
-          store.set("selectedIndex", null);
-          selectedItemTextRef.current = null;
-        }
-      }
-    }
-    if (prevSize !== 0 && store.state.multiple && Array.isArray(value)) {
-      const hasVisibleItem = (selectedItemValue) => findItemIndex(valuesRef.current, selectedItemValue, isItemEqualToValue) !== -1;
-      const nextValue = value.filter((selectedItemValue) => hasVisibleItem(selectedItemValue));
-      if (nextValue.length !== value.length || nextValue.some((selectedItemValue) => !selectedValueIncludes(value, selectedItemValue, isItemEqualToValue))) {
-        setValue(nextValue, eventDetails);
-        if (nextValue.length === 0) {
-          store.set("selectedIndex", null);
-          selectedItemTextRef.current = null;
-        }
-      }
-    }
-    if (open && alignItemWithTriggerActive) {
-      store.update({
-        scrollUpArrowVisible: false,
-        scrollDownArrowVisible: false
-      });
-      const stylesToClear = {
-        height: ""
-      };
-      clearStyles(positionerElement, stylesToClear);
-      clearStyles(popupRef.current, stylesToClear);
-    }
-  });
-  const contextValue = reactExports.useMemo(() => ({
-    ...positioning,
-    side: renderedSide,
-    alignItemWithTriggerActive,
-    setControlledAlignItemWithTrigger,
-    scrollUpArrowRef,
-    scrollDownArrowRef
-  }), [positioning, renderedSide, alignItemWithTriggerActive, setControlledAlignItemWithTrigger]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeList, {
-    elementsRef: listRef,
-    labelsRef,
-    onMapChange,
-    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectPositionerContext.Provider, {
-      value: contextValue,
-      children: [mounted && modal && /* @__PURE__ */ jsxRuntimeExports.jsx(InternalBackdrop, {
-        inert: inertValue(!open),
-        cutout: triggerElement
-      }), element]
-    })
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(PopoverPositionerContext.Provider, {
+    value: positioner,
+    children: [mounted && modal === true && openReason !== triggerHover && /* @__PURE__ */ jsxRuntimeExports.jsx(InternalBackdrop, {
+      ref: store.context.internalBackdropRef,
+      inert: inertValue(!open),
+      cutout: triggerElement
+    }), /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingNode, {
+      id: nodeId,
+      children: element
+    })]
   });
 });
-function isMouseWithinBounds(event) {
-  const targetRect = event.currentTarget.getBoundingClientRect();
-  const isWithinBounds = targetRect.top + 1 <= event.clientY && event.clientY <= targetRect.bottom - 1 && targetRect.left + 1 <= event.clientX && event.clientX <= targetRect.right - 1;
-  return isWithinBounds;
-}
-const DISABLE_SCROLLBAR_CLASS_NAME = "base-ui-disable-scrollbar";
-const styleDisableScrollbar = {
-  className: DISABLE_SCROLLBAR_CLASS_NAME,
-  getElement(nonce) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("style", {
-      nonce,
-      href: DISABLE_SCROLLBAR_CLASS_NAME,
-      precedence: "base-ui:low",
-      children: `.${DISABLE_SCROLLBAR_CLASS_NAME}{scrollbar-width:none}.${DISABLE_SCROLLBAR_CLASS_NAME}::-webkit-scrollbar{display:none}`
-    });
-  }
-};
-const ToolbarRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useToolbarRootContext(optional) {
-  const context = reactExports.useContext(ToolbarRootContext);
-  return context;
-}
 const ARROW_UP = "ArrowUp";
 const ARROW_DOWN = "ArrowDown";
 const ARROW_LEFT = "ArrowLeft";
@@ -36269,1108 +35509,189 @@ function getStyles$1(element) {
     scrollPaddingLeft: parseFloat(styles.scrollPaddingLeft) || 0
   };
 }
-function clamp(val, min2 = Number.MIN_SAFE_INTEGER, max2 = Number.MAX_SAFE_INTEGER) {
-  return Math.max(min2, Math.min(val, max2));
+const ToolbarRootContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useToolbarRootContext(optional) {
+  const context = reactExports.useContext(ToolbarRootContext);
+  return context;
 }
-const CSPContext = /* @__PURE__ */ reactExports.createContext(void 0);
-const DEFAULT_CSP_CONTEXT_VALUE = {
-  disableStyleElements: false
-};
-function useCSPContext() {
-  return reactExports.useContext(CSPContext) ?? DEFAULT_CSP_CONTEXT_VALUE;
-}
-const SCROLL_EPS_PX = 1;
-const stateAttributesMapping$4 = {
+const stateAttributesMapping$7 = {
   ...popupStateMapping,
   ...transitionStatusMapping
 };
-const SelectPopup = /* @__PURE__ */ reactExports.forwardRef(function SelectPopup2(componentProps, forwardedRef) {
+const PopoverPopup = /* @__PURE__ */ reactExports.forwardRef(function PopoverPopup2(componentProps, forwardedRef) {
   const {
-    render,
     className,
+    render,
+    initialFocus,
     finalFocus,
     ...elementProps
   } = componentProps;
   const {
-    store,
-    popupRef,
-    onOpenChangeComplete,
-    setOpen,
-    valueRef,
-    selectedItemTextRef,
-    keyboardActiveRef,
-    multiple,
-    handleScrollArrowVisibility,
-    scrollHandlerRef,
-    highlightItemOnHover
-  } = useSelectRootContext();
-  const {
-    side,
-    align,
-    alignItemWithTriggerActive,
-    setControlledAlignItemWithTrigger,
-    scrollDownArrowRef,
-    scrollUpArrowRef
-  } = useSelectPositionerContext();
+    store
+  } = usePopoverRootContext();
+  const positioner = usePopoverPositionerContext();
   const insideToolbar = useToolbarRootContext() != null;
-  const floatingRootContext = useSelectFloatingContext();
-  const {
-    nonce,
-    disableStyleElements
-  } = useCSPContext();
-  const highlightTimeout = useTimeout();
-  const id = useStore$1(store, selectors$2.id);
-  const open = useStore$1(store, selectors$2.open);
-  const mounted = useStore$1(store, selectors$2.mounted);
-  const popupProps = useStore$1(store, selectors$2.popupProps);
-  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
-  const triggerElement = useStore$1(store, selectors$2.triggerElement);
-  const positionerElement = useStore$1(store, selectors$2.positionerElement);
-  const listElement = useStore$1(store, selectors$2.listElement);
-  const initialHeightRef = reactExports.useRef(0);
-  const reachedMaxHeightRef = reactExports.useRef(false);
-  const maxHeightRef = reactExports.useRef(0);
-  const initialPlacedRef = reactExports.useRef(false);
-  const originalPositionerStylesRef = reactExports.useRef({});
-  const scrollArrowFrame = useAnimationFrame();
-  const handleScroll2 = useStableCallback((scroller) => {
-    if (!positionerElement || !popupRef.current || !initialPlacedRef.current) {
-      return;
-    }
-    if (reachedMaxHeightRef.current || !alignItemWithTriggerActive) {
-      handleScrollArrowVisibility();
-      return;
-    }
-    const isTopPositioned = positionerElement.style.top === "0px";
-    const isBottomPositioned = positionerElement.style.bottom === "0px";
-    const currentHeight = positionerElement.getBoundingClientRect().height;
-    const doc = ownerDocument(positionerElement);
-    const positionerStyles = getComputedStyle(positionerElement);
-    const marginTop = parseFloat(positionerStyles.marginTop);
-    const marginBottom = parseFloat(positionerStyles.marginBottom);
-    const maxPopupHeight = getMaxPopupHeight(getComputedStyle(popupRef.current));
-    const maxAvailableHeight = Math.min(doc.documentElement.clientHeight - marginTop - marginBottom, maxPopupHeight);
-    const scrollTop = scroller.scrollTop;
-    const maxScrollTop = getMaxScrollTop(scroller);
-    let nextPositionerHeight = 0;
-    let nextScrollTop = null;
-    let setReachedMax = false;
-    let scrollToMax = false;
-    const setHeight = (height) => {
-      positionerElement.style.height = `${height}px`;
-    };
-    const handleSmallDiff = (diff, targetScrollTop) => {
-      const heightDelta = clamp(diff, 0, maxAvailableHeight - currentHeight);
-      if (heightDelta > 0) {
-        setHeight(currentHeight + heightDelta);
-      }
-      scroller.scrollTop = targetScrollTop;
-      if (maxAvailableHeight - (currentHeight + heightDelta) <= SCROLL_EPS_PX) {
-        reachedMaxHeightRef.current = true;
-      }
-      handleScrollArrowVisibility();
-    };
-    if (isTopPositioned) {
-      const diff = maxScrollTop - scrollTop;
-      const idealHeight = currentHeight + diff;
-      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
-      nextPositionerHeight = nextHeight;
-      if (diff <= SCROLL_EPS_PX) {
-        handleSmallDiff(diff, maxScrollTop);
-        return;
-      }
-      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
-        scrollToMax = true;
-      } else {
-        setReachedMax = true;
-      }
-    } else if (isBottomPositioned) {
-      const diff = scrollTop;
-      const idealHeight = currentHeight + diff;
-      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
-      const overshoot = idealHeight - maxAvailableHeight;
-      nextPositionerHeight = nextHeight;
-      if (diff <= SCROLL_EPS_PX) {
-        handleSmallDiff(diff, 0);
-        return;
-      }
-      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
-        nextScrollTop = 0;
-      } else {
-        setReachedMax = true;
-        if (scrollTop < maxScrollTop) {
-          nextScrollTop = scrollTop - (diff - overshoot);
-        }
-      }
-    }
-    nextPositionerHeight = Math.ceil(nextPositionerHeight);
-    if (nextPositionerHeight !== 0) {
-      setHeight(nextPositionerHeight);
-    }
-    if (scrollToMax || nextScrollTop != null) {
-      const nextMaxScrollTop = getMaxScrollTop(scroller);
-      const target = scrollToMax ? nextMaxScrollTop : clamp(nextScrollTop, 0, nextMaxScrollTop);
-      if (Math.abs(scroller.scrollTop - target) > SCROLL_EPS_PX) {
-        scroller.scrollTop = target;
-      }
-    }
-    if (setReachedMax || nextPositionerHeight >= maxAvailableHeight - SCROLL_EPS_PX) {
-      reachedMaxHeightRef.current = true;
-    }
-    handleScrollArrowVisibility();
-  });
-  reactExports.useImperativeHandle(scrollHandlerRef, () => handleScroll2, [handleScroll2]);
+  const open = store.useState("open");
+  const openMethod = store.useState("openMethod");
+  const instantType = store.useState("instantType");
+  const transitionStatus = store.useState("transitionStatus");
+  const popupProps = store.useState("popupProps");
+  const titleId = store.useState("titleElementId");
+  const descriptionId = store.useState("descriptionElementId");
+  const modal = store.useState("modal");
+  const mounted = store.useState("mounted");
+  const openReason = store.useState("openChangeReason");
+  const activeTriggerElement = store.useState("activeTriggerElement");
+  const floatingContext = store.useState("floatingRootContext");
   useOpenChangeComplete({
     open,
-    ref: popupRef,
+    ref: store.context.popupRef,
     onComplete() {
       if (open) {
-        onOpenChangeComplete?.(true);
+        store.context.onOpenChangeComplete?.(true);
       }
     }
   });
+  const disabled2 = store.useState("disabled");
+  const openOnHover = store.useState("openOnHover");
+  const closeDelay = store.useState("closeDelay");
+  useHoverFloatingInteraction(floatingContext, {
+    enabled: openOnHover && !disabled2,
+    closeDelay
+  });
+  function defaultInitialFocus(interactionType) {
+    if (interactionType === "touch") {
+      return store.context.popupRef.current;
+    }
+    return true;
+  }
+  const resolvedInitialFocus = initialFocus === void 0 ? defaultInitialFocus : initialFocus;
   const state = {
     open,
-    transitionStatus,
-    side,
-    align
+    side: positioner.side,
+    align: positioner.align,
+    instant: instantType,
+    transitionStatus
   };
-  useIsoLayoutEffect(() => {
-    if (!positionerElement || !popupRef.current || Object.keys(originalPositionerStylesRef.current).length) {
-      return;
-    }
-    originalPositionerStylesRef.current = {
-      top: positionerElement.style.top || "0",
-      left: positionerElement.style.left || "0",
-      right: positionerElement.style.right,
-      height: positionerElement.style.height,
-      bottom: positionerElement.style.bottom,
-      minHeight: positionerElement.style.minHeight,
-      maxHeight: positionerElement.style.maxHeight,
-      marginTop: positionerElement.style.marginTop,
-      marginBottom: positionerElement.style.marginBottom
-    };
-  }, [popupRef, positionerElement]);
-  useIsoLayoutEffect(() => {
-    if (open || alignItemWithTriggerActive) {
-      return;
-    }
-    initialPlacedRef.current = false;
-    reachedMaxHeightRef.current = false;
-    initialHeightRef.current = 0;
-    maxHeightRef.current = 0;
-    clearStyles(positionerElement, originalPositionerStylesRef.current);
-  }, [open, alignItemWithTriggerActive, positionerElement, popupRef]);
-  useIsoLayoutEffect(() => {
-    const popupElement = popupRef.current;
-    if (!open || !triggerElement || !positionerElement || !popupElement || store.state.transitionStatus === "ending") {
-      return;
-    }
-    if (!alignItemWithTriggerActive) {
-      initialPlacedRef.current = true;
-      scrollArrowFrame.request(handleScrollArrowVisibility);
-      popupElement.style.removeProperty("--transform-origin");
-      return;
-    }
-    queueMicrotask(() => {
-      const restoreTransformStyles = unsetTransformStyles(popupElement);
-      popupElement.style.removeProperty("--transform-origin");
-      try {
-        const positionerStyles = getComputedStyle(positionerElement);
-        const popupStyles = getComputedStyle(popupElement);
-        const doc = ownerDocument(triggerElement);
-        const win = getWindow$1(positionerElement);
-        const triggerRect = triggerElement.getBoundingClientRect();
-        const positionerRect = positionerElement.getBoundingClientRect();
-        const triggerX = triggerRect.left;
-        const triggerHeight = triggerRect.height;
-        const scroller = listElement || popupElement;
-        const scrollHeight = scroller.scrollHeight;
-        const borderBottom = parseFloat(popupStyles.borderBottomWidth);
-        const marginTop = parseFloat(positionerStyles.marginTop) || 10;
-        const marginBottom = parseFloat(positionerStyles.marginBottom) || 10;
-        const minHeight = parseFloat(positionerStyles.minHeight) || 100;
-        const maxPopupHeight = getMaxPopupHeight(popupStyles);
-        const paddingLeft = 5;
-        const paddingRight = 5;
-        const triggerCollisionThreshold = 20;
-        const viewportHeight = doc.documentElement.clientHeight - marginTop - marginBottom;
-        const viewportWidth = doc.documentElement.clientWidth;
-        const availableSpaceBeneathTrigger = viewportHeight - triggerRect.bottom + triggerHeight;
-        const textElement = selectedItemTextRef.current;
-        const valueElement = valueRef.current;
-        let textRect;
-        let offsetX = 0;
-        let offsetY = 0;
-        if (textElement && valueElement) {
-          const valueRect = valueElement.getBoundingClientRect();
-          textRect = textElement.getBoundingClientRect();
-          const valueLeftFromTriggerLeft = valueRect.left - triggerX;
-          const textLeftFromPositionerLeft = textRect.left - positionerRect.left;
-          const valueCenterFromPositionerTop = valueRect.top - triggerRect.top + valueRect.height / 2;
-          const textCenterFromTriggerTop = textRect.top - positionerRect.top + textRect.height / 2;
-          offsetX = valueLeftFromTriggerLeft - textLeftFromPositionerLeft;
-          offsetY = textCenterFromTriggerTop - valueCenterFromPositionerTop;
-        }
-        const idealHeight = availableSpaceBeneathTrigger + offsetY + marginBottom + borderBottom;
-        let height = Math.min(viewportHeight, idealHeight);
-        const maxHeight = viewportHeight - marginTop - marginBottom;
-        const scrollTop = idealHeight - height;
-        const left = Math.max(paddingLeft, triggerX + offsetX);
-        const maxRight = viewportWidth - paddingRight;
-        const rightOverflow = Math.max(0, left + positionerRect.width - maxRight);
-        positionerElement.style.left = `${left - rightOverflow}px`;
-        positionerElement.style.height = `${height}px`;
-        positionerElement.style.maxHeight = "auto";
-        positionerElement.style.marginTop = `${marginTop}px`;
-        positionerElement.style.marginBottom = `${marginBottom}px`;
-        popupElement.style.height = "100%";
-        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
-        const isTopPositioned = scrollTop >= maxScrollTop;
-        if (isTopPositioned) {
-          height = Math.min(viewportHeight, positionerRect.height) - (scrollTop - maxScrollTop);
-        }
-        const fallbackToAlignPopupToTrigger = triggerRect.top < triggerCollisionThreshold || triggerRect.bottom > viewportHeight - triggerCollisionThreshold || height < Math.min(scrollHeight, minHeight);
-        const isPinchZoomed = (win.visualViewport?.scale ?? 1) !== 1 && isWebKit;
-        if (fallbackToAlignPopupToTrigger || isPinchZoomed) {
-          initialPlacedRef.current = true;
-          clearStyles(positionerElement, originalPositionerStylesRef.current);
-          reactDomExports.flushSync(() => setControlledAlignItemWithTrigger(false));
-          return;
-        }
-        if (isTopPositioned) {
-          const topOffset = Math.max(0, viewportHeight - idealHeight);
-          positionerElement.style.top = positionerRect.height >= maxHeight ? "0" : `${topOffset}px`;
-          positionerElement.style.height = `${height}px`;
-          scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
-          initialHeightRef.current = Math.max(minHeight, height);
-        } else {
-          positionerElement.style.bottom = "0";
-          initialHeightRef.current = Math.max(minHeight, height);
-          scroller.scrollTop = scrollTop;
-        }
-        if (textRect) {
-          const popupTop = positionerRect.top;
-          const popupHeight = positionerRect.height;
-          const textCenterY = textRect.top + textRect.height / 2;
-          const transformOriginY = popupHeight > 0 ? (textCenterY - popupTop) / popupHeight * 100 : 50;
-          const clampedY = clamp(transformOriginY, 0, 100);
-          popupElement.style.setProperty("--transform-origin", `50% ${clampedY}%`);
-        }
-        if (initialHeightRef.current === viewportHeight || height >= maxPopupHeight) {
-          reachedMaxHeightRef.current = true;
-        }
-        handleScrollArrowVisibility();
-        setTimeout(() => {
-          initialPlacedRef.current = true;
-        });
-      } finally {
-        restoreTransformStyles();
-      }
-    });
-  }, [store, open, positionerElement, triggerElement, valueRef, selectedItemTextRef, popupRef, handleScrollArrowVisibility, alignItemWithTriggerActive, setControlledAlignItemWithTrigger, scrollArrowFrame, scrollDownArrowRef, scrollUpArrowRef, listElement]);
-  reactExports.useEffect(() => {
-    if (!alignItemWithTriggerActive || !positionerElement || !open) {
-      return void 0;
-    }
-    const win = getWindow$1(positionerElement);
-    function handleResize(event) {
-      setOpen(false, createChangeEventDetails(windowResize, event));
-    }
-    win.addEventListener("resize", handleResize);
-    return () => {
-      win.removeEventListener("resize", handleResize);
-    };
-  }, [setOpen, alignItemWithTriggerActive, positionerElement, open]);
-  const defaultProps = {
-    ...listElement ? {
-      role: "presentation",
-      "aria-orientation": void 0
-    } : {
-      role: "listbox",
-      "aria-multiselectable": multiple || void 0,
-      id: `${id}-list`
-    },
-    onKeyDown(event) {
-      keyboardActiveRef.current = true;
-      if (insideToolbar && COMPOSITE_KEYS.has(event.key)) {
-        event.stopPropagation();
-      }
-    },
-    onMouseMove() {
-      keyboardActiveRef.current = false;
-    },
-    onPointerLeave(event) {
-      if (!highlightItemOnHover || isMouseWithinBounds(event) || event.pointerType === "touch") {
-        return;
-      }
-      const popup = event.currentTarget;
-      highlightTimeout.start(0, () => {
-        store.set("activeIndex", null);
-        popup.focus({
-          preventScroll: true
-        });
-      });
-    },
-    onScroll(event) {
-      if (listElement) {
-        return;
-      }
-      handleScroll2(event.currentTarget);
-    },
-    ...alignItemWithTriggerActive && {
-      style: listElement ? {
-        height: "100%"
-      } : LIST_FUNCTIONAL_STYLES
-    }
-  };
+  const setPopupElement = reactExports.useCallback((element2) => {
+    store.set("popupElement", element2);
+  }, [store]);
   const element = useRenderElement("div", componentProps, {
-    ref: [forwardedRef, popupRef],
     state,
-    stateAttributesMapping: stateAttributesMapping$4,
-    props: [popupProps, defaultProps, getDisabledMountTransitionStyles(transitionStatus), {
-      className: !listElement && alignItemWithTriggerActive ? styleDisableScrollbar.className : void 0
-    }, elementProps]
-  });
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
-    children: [!disableStyleElements && styleDisableScrollbar.getElement(nonce), /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingFocusManager, {
-      context: floatingRootContext,
-      modal: false,
-      disabled: !mounted,
-      returnFocus: finalFocus,
-      restoreFocus: true,
-      children: element
-    })]
-  });
-});
-function getMaxPopupHeight(popupStyles) {
-  const maxHeightStyle = popupStyles.maxHeight || "";
-  return maxHeightStyle.endsWith("px") ? parseFloat(maxHeightStyle) || Infinity : Infinity;
-}
-function getMaxScrollTop(scroller) {
-  return Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-}
-const TRANSFORM_STYLE_RESETS = [["transform", "none"], ["scale", "1"], ["translate", "0 0"]];
-function unsetTransformStyles(popupElement) {
-  const {
-    style
-  } = popupElement;
-  const originalStyles = {};
-  for (const [property, value] of TRANSFORM_STYLE_RESETS) {
-    originalStyles[property] = style.getPropertyValue(property);
-    style.setProperty(property, value, "important");
-  }
-  return () => {
-    for (const [property] of TRANSFORM_STYLE_RESETS) {
-      const originalValue = originalStyles[property];
-      if (originalValue) {
-        style.setProperty(property, originalValue);
-      } else {
-        style.removeProperty(property);
-      }
-    }
-  };
-}
-const SelectList = /* @__PURE__ */ reactExports.forwardRef(function SelectList2(componentProps, forwardedRef) {
-  const {
-    className,
-    render,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    scrollHandlerRef
-  } = useSelectRootContext();
-  const {
-    alignItemWithTriggerActive
-  } = useSelectPositionerContext();
-  const hasScrollArrows = useStore$1(store, selectors$2.hasScrollArrows);
-  const openMethod = useStore$1(store, selectors$2.openMethod);
-  const multiple = useStore$1(store, selectors$2.multiple);
-  const id = useStore$1(store, selectors$2.id);
-  const defaultProps = {
-    id: `${id}-list`,
-    role: "listbox",
-    "aria-multiselectable": multiple || void 0,
-    onScroll(event) {
-      scrollHandlerRef.current?.(event.currentTarget);
-    },
-    ...alignItemWithTriggerActive && {
-      style: LIST_FUNCTIONAL_STYLES
-    },
-    className: hasScrollArrows && openMethod !== "touch" ? styleDisableScrollbar.className : void 0
-  };
-  const setListElement = useStableCallback((element) => {
-    store.set("listElement", element);
-  });
-  return useRenderElement("div", componentProps, {
-    ref: [forwardedRef, setListElement],
-    props: [defaultProps, elementProps]
-  });
-});
-let IndexGuessBehavior = /* @__PURE__ */ (function(IndexGuessBehavior2) {
-  IndexGuessBehavior2[IndexGuessBehavior2["None"] = 0] = "None";
-  IndexGuessBehavior2[IndexGuessBehavior2["GuessFromOrder"] = 1] = "GuessFromOrder";
-  return IndexGuessBehavior2;
-})({});
-function useCompositeListItem(params = {}) {
-  const {
-    label,
-    metadata,
-    textRef,
-    indexGuessBehavior,
-    index: externalIndex
-  } = params;
-  const {
-    register: register2,
-    unregister,
-    subscribeMapChange,
-    elementsRef,
-    labelsRef,
-    nextIndexRef
-  } = useCompositeListContext();
-  const indexRef = reactExports.useRef(-1);
-  const [index2, setIndex] = reactExports.useState(externalIndex ?? (indexGuessBehavior === IndexGuessBehavior.GuessFromOrder ? () => {
-    if (indexRef.current === -1) {
-      const newIndex = nextIndexRef.current;
-      nextIndexRef.current += 1;
-      indexRef.current = newIndex;
-    }
-    return indexRef.current;
-  } : -1));
-  const componentRef = reactExports.useRef(null);
-  const ref = reactExports.useCallback((node) => {
-    componentRef.current = node;
-    if (index2 !== -1 && node !== null) {
-      elementsRef.current[index2] = node;
-      if (labelsRef) {
-        const isLabelDefined = label !== void 0;
-        labelsRef.current[index2] = isLabelDefined ? label : textRef?.current?.textContent ?? node.textContent;
-      }
-    }
-  }, [index2, elementsRef, labelsRef, label, textRef]);
-  useIsoLayoutEffect(() => {
-    if (externalIndex != null) {
-      return void 0;
-    }
-    const node = componentRef.current;
-    if (node) {
-      register2(node, metadata);
-      return () => {
-        unregister(node);
-      };
-    }
-    return void 0;
-  }, [externalIndex, register2, unregister, metadata]);
-  useIsoLayoutEffect(() => {
-    if (externalIndex != null) {
-      return void 0;
-    }
-    return subscribeMapChange((map) => {
-      const i = componentRef.current ? map.get(componentRef.current)?.index : null;
-      if (i != null) {
-        setIndex(i);
-      }
-    });
-  }, [externalIndex, subscribeMapChange, setIndex]);
-  return reactExports.useMemo(() => ({
-    ref,
-    index: index2
-  }), [index2, ref]);
-}
-const SelectItemContext = /* @__PURE__ */ reactExports.createContext(void 0);
-function useSelectItemContext() {
-  const context = reactExports.useContext(SelectItemContext);
-  if (!context) {
-    throw new Error(formatErrorMessage(57));
-  }
-  return context;
-}
-const SelectItem$1 = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItem2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    value: itemValue = null,
-    label,
-    disabled: disabled2 = false,
-    nativeButton = false,
-    ...elementProps
-  } = componentProps;
-  const textRef = reactExports.useRef(null);
-  const listItem = useCompositeListItem({
-    label,
-    textRef,
-    indexGuessBehavior: IndexGuessBehavior.GuessFromOrder
-  });
-  const {
-    store,
-    getItemProps,
-    setOpen,
-    setValue,
-    selectionRef,
-    typingRef,
-    valuesRef,
-    keyboardActiveRef,
-    multiple,
-    highlightItemOnHover
-  } = useSelectRootContext();
-  const highlightTimeout = useTimeout();
-  const highlighted = useStore$1(store, selectors$2.isActive, listItem.index);
-  const selected = useStore$1(store, selectors$2.isSelected, listItem.index, itemValue);
-  const selectedByFocus = useStore$1(store, selectors$2.isSelectedByFocus, listItem.index);
-  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
-  const index2 = listItem.index;
-  const hasRegistered = index2 !== -1;
-  const itemRef = reactExports.useRef(null);
-  const indexRef = useValueAsRef(index2);
-  useIsoLayoutEffect(() => {
-    if (!hasRegistered) {
-      return void 0;
-    }
-    const values = valuesRef.current;
-    values[index2] = itemValue;
-    return () => {
-      delete values[index2];
-    };
-  }, [hasRegistered, index2, itemValue, valuesRef]);
-  useIsoLayoutEffect(() => {
-    if (!hasRegistered) {
-      return void 0;
-    }
-    const selectedValue = store.state.value;
-    let selectedCandidate = selectedValue;
-    if (multiple && Array.isArray(selectedValue) && selectedValue.length > 0) {
-      selectedCandidate = selectedValue[selectedValue.length - 1];
-    }
-    if (selectedCandidate !== void 0 && compareItemEquality(itemValue, selectedCandidate, isItemEqualToValue)) {
-      store.set("selectedIndex", index2);
-    }
-    return void 0;
-  }, [hasRegistered, index2, multiple, isItemEqualToValue, store, itemValue]);
-  const state = {
-    disabled: disabled2,
-    selected,
-    highlighted
-  };
-  const rootProps = getItemProps({
-    active: highlighted,
-    selected
-  });
-  rootProps.onFocus = void 0;
-  rootProps.id = void 0;
-  const lastKeyRef = reactExports.useRef(null);
-  const pointerTypeRef = reactExports.useRef("mouse");
-  const didPointerDownRef = reactExports.useRef(false);
-  const {
-    getButtonProps,
-    buttonRef
-  } = useButton({
-    disabled: disabled2,
-    focusableWhenDisabled: true,
-    native: nativeButton
-  });
-  function commitSelection(event) {
-    const selectedValue = store.state.value;
-    if (multiple) {
-      const currentValue = Array.isArray(selectedValue) ? selectedValue : [];
-      const nextValue = selected ? removeItem(currentValue, itemValue, isItemEqualToValue) : [...currentValue, itemValue];
-      setValue(nextValue, createChangeEventDetails(itemPress, event));
-    } else {
-      setValue(itemValue, createChangeEventDetails(itemPress, event));
-      setOpen(false, createChangeEventDetails(itemPress, event));
-    }
-  }
-  const defaultProps = {
-    role: "option",
-    "aria-selected": selected,
-    tabIndex: highlighted ? 0 : -1,
-    onFocus() {
-      store.set("activeIndex", index2);
-    },
-    onMouseEnter() {
-      if (!keyboardActiveRef.current && store.state.selectedIndex === null && highlightItemOnHover) {
-        store.set("activeIndex", index2);
-      }
-    },
-    onMouseMove() {
-      if (highlightItemOnHover) {
-        store.set("activeIndex", index2);
-      }
-    },
-    onMouseLeave(event) {
-      if (!highlightItemOnHover || keyboardActiveRef.current || isMouseWithinBounds(event)) {
-        return;
-      }
-      highlightTimeout.start(0, () => {
-        if (store.state.activeIndex === index2) {
-          store.set("activeIndex", null);
+    ref: [forwardedRef, store.context.popupRef, setPopupElement],
+    props: [popupProps, {
+      "aria-labelledby": titleId,
+      "aria-describedby": descriptionId,
+      onKeyDown(event) {
+        if (insideToolbar && COMPOSITE_KEYS.has(event.key)) {
+          event.stopPropagation();
         }
-      });
-    },
-    onTouchStart() {
-      selectionRef.current = {
-        allowSelectedMouseUp: false,
-        allowUnselectedMouseUp: false
-      };
-    },
-    onKeyDown(event) {
-      lastKeyRef.current = event.key;
-      store.set("activeIndex", index2);
-    },
-    onClick(event) {
-      didPointerDownRef.current = false;
-      if (event.type === "keydown" && lastKeyRef.current === null) {
-        return;
       }
-      if (disabled2 || lastKeyRef.current === " " && typingRef.current || pointerTypeRef.current !== "touch" && !highlighted) {
-        return;
-      }
-      lastKeyRef.current = null;
-      commitSelection(event.nativeEvent);
-    },
-    onPointerEnter(event) {
-      pointerTypeRef.current = event.pointerType;
-    },
-    onPointerDown(event) {
-      pointerTypeRef.current = event.pointerType;
-      didPointerDownRef.current = true;
-    },
-    onMouseUp(event) {
-      if (disabled2) {
-        return;
-      }
-      if (didPointerDownRef.current) {
-        didPointerDownRef.current = false;
-        return;
-      }
-      const disallowSelectedMouseUp = !selectionRef.current.allowSelectedMouseUp && selected;
-      const disallowUnselectedMouseUp = !selectionRef.current.allowUnselectedMouseUp && !selected;
-      if (disallowSelectedMouseUp || disallowUnselectedMouseUp || pointerTypeRef.current !== "touch" && !highlighted) {
-        return;
-      }
-      commitSelection(event.nativeEvent);
-    }
-  };
-  const element = useRenderElement("div", componentProps, {
-    ref: [buttonRef, forwardedRef, listItem.ref, itemRef],
-    state,
-    props: [rootProps, defaultProps, elementProps, getButtonProps]
+    }, getDisabledMountTransitionStyles(transitionStatus), elementProps],
+    stateAttributesMapping: stateAttributesMapping$7
   });
-  const contextValue = reactExports.useMemo(() => ({
-    selected,
-    indexRef,
-    textRef,
-    selectedByFocus,
-    hasRegistered
-  }), [selected, indexRef, textRef, selectedByFocus, hasRegistered]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemContext.Provider, {
-    value: contextValue,
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingFocusManager, {
+    context: floatingContext,
+    openInteractionType: openMethod,
+    modal: modal === "trap-focus",
+    disabled: !mounted || openReason === triggerHover,
+    initialFocus: resolvedInitialFocus,
+    returnFocus: finalFocus,
+    restoreFocus: "popup",
+    previousFocusableElement: isHTMLElement$1(activeTriggerElement) ? activeTriggerElement : void 0,
+    nextFocusableElement: store.context.triggerFocusTargetRef,
+    beforeContentFocusGuardRef: store.context.beforeContentFocusGuardRef,
     children: element
   });
-}));
-const SelectItemIndicator = /* @__PURE__ */ reactExports.forwardRef(function SelectItemIndicator2(componentProps, forwardedRef) {
-  const keepMounted = componentProps.keepMounted ?? false;
-  const {
-    selected
-  } = useSelectItemContext();
-  const shouldRender = keepMounted || selected;
-  if (!shouldRender) {
-    return null;
-  }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(Inner, {
-    ...componentProps,
-    ref: forwardedRef
-  });
 });
-const Inner = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef((componentProps, forwardedRef) => {
-  const {
-    render,
-    className,
-    keepMounted,
-    ...elementProps
-  } = componentProps;
-  const {
-    selected
-  } = useSelectItemContext();
-  const indicatorRef = reactExports.useRef(null);
-  const {
-    transitionStatus,
-    setMounted
-  } = useTransitionStatus(selected);
-  const state = {
-    selected,
-    transitionStatus
-  };
-  const element = useRenderElement("span", componentProps, {
-    ref: [forwardedRef, indicatorRef],
-    state,
-    props: [{
-      "aria-hidden": true,
-      children: "✔️"
-    }, elementProps],
-    stateAttributesMapping: transitionStatusMapping
-  });
-  useOpenChangeComplete({
-    open: selected,
-    ref: indicatorRef,
-    onComplete() {
-      if (!selected) {
-        setMounted(false);
-      }
-    }
-  });
-  return element;
-}));
-const SelectItemText = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItemText2(componentProps, forwardedRef) {
-  const {
-    indexRef,
-    textRef,
-    selectedByFocus,
-    hasRegistered
-  } = useSelectItemContext();
-  const {
-    selectedItemTextRef
-  } = useSelectRootContext();
-  const {
-    className,
-    render,
-    ...elementProps
-  } = componentProps;
-  const localRef = reactExports.useCallback((node) => {
-    if (!node || !hasRegistered) {
-      return;
-    }
-    const hasNoSelectedItemText = selectedItemTextRef.current === null || !selectedItemTextRef.current.isConnected;
-    if (selectedByFocus || hasNoSelectedItemText && indexRef.current === 0) {
-      selectedItemTextRef.current = node;
-    }
-  }, [selectedItemTextRef, indexRef, selectedByFocus, hasRegistered]);
-  const element = useRenderElement("div", componentProps, {
-    ref: [localRef, forwardedRef, textRef],
-    props: elementProps
-  });
-  return element;
-}));
-const SelectScrollArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollArrow2(componentProps, forwardedRef) {
-  const {
-    render,
-    className,
-    direction,
-    keepMounted = false,
-    ...elementProps
-  } = componentProps;
-  const {
-    store,
-    popupRef,
-    listRef,
-    handleScrollArrowVisibility,
-    scrollArrowsMountedCountRef
-  } = useSelectRootContext();
-  const {
-    side,
-    scrollDownArrowRef,
-    scrollUpArrowRef
-  } = useSelectPositionerContext();
-  const visibleSelector = direction === "up" ? selectors$2.scrollUpArrowVisible : selectors$2.scrollDownArrowVisible;
-  const stateVisible = useStore$1(store, visibleSelector);
-  const openMethod = useStore$1(store, selectors$2.openMethod);
-  const visible = stateVisible && openMethod !== "touch";
-  const timeout = useTimeout();
-  const scrollArrowRef = direction === "up" ? scrollUpArrowRef : scrollDownArrowRef;
-  const {
-    transitionStatus,
-    setMounted
-  } = useTransitionStatus(visible);
-  useIsoLayoutEffect(() => {
-    scrollArrowsMountedCountRef.current += 1;
-    if (!store.state.hasScrollArrows) {
-      store.set("hasScrollArrows", true);
-    }
-    return () => {
-      scrollArrowsMountedCountRef.current = Math.max(0, scrollArrowsMountedCountRef.current - 1);
-      if (scrollArrowsMountedCountRef.current === 0 && store.state.hasScrollArrows) {
-        store.set("hasScrollArrows", false);
-      }
-    };
-  }, [store, scrollArrowsMountedCountRef]);
-  useOpenChangeComplete({
-    open: visible,
-    ref: scrollArrowRef,
-    onComplete() {
-      if (!visible) {
-        setMounted(false);
-      }
-    }
-  });
-  const state = {
-    direction,
-    visible,
-    side,
-    transitionStatus
-  };
-  const defaultProps = {
-    "aria-hidden": true,
-    children: direction === "up" ? "▲" : "▼",
-    style: {
-      position: "absolute"
-    },
-    onMouseMove(event) {
-      if (event.movementX === 0 && event.movementY === 0 || timeout.isStarted()) {
-        return;
-      }
-      store.set("activeIndex", null);
-      function scrollNextItem() {
-        const scroller = store.state.listElement ?? popupRef.current;
-        if (!scroller) {
-          return;
-        }
-        store.set("activeIndex", null);
-        handleScrollArrowVisibility();
-        const isScrolledToTop = scroller.scrollTop === 0;
-        const isScrolledToBottom = Math.round(scroller.scrollTop + scroller.clientHeight) >= scroller.scrollHeight;
-        const list = listRef.current;
-        if (list.length === 0) {
-          if (direction === "up") {
-            store.set("scrollUpArrowVisible", !isScrolledToTop);
-          } else {
-            store.set("scrollDownArrowVisible", !isScrolledToBottom);
-          }
-        }
-        if (direction === "up" && isScrolledToTop || direction === "down" && isScrolledToBottom) {
-          timeout.clear();
-          return;
-        }
-        if ((store.state.listElement || popupRef.current) && listRef.current && listRef.current.length > 0) {
-          const items = listRef.current;
-          const scrollArrowHeight = scrollArrowRef.current?.offsetHeight || 0;
-          if (direction === "up") {
-            let firstVisibleIndex = 0;
-            const scrollTop = scroller.scrollTop + scrollArrowHeight;
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (item) {
-                const itemTop = item.offsetTop;
-                if (itemTop >= scrollTop) {
-                  firstVisibleIndex = i;
-                  break;
-                }
-              }
-            }
-            const targetIndex = Math.max(0, firstVisibleIndex - 1);
-            if (targetIndex < firstVisibleIndex) {
-              const targetItem = items[targetIndex];
-              if (targetItem) {
-                scroller.scrollTop = Math.max(0, targetItem.offsetTop - scrollArrowHeight);
-              }
-            } else {
-              scroller.scrollTop = 0;
-            }
-          } else {
-            let lastVisibleIndex = items.length - 1;
-            const scrollBottom = scroller.scrollTop + scroller.clientHeight - scrollArrowHeight;
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (item) {
-                const itemBottom = item.offsetTop + item.offsetHeight;
-                if (itemBottom > scrollBottom) {
-                  lastVisibleIndex = Math.max(0, i - 1);
-                  break;
-                }
-              }
-            }
-            const targetIndex = Math.min(items.length - 1, lastVisibleIndex + 1);
-            if (targetIndex > lastVisibleIndex) {
-              const targetItem = items[targetIndex];
-              if (targetItem) {
-                scroller.scrollTop = targetItem.offsetTop + targetItem.offsetHeight - scroller.clientHeight + scrollArrowHeight;
-              }
-            } else {
-              scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
-            }
-          }
-        }
-        timeout.start(40, scrollNextItem);
-      }
-      timeout.start(40, scrollNextItem);
-    },
-    onMouseLeave() {
-      timeout.clear();
-    }
-  };
-  const element = useRenderElement("div", componentProps, {
-    ref: [forwardedRef, scrollArrowRef],
-    state,
-    props: [defaultProps, elementProps]
-  });
-  const shouldRender = visible || keepMounted;
-  if (!shouldRender) {
-    return null;
-  }
-  return element;
-});
-const SelectScrollDownArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollDownArrow2(props, forwardedRef) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
-    ...props,
-    ref: forwardedRef,
-    direction: "down"
-  });
-});
-const SelectScrollUpArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollUpArrow2(props, forwardedRef) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
-    ...props,
-    ref: forwardedRef,
-    direction: "up"
-  });
-});
-const Select = SelectRoot;
-function SelectValue({ className, ...props }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectValue$1,
-    {
-      "data-slot": "select-value",
-      className: cn$2("flex flex-1 text-left", className),
-      ...props
-    }
-  );
+function Popover({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverRoot, { "data-slot": "popover", ...props });
 }
-function SelectTrigger({
-  className,
-  size: size2 = "default",
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    SelectTrigger$1,
-    {
-      "data-slot": "select-trigger",
-      "data-size": size2,
-      className: cn$2(
-        "border-input data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4 flex w-fit items-center justify-between whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
-      ),
-      ...props,
-      children: [
-        children,
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          SelectIcon,
-          {
-            render: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "text-muted-foreground size-4 pointer-events-none" })
-          }
-        )
-      ]
-    }
-  );
+function PopoverTrigger({ ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverTrigger$1, { "data-slot": "popover-trigger", ...props });
 }
-function SelectContent({
+function PopoverContent({
   className,
-  children,
-  side = "bottom",
-  sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  side = "bottom",
+  sideOffset = 4,
   ...props
 }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectPositioner,
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    PopoverPositioner,
     {
-      side,
-      sideOffset,
       align,
       alignOffset,
-      alignItemWithTrigger,
+      side,
+      sideOffset,
       className: "isolate z-50",
-      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        SelectPopup,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        PopoverPopup,
         {
-          "data-slot": "select-content",
-          "data-align-trigger": alignItemWithTrigger,
-          className: cn$2("bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 min-w-36 rounded-lg shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 relative isolate z-50 max-h-(--available-height) w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto data-[align-trigger=true]:animate-none", className),
-          ...props,
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollUpButton, {}),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectList, { children }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollDownButton, {})
-          ]
+          "data-slot": "popover-content",
+          className: cn$2(
+            "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 flex flex-col gap-2.5 rounded-lg p-2.5 text-sm shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 z-50 w-72 origin-(--transform-origin) outline-hidden",
+            className
+          ),
+          ...props
         }
       )
     }
   ) });
 }
-function SelectItem({
-  className,
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    SelectItem$1,
-    {
-      "data-slot": "select-item",
-      className: cn$2(
-        "focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
-      ),
-      ...props,
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemText, { className: "flex flex-1 gap-2 shrink-0 whitespace-nowrap", children }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          SelectItemIndicator,
-          {
-            render: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "pointer-events-none absolute right-2 flex size-4 items-center justify-center" }),
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { className: "pointer-events-none" })
-          }
-        )
-      ]
-    }
-  );
-}
-function SelectScrollUpButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectScrollUpArrow,
-    {
-      "data-slot": "select-scroll-up-button",
-      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 top-0 w-full", className),
-      ...props,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        ChevronUp,
-        {}
-      )
-    }
-  );
-}
-function SelectScrollDownButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    SelectScrollDownArrow,
-    {
-      "data-slot": "select-scroll-down-button",
-      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 bottom-0 w-full", className),
-      ...props,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        ChevronDown,
-        {}
-      )
-    }
-  );
-}
 function WorkspaceSwitcher() {
-  const { workspaces, activeWorkspace, setActiveWorkspace } = useWorkspaceStore();
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    Select,
-    {
-      value: activeWorkspace?.id ?? "",
-      onValueChange: setActiveWorkspace,
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectTrigger, { className: "w-full", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SelectValue, { placeholder: "Select workspace", children: activeWorkspace?.name ?? "Select workspace" }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectContent, { children: workspaces.map((workspace) => /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: workspace.id, children: workspace.name }, workspace.id)) })
-      ]
-    }
-  );
+  const { workspaces, activeWorkspace, setActiveWorkspace, fetchWorkspaces } = useWorkspaceStore();
+  const [open, setOpen] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    fetchWorkspaces();
+  }, [fetchWorkspaces]);
+  const handleSwitchWorkspace = async (workspaceId) => {
+    await setActiveWorkspace(workspaceId);
+    setOpen(false);
+    window.location.reload();
+  };
+  const handleCreateWorkspace = () => {
+    console.log("Create new workspace");
+    setOpen(false);
+  };
+  const workspaceName = activeWorkspace?.name || "Workspace";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(Popover, { open, onOpenChange: setOpen, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverTrigger, { asChild: true, children: /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: workspaceName, size: "sm" }) }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(PopoverContent, { className: "w-64 p-2", side: "right", align: "start", sideOffset: 8, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-2 py-1.5 text-xs font-semibold text-muted-foreground", children: "Workspaces" }),
+      workspaces.map((workspace) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => handleSwitchWorkspace(workspace.id),
+          className: cn$2(
+            "w-full flex items-center gap-3 px-2 py-2 rounded-md text-sm transition-colors",
+            "hover:bg-accent hover:text-accent-foreground",
+            workspace.id === activeWorkspace?.id && "bg-accent"
+          ),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarInitials, { name: workspace.name, size: "sm" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex-1 text-left truncate", children: workspace.name }),
+            workspace.id === activeWorkspace?.id && /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { className: "h-4 w-4 text-primary" })
+          ]
+        },
+        workspace.id
+      )),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t my-1" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        Button,
+        {
+          variant: "ghost",
+          className: "w-full justify-start text-sm",
+          onClick: handleCreateWorkspace,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4 mr-2" }),
+            "Create Workspace"
+          ]
+        }
+      )
+    ] }) })
+  ] });
 }
 function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, activeView }) {
   const [user, setUser] = reactExports.useState(null);
@@ -49341,6 +47662,2384 @@ const useKeyStore = create((set) => ({
     set((state) => ({ keys: state.keys.filter((k2) => k2.id !== id) }));
   }
 }));
+const SelectRootContext = /* @__PURE__ */ reactExports.createContext(null);
+const SelectFloatingContext = /* @__PURE__ */ reactExports.createContext(null);
+function useSelectRootContext() {
+  const context = reactExports.useContext(SelectRootContext);
+  if (context === null) {
+    throw new Error(formatErrorMessage(60));
+  }
+  return context;
+}
+function useSelectFloatingContext() {
+  const context = reactExports.useContext(SelectFloatingContext);
+  if (context === null) {
+    throw new Error(formatErrorMessage(61));
+  }
+  return context;
+}
+const defaultItemEquality = (itemValue, selectedValue) => Object.is(itemValue, selectedValue);
+function compareItemEquality(itemValue, selectedValue, comparer) {
+  if (itemValue == null || selectedValue == null) {
+    return Object.is(itemValue, selectedValue);
+  }
+  return comparer(itemValue, selectedValue);
+}
+function selectedValueIncludes(selectedValues, itemValue, comparer) {
+  if (!selectedValues || selectedValues.length === 0) {
+    return false;
+  }
+  return selectedValues.some((selectedValue) => {
+    if (selectedValue === void 0) {
+      return false;
+    }
+    return compareItemEquality(itemValue, selectedValue, comparer);
+  });
+}
+function findItemIndex(itemValues, selectedValue, comparer) {
+  if (!itemValues || itemValues.length === 0) {
+    return -1;
+  }
+  return itemValues.findIndex((itemValue) => {
+    if (itemValue === void 0) {
+      return false;
+    }
+    return compareItemEquality(itemValue, selectedValue, comparer);
+  });
+}
+function removeItem(selectedValues, itemValue, comparer) {
+  return selectedValues.filter((selectedValue) => !compareItemEquality(itemValue, selectedValue, comparer));
+}
+function serializeValue(value) {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+function isGroupedItems(items) {
+  return items != null && items.length > 0 && typeof items[0] === "object" && items[0] != null && "items" in items[0];
+}
+function hasNullItemLabel(items) {
+  if (!Array.isArray(items)) {
+    return items != null && !("null" in items);
+  }
+  if (isGroupedItems(items)) {
+    for (const group of items) {
+      for (const item of group.items) {
+        if (item && item.value == null && item.label != null) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  for (const item of items) {
+    if (item && item.value == null && item.label != null) {
+      return true;
+    }
+  }
+  return false;
+}
+function stringifyAsLabel(item, itemToStringLabel) {
+  if (itemToStringLabel && item != null) {
+    return itemToStringLabel(item) ?? "";
+  }
+  if (item && typeof item === "object") {
+    if ("label" in item && item.label != null) {
+      return String(item.label);
+    }
+    if ("value" in item) {
+      return String(item.value);
+    }
+  }
+  return serializeValue(item);
+}
+function stringifyAsValue(item, itemToStringValue) {
+  if (itemToStringValue && item != null) {
+    return itemToStringValue(item) ?? "";
+  }
+  if (item && typeof item === "object" && "value" in item && "label" in item) {
+    return serializeValue(item.value);
+  }
+  return serializeValue(item);
+}
+function resolveSelectedLabel(value, items, itemToStringLabel) {
+  function fallback() {
+    return stringifyAsLabel(value, itemToStringLabel);
+  }
+  if (itemToStringLabel && value != null) {
+    return itemToStringLabel(value);
+  }
+  if (value && typeof value === "object" && "label" in value && value.label != null) {
+    return value.label;
+  }
+  if (items && !Array.isArray(items)) {
+    return items[value] ?? fallback();
+  }
+  if (Array.isArray(items)) {
+    const flatItems = isGroupedItems(items) ? items.flatMap((g2) => g2.items) : items;
+    if (value == null || typeof value !== "object") {
+      const match = flatItems.find((item) => item.value === value);
+      if (match && match.label != null) {
+        return match.label;
+      }
+      return fallback();
+    }
+    if ("value" in value) {
+      const match = flatItems.find((item) => item && item.value === value.value);
+      if (match && match.label != null) {
+        return match.label;
+      }
+    }
+  }
+  return fallback();
+}
+function resolveMultipleLabels(values, items, itemToStringLabel) {
+  return values.reduce((acc, value, index2) => {
+    if (index2 > 0) {
+      acc.push(", ");
+    }
+    acc.push(/* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Fragment, {
+      children: resolveSelectedLabel(value, items, itemToStringLabel)
+    }, index2));
+    return acc;
+  }, []);
+}
+const selectors$2 = {
+  id: createSelector((state) => state.id),
+  modal: createSelector((state) => state.modal),
+  multiple: createSelector((state) => state.multiple),
+  items: createSelector((state) => state.items),
+  itemToStringLabel: createSelector((state) => state.itemToStringLabel),
+  itemToStringValue: createSelector((state) => state.itemToStringValue),
+  isItemEqualToValue: createSelector((state) => state.isItemEqualToValue),
+  value: createSelector((state) => state.value),
+  hasSelectedValue: createSelector((state) => {
+    const {
+      value,
+      multiple,
+      itemToStringValue
+    } = state;
+    if (value == null) {
+      return false;
+    }
+    if (multiple && Array.isArray(value)) {
+      return value.length > 0;
+    }
+    return stringifyAsValue(value, itemToStringValue) !== "";
+  }),
+  hasNullItemLabel: createSelector((state, enabled) => {
+    return enabled ? hasNullItemLabel(state.items) : false;
+  }),
+  open: createSelector((state) => state.open),
+  mounted: createSelector((state) => state.mounted),
+  forceMount: createSelector((state) => state.forceMount),
+  transitionStatus: createSelector((state) => state.transitionStatus),
+  openMethod: createSelector((state) => state.openMethod),
+  activeIndex: createSelector((state) => state.activeIndex),
+  selectedIndex: createSelector((state) => state.selectedIndex),
+  isActive: createSelector((state, index2) => state.activeIndex === index2),
+  isSelected: createSelector((state, index2, itemValue) => {
+    const comparer = state.isItemEqualToValue;
+    const storeValue = state.value;
+    if (state.multiple) {
+      return Array.isArray(storeValue) && storeValue.some((selectedItem) => compareItemEquality(itemValue, selectedItem, comparer));
+    }
+    if (state.selectedIndex === index2 && state.selectedIndex !== null) {
+      return true;
+    }
+    return compareItemEquality(itemValue, storeValue, comparer);
+  }),
+  isSelectedByFocus: createSelector((state, index2) => {
+    return state.selectedIndex === index2;
+  }),
+  popupProps: createSelector((state) => state.popupProps),
+  triggerProps: createSelector((state) => state.triggerProps),
+  triggerElement: createSelector((state) => state.triggerElement),
+  positionerElement: createSelector((state) => state.positionerElement),
+  listElement: createSelector((state) => state.listElement),
+  scrollUpArrowVisible: createSelector((state) => state.scrollUpArrowVisible),
+  scrollDownArrowVisible: createSelector((state) => state.scrollDownArrowVisible),
+  hasScrollArrows: createSelector((state) => state.hasScrollArrows)
+};
+function useValueChanged(value, onChange) {
+  const valueRef = reactExports.useRef(value);
+  const onChangeCallback = useStableCallback(onChange);
+  useIsoLayoutEffect(() => {
+    if (valueRef.current === value) {
+      return;
+    }
+    onChangeCallback(valueRef.current);
+  }, [value, onChangeCallback]);
+  useIsoLayoutEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+}
+function SelectRoot(props) {
+  const {
+    id,
+    value: valueProp,
+    defaultValue: defaultValue2 = null,
+    onValueChange,
+    open: openProp,
+    defaultOpen = false,
+    onOpenChange,
+    name: nameProp,
+    autoComplete,
+    disabled: disabledProp = false,
+    readOnly = false,
+    required = false,
+    modal = true,
+    actionsRef,
+    inputRef,
+    onOpenChangeComplete,
+    items,
+    multiple = false,
+    itemToStringLabel,
+    itemToStringValue,
+    isItemEqualToValue = defaultItemEquality,
+    highlightItemOnHover = true,
+    children
+  } = props;
+  const {
+    clearErrors
+  } = useFormContext();
+  const {
+    setDirty,
+    setTouched,
+    setFocused,
+    shouldValidateOnChange,
+    validityData,
+    setFilled,
+    name: fieldName,
+    disabled: fieldDisabled,
+    validation,
+    validationMode
+  } = useFieldRootContext();
+  const generatedId = useLabelableId({
+    id
+  });
+  const disabled2 = fieldDisabled || disabledProp;
+  const name = fieldName ?? nameProp;
+  const [value, setValueUnwrapped] = useControlled({
+    controlled: valueProp,
+    default: multiple ? defaultValue2 ?? EMPTY_ARRAY$1 : defaultValue2,
+    name: "Select",
+    state: "value"
+  });
+  const [open, setOpenUnwrapped] = useControlled({
+    controlled: openProp,
+    default: defaultOpen,
+    name: "Select",
+    state: "open"
+  });
+  const listRef = reactExports.useRef([]);
+  const labelsRef = reactExports.useRef([]);
+  const popupRef = reactExports.useRef(null);
+  const scrollHandlerRef = reactExports.useRef(null);
+  const scrollArrowsMountedCountRef = reactExports.useRef(0);
+  const valueRef = reactExports.useRef(null);
+  const valuesRef = reactExports.useRef([]);
+  const typingRef = reactExports.useRef(false);
+  const keyboardActiveRef = reactExports.useRef(false);
+  const selectedItemTextRef = reactExports.useRef(null);
+  const selectionRef = reactExports.useRef({
+    allowSelectedMouseUp: false,
+    allowUnselectedMouseUp: false
+  });
+  const alignItemWithTriggerActiveRef = reactExports.useRef(false);
+  const {
+    mounted,
+    setMounted,
+    transitionStatus
+  } = useTransitionStatus(open);
+  const {
+    openMethod,
+    triggerProps: interactionTypeProps,
+    reset: resetOpenInteractionType
+  } = useOpenInteractionType(open);
+  const store = useRefWithInit(() => new Store({
+    id: generatedId,
+    modal,
+    multiple,
+    itemToStringLabel,
+    itemToStringValue,
+    isItemEqualToValue,
+    value,
+    open,
+    mounted,
+    transitionStatus,
+    items,
+    forceMount: false,
+    openMethod: null,
+    activeIndex: null,
+    selectedIndex: null,
+    popupProps: {},
+    triggerProps: {},
+    triggerElement: null,
+    positionerElement: null,
+    listElement: null,
+    scrollUpArrowVisible: false,
+    scrollDownArrowVisible: false,
+    hasScrollArrows: false
+  })).current;
+  const activeIndex = useStore$1(store, selectors$2.activeIndex);
+  const selectedIndex = useStore$1(store, selectors$2.selectedIndex);
+  const triggerElement = useStore$1(store, selectors$2.triggerElement);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const serializedValue = reactExports.useMemo(() => {
+    if (multiple && Array.isArray(value) && value.length === 0) {
+      return "";
+    }
+    return stringifyAsValue(value, itemToStringValue);
+  }, [multiple, value, itemToStringValue]);
+  const fieldStringValue = reactExports.useMemo(() => {
+    if (multiple && Array.isArray(value)) {
+      return value.map((currentValue) => stringifyAsValue(currentValue, itemToStringValue));
+    }
+    return stringifyAsValue(value, itemToStringValue);
+  }, [multiple, value, itemToStringValue]);
+  const controlRef = useValueAsRef(store.state.triggerElement);
+  useField({
+    id: generatedId,
+    commit: validation.commit,
+    value,
+    controlRef,
+    name,
+    getValue: () => fieldStringValue
+  });
+  const initialValueRef = reactExports.useRef(value);
+  useIsoLayoutEffect(() => {
+    if (value !== initialValueRef.current) {
+      store.set("forceMount", true);
+    }
+  }, [store, value]);
+  useIsoLayoutEffect(() => {
+    setFilled(multiple ? Array.isArray(value) && value.length > 0 : value != null);
+  }, [multiple, value, setFilled]);
+  useIsoLayoutEffect(function syncSelectedIndex() {
+    if (open) {
+      return;
+    }
+    const registry = valuesRef.current;
+    if (multiple) {
+      const currentValue = Array.isArray(value) ? value : [];
+      if (currentValue.length === 0) {
+        store.set("selectedIndex", null);
+        return;
+      }
+      const lastValue = currentValue[currentValue.length - 1];
+      const lastIndex = findItemIndex(registry, lastValue, isItemEqualToValue);
+      store.set("selectedIndex", lastIndex === -1 ? null : lastIndex);
+      return;
+    }
+    const index2 = findItemIndex(registry, value, isItemEqualToValue);
+    store.set("selectedIndex", index2 === -1 ? null : index2);
+  }, [multiple, open, value, valuesRef, isItemEqualToValue, store]);
+  useValueChanged(value, () => {
+    clearErrors(name);
+    setDirty(value !== validityData.initialValue);
+    if (shouldValidateOnChange()) {
+      validation.commit(value);
+    } else {
+      validation.commit(value, true);
+    }
+  });
+  const setOpen = useStableCallback((nextOpen, eventDetails) => {
+    onOpenChange?.(nextOpen, eventDetails);
+    if (eventDetails.isCanceled) {
+      return;
+    }
+    setOpenUnwrapped(nextOpen);
+    if (!nextOpen && (eventDetails.reason === focusOut || eventDetails.reason === outsidePress)) {
+      setTouched(true);
+      setFocused(false);
+      if (validationMode === "onBlur") {
+        validation.commit(value);
+      }
+    }
+    if (!nextOpen && store.state.activeIndex !== null) {
+      const activeOption = listRef.current[store.state.activeIndex];
+      queueMicrotask(() => {
+        activeOption?.setAttribute("tabindex", "-1");
+      });
+    }
+  });
+  const handleUnmount = useStableCallback(() => {
+    setMounted(false);
+    store.set("activeIndex", null);
+    resetOpenInteractionType();
+    onOpenChangeComplete?.(false);
+  });
+  useOpenChangeComplete({
+    enabled: !actionsRef,
+    open,
+    ref: popupRef,
+    onComplete() {
+      if (!open) {
+        handleUnmount();
+      }
+    }
+  });
+  reactExports.useImperativeHandle(actionsRef, () => ({
+    unmount: handleUnmount
+  }), [handleUnmount]);
+  const setValue = useStableCallback((nextValue, eventDetails) => {
+    onValueChange?.(nextValue, eventDetails);
+    if (eventDetails.isCanceled) {
+      return;
+    }
+    setValueUnwrapped(nextValue);
+  });
+  const handleScrollArrowVisibility = useStableCallback(() => {
+    const scroller = store.state.listElement || popupRef.current;
+    if (!scroller) {
+      return;
+    }
+    const viewportTop = scroller.scrollTop;
+    const viewportBottom = scroller.scrollTop + scroller.clientHeight;
+    const shouldShowUp = viewportTop > 1;
+    const shouldShowDown = viewportBottom < scroller.scrollHeight - 1;
+    if (store.state.scrollUpArrowVisible !== shouldShowUp) {
+      store.set("scrollUpArrowVisible", shouldShowUp);
+    }
+    if (store.state.scrollDownArrowVisible !== shouldShowDown) {
+      store.set("scrollDownArrowVisible", shouldShowDown);
+    }
+  });
+  const floatingContext = useFloatingRootContext({
+    open,
+    onOpenChange: setOpen,
+    elements: {
+      reference: triggerElement,
+      floating: positionerElement
+    }
+  });
+  const click = useClick(floatingContext, {
+    enabled: !readOnly && !disabled2,
+    event: "mousedown"
+  });
+  const dismiss = useDismiss(floatingContext, {
+    bubbles: false
+  });
+  const listNavigation2 = useListNavigation(floatingContext, {
+    enabled: !readOnly && !disabled2,
+    listRef,
+    activeIndex,
+    selectedIndex,
+    disabledIndices: EMPTY_ARRAY$1,
+    onNavigate(nextActiveIndex) {
+      if (nextActiveIndex === null && !open) {
+        return;
+      }
+      store.set("activeIndex", nextActiveIndex);
+    },
+    // Implement our own listeners since `onPointerLeave` on each option fires while scrolling with
+    // the `alignItemWithTrigger=true`, causing a performance issue on Chrome.
+    focusItemOnHover: false
+  });
+  const typeahead = useTypeahead(floatingContext, {
+    enabled: !readOnly && !disabled2 && (open || !multiple),
+    listRef: labelsRef,
+    activeIndex,
+    selectedIndex,
+    onMatch(index2) {
+      if (open) {
+        store.set("activeIndex", index2);
+      } else {
+        setValue(valuesRef.current[index2], createChangeEventDetails("none"));
+      }
+    },
+    onTypingChange(typing) {
+      typingRef.current = typing;
+    }
+  });
+  const {
+    getReferenceProps,
+    getFloatingProps,
+    getItemProps
+  } = useInteractions([click, dismiss, listNavigation2, typeahead]);
+  const mergedTriggerProps = reactExports.useMemo(() => {
+    return mergeProps$2(getReferenceProps(), interactionTypeProps, generatedId ? {
+      id: generatedId
+    } : EMPTY_OBJECT);
+  }, [getReferenceProps, interactionTypeProps, generatedId]);
+  useOnFirstRender(() => {
+    store.update({
+      popupProps: getFloatingProps(),
+      triggerProps: mergedTriggerProps
+    });
+  });
+  useIsoLayoutEffect(() => {
+    store.update({
+      id: generatedId,
+      modal,
+      multiple,
+      value,
+      open,
+      mounted,
+      transitionStatus,
+      popupProps: getFloatingProps(),
+      triggerProps: mergedTriggerProps,
+      items,
+      itemToStringLabel,
+      itemToStringValue,
+      isItemEqualToValue,
+      openMethod
+    });
+  }, [store, generatedId, modal, multiple, value, open, mounted, transitionStatus, getFloatingProps, mergedTriggerProps, items, itemToStringLabel, itemToStringValue, isItemEqualToValue, openMethod]);
+  const contextValue = reactExports.useMemo(() => ({
+    store,
+    name,
+    required,
+    disabled: disabled2,
+    readOnly,
+    multiple,
+    itemToStringLabel,
+    itemToStringValue,
+    highlightItemOnHover,
+    setValue,
+    setOpen,
+    listRef,
+    popupRef,
+    scrollHandlerRef,
+    handleScrollArrowVisibility,
+    scrollArrowsMountedCountRef,
+    getItemProps,
+    events: floatingContext.context.events,
+    valueRef,
+    valuesRef,
+    labelsRef,
+    typingRef,
+    selectionRef,
+    selectedItemTextRef,
+    validation,
+    onOpenChangeComplete,
+    keyboardActiveRef,
+    alignItemWithTriggerActiveRef,
+    initialValueRef
+  }), [store, name, required, disabled2, readOnly, multiple, itemToStringLabel, itemToStringValue, highlightItemOnHover, setValue, setOpen, getItemProps, floatingContext.context.events, validation, onOpenChangeComplete, handleScrollArrowVisibility]);
+  const ref = useMergedRefs(inputRef, validation.inputRef);
+  const hasMultipleSelection = multiple && Array.isArray(value) && value.length > 0;
+  const hiddenInputs = reactExports.useMemo(() => {
+    if (!multiple || !Array.isArray(value) || !name) {
+      return null;
+    }
+    return value.map((v3) => {
+      const currentSerializedValue = stringifyAsValue(v3, itemToStringValue);
+      return /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
+        type: "hidden",
+        name,
+        value: currentSerializedValue
+      }, currentSerializedValue);
+    });
+  }, [multiple, value, name, itemToStringValue]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectRootContext.Provider, {
+    value: contextValue,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectFloatingContext.Provider, {
+      value: floatingContext,
+      children: [children, /* @__PURE__ */ jsxRuntimeExports.jsx("input", {
+        ...validation.getInputValidationProps({
+          onFocus() {
+            store.state.triggerElement?.focus({
+              // Supported in Chrome from 144 (January 2026)
+              // @ts-expect-error - focusVisible is not yet in the lib.dom.d.ts
+              focusVisible: true
+            });
+          },
+          // Handle browser autofill.
+          onChange(event) {
+            if (event.nativeEvent.defaultPrevented) {
+              return;
+            }
+            const nextValue = event.target.value;
+            const details = createChangeEventDetails(none, event.nativeEvent);
+            function handleChange() {
+              if (multiple) {
+                return;
+              }
+              const matchingValue = valuesRef.current.find((v3) => {
+                const candidate = stringifyAsValue(v3, itemToStringValue);
+                if (candidate.toLowerCase() === nextValue.toLowerCase()) {
+                  return true;
+                }
+                return false;
+              });
+              if (matchingValue != null) {
+                setDirty(matchingValue !== validityData.initialValue);
+                setValue(matchingValue, details);
+                if (shouldValidateOnChange()) {
+                  validation.commit(matchingValue);
+                }
+              }
+            }
+            store.set("forceMount", true);
+            queueMicrotask(handleChange);
+          }
+        }),
+        name: multiple ? void 0 : name,
+        autoComplete,
+        value: serializedValue,
+        disabled: disabled2,
+        required: required && !hasMultipleSelection,
+        readOnly,
+        ref,
+        style: name ? visuallyHiddenInput : visuallyHidden,
+        tabIndex: -1,
+        "aria-hidden": true
+      }), hiddenInputs]
+    })
+  });
+}
+function getPseudoElementBounds(element) {
+  const elementRect = element.getBoundingClientRect();
+  const beforeStyles = window.getComputedStyle(element, "::before");
+  const afterStyles = window.getComputedStyle(element, "::after");
+  const hasPseudoElements = beforeStyles.content !== "none" || afterStyles.content !== "none";
+  if (!hasPseudoElements) {
+    return elementRect;
+  }
+  const beforeWidth = parseFloat(beforeStyles.width) || 0;
+  const beforeHeight = parseFloat(beforeStyles.height) || 0;
+  const afterWidth = parseFloat(afterStyles.width) || 0;
+  const afterHeight = parseFloat(afterStyles.height) || 0;
+  const totalWidth = Math.max(elementRect.width, beforeWidth, afterWidth);
+  const totalHeight = Math.max(elementRect.height, beforeHeight, afterHeight);
+  const widthDiff = totalWidth - elementRect.width;
+  const heightDiff = totalHeight - elementRect.height;
+  return {
+    left: elementRect.left - widthDiff / 2,
+    right: elementRect.right + widthDiff / 2,
+    top: elementRect.top - heightDiff / 2,
+    bottom: elementRect.bottom + heightDiff / 2
+  };
+}
+const BOUNDARY_OFFSET$1 = 2;
+const SELECTED_DELAY = 400;
+const UNSELECTED_DELAY = 200;
+const stateAttributesMapping$6 = {
+  ...pressableTriggerOpenStateMapping,
+  ...fieldValidityMapping,
+  value: () => null
+};
+const SelectTrigger$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectTrigger2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    id: idProp,
+    disabled: disabledProp = false,
+    nativeButton = true,
+    ...elementProps
+  } = componentProps;
+  const {
+    setTouched,
+    setFocused,
+    validationMode,
+    state: fieldState,
+    disabled: fieldDisabled
+  } = useFieldRootContext();
+  const {
+    labelId
+  } = useLabelableContext();
+  const {
+    store,
+    setOpen,
+    selectionRef,
+    validation,
+    readOnly,
+    required,
+    alignItemWithTriggerActiveRef,
+    disabled: selectDisabled,
+    keyboardActiveRef
+  } = useSelectRootContext();
+  const disabled2 = fieldDisabled || selectDisabled || disabledProp;
+  const open = useStore$1(store, selectors$2.open);
+  const value = useStore$1(store, selectors$2.value);
+  const triggerProps = useStore$1(store, selectors$2.triggerProps);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const listElement = useStore$1(store, selectors$2.listElement);
+  const rootId = useStore$1(store, selectors$2.id);
+  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
+  const shouldCheckNullItemLabel = !hasSelectedValue && open;
+  const hasNullItemLabel2 = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
+  const id = idProp ?? rootId;
+  useLabelableId({
+    id
+  });
+  const positionerRef = useValueAsRef(positionerElement);
+  const triggerRef = reactExports.useRef(null);
+  const {
+    getButtonProps,
+    buttonRef
+  } = useButton({
+    disabled: disabled2,
+    native: nativeButton
+  });
+  const setTriggerElement = useStableCallback((element) => {
+    store.set("triggerElement", element);
+  });
+  const mergedRef = useMergedRefs(forwardedRef, triggerRef, buttonRef, setTriggerElement);
+  const timeoutFocus = useTimeout();
+  const timeoutMouseDown = useTimeout();
+  const selectedDelayTimeout = useTimeout();
+  const unselectedDelayTimeout = useTimeout();
+  reactExports.useEffect(() => {
+    if (open) {
+      const hasSelectedItemInList = hasSelectedValue || hasNullItemLabel2;
+      const shouldDelayUnselectedMouseUpLonger = !hasSelectedItemInList;
+      if (shouldDelayUnselectedMouseUpLonger) {
+        selectedDelayTimeout.start(SELECTED_DELAY, () => {
+          selectionRef.current.allowUnselectedMouseUp = true;
+          selectionRef.current.allowSelectedMouseUp = true;
+        });
+      } else {
+        unselectedDelayTimeout.start(UNSELECTED_DELAY, () => {
+          selectionRef.current.allowUnselectedMouseUp = true;
+          selectedDelayTimeout.start(UNSELECTED_DELAY, () => {
+            selectionRef.current.allowSelectedMouseUp = true;
+          });
+        });
+      }
+      return () => {
+        selectedDelayTimeout.clear();
+        unselectedDelayTimeout.clear();
+      };
+    }
+    selectionRef.current = {
+      allowSelectedMouseUp: false,
+      allowUnselectedMouseUp: false
+    };
+    timeoutMouseDown.clear();
+    return void 0;
+  }, [open, hasSelectedValue, hasNullItemLabel2, selectionRef, timeoutMouseDown, selectedDelayTimeout, unselectedDelayTimeout]);
+  const ariaControlsId = reactExports.useMemo(() => {
+    return listElement?.id ?? getFloatingFocusElement(positionerElement)?.id;
+  }, [listElement, positionerElement]);
+  const props = mergeProps$2(triggerProps, {
+    id,
+    role: "combobox",
+    "aria-expanded": open ? "true" : "false",
+    "aria-haspopup": "listbox",
+    "aria-controls": open ? ariaControlsId : void 0,
+    "aria-labelledby": labelId,
+    "aria-readonly": readOnly || void 0,
+    "aria-required": required || void 0,
+    tabIndex: disabled2 ? -1 : 0,
+    ref: mergedRef,
+    onFocus(event) {
+      setFocused(true);
+      if (open && alignItemWithTriggerActiveRef.current) {
+        setOpen(false, createChangeEventDetails(none, event.nativeEvent));
+      }
+      timeoutFocus.start(0, () => {
+        store.set("forceMount", true);
+      });
+    },
+    onBlur(event) {
+      if (contains(positionerElement, event.relatedTarget)) {
+        return;
+      }
+      setTouched(true);
+      setFocused(false);
+      if (validationMode === "onBlur") {
+        validation.commit(value);
+      }
+    },
+    onPointerMove() {
+      keyboardActiveRef.current = false;
+    },
+    onKeyDown() {
+      keyboardActiveRef.current = true;
+    },
+    onMouseDown(event) {
+      if (open) {
+        return;
+      }
+      const doc = ownerDocument(event.currentTarget);
+      function handleMouseUp(mouseEvent) {
+        if (!triggerRef.current) {
+          return;
+        }
+        const mouseUpTarget = mouseEvent.target;
+        if (contains(triggerRef.current, mouseUpTarget) || contains(positionerRef.current, mouseUpTarget) || mouseUpTarget === triggerRef.current) {
+          return;
+        }
+        const bounds = getPseudoElementBounds(triggerRef.current);
+        if (mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET$1 && mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET$1 && mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET$1 && mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET$1) {
+          return;
+        }
+        setOpen(false, createChangeEventDetails(cancelOpen, mouseEvent));
+      }
+      timeoutMouseDown.start(0, () => {
+        doc.addEventListener("mouseup", handleMouseUp, {
+          once: true
+        });
+      });
+    }
+  }, validation.getValidationProps, elementProps, getButtonProps);
+  props.role = "combobox";
+  const state = {
+    ...fieldState,
+    open,
+    disabled: disabled2,
+    value,
+    readOnly,
+    placeholder: !hasSelectedValue
+  };
+  return useRenderElement("button", componentProps, {
+    ref: [forwardedRef, triggerRef],
+    state,
+    stateAttributesMapping: stateAttributesMapping$6,
+    props
+  });
+});
+const stateAttributesMapping$5 = {
+  value: () => null
+};
+const SelectValue$1 = /* @__PURE__ */ reactExports.forwardRef(function SelectValue2(componentProps, forwardedRef) {
+  const {
+    className,
+    render,
+    children: childrenProp,
+    placeholder,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    valueRef
+  } = useSelectRootContext();
+  const value = useStore$1(store, selectors$2.value);
+  const items = useStore$1(store, selectors$2.items);
+  const itemToStringLabel = useStore$1(store, selectors$2.itemToStringLabel);
+  const hasSelectedValue = useStore$1(store, selectors$2.hasSelectedValue);
+  const shouldCheckNullItemLabel = !hasSelectedValue && placeholder != null && childrenProp == null;
+  const hasNullLabel = useStore$1(store, selectors$2.hasNullItemLabel, shouldCheckNullItemLabel);
+  const state = {
+    value,
+    placeholder: !hasSelectedValue
+  };
+  let children = null;
+  if (typeof childrenProp === "function") {
+    children = childrenProp(value);
+  } else if (childrenProp != null) {
+    children = childrenProp;
+  } else if (!hasSelectedValue && placeholder != null && !hasNullLabel) {
+    children = placeholder;
+  } else if (Array.isArray(value)) {
+    children = resolveMultipleLabels(value, items, itemToStringLabel);
+  } else {
+    children = resolveSelectedLabel(value, items, itemToStringLabel);
+  }
+  const element = useRenderElement("span", componentProps, {
+    state,
+    ref: [forwardedRef, valueRef],
+    props: [{
+      children
+    }, elementProps],
+    stateAttributesMapping: stateAttributesMapping$5
+  });
+  return element;
+});
+const SelectIcon = /* @__PURE__ */ reactExports.forwardRef(function SelectIcon2(componentProps, forwardedRef) {
+  const {
+    className,
+    render,
+    ...elementProps
+  } = componentProps;
+  const {
+    store
+  } = useSelectRootContext();
+  const open = useStore$1(store, selectors$2.open);
+  const state = {
+    open
+  };
+  const element = useRenderElement("span", componentProps, {
+    state,
+    ref: forwardedRef,
+    props: [{
+      "aria-hidden": true,
+      children: "▼"
+    }, elementProps],
+    stateAttributesMapping: triggerOpenStateMapping
+  });
+  return element;
+});
+const SelectPortalContext = /* @__PURE__ */ reactExports.createContext(void 0);
+const SelectPortal = /* @__PURE__ */ reactExports.forwardRef(function SelectPortal2(portalProps, forwardedRef) {
+  const {
+    store
+  } = useSelectRootContext();
+  const mounted = useStore$1(store, selectors$2.mounted);
+  const forceMount = useStore$1(store, selectors$2.forceMount);
+  const shouldRender = mounted || forceMount;
+  if (!shouldRender) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortalContext.Provider, {
+    value: true,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingPortal, {
+      ref: forwardedRef,
+      ...portalProps
+    })
+  });
+});
+const CompositeListContext = /* @__PURE__ */ reactExports.createContext({
+  register: () => {
+  },
+  unregister: () => {
+  },
+  subscribeMapChange: () => {
+    return () => {
+    };
+  },
+  elementsRef: {
+    current: []
+  },
+  nextIndexRef: {
+    current: 0
+  }
+});
+function useCompositeListContext() {
+  return reactExports.useContext(CompositeListContext);
+}
+function CompositeList(props) {
+  const {
+    children,
+    elementsRef,
+    labelsRef,
+    onMapChange: onMapChangeProp
+  } = props;
+  const onMapChange = useStableCallback(onMapChangeProp);
+  const nextIndexRef = reactExports.useRef(0);
+  const listeners = useRefWithInit(createListeners).current;
+  const map = useRefWithInit(createMap).current;
+  const [mapTick, setMapTick] = reactExports.useState(0);
+  const lastTickRef = reactExports.useRef(mapTick);
+  const register2 = useStableCallback((node, metadata) => {
+    map.set(node, metadata ?? null);
+    lastTickRef.current += 1;
+    setMapTick(lastTickRef.current);
+  });
+  const unregister = useStableCallback((node) => {
+    map.delete(node);
+    lastTickRef.current += 1;
+    setMapTick(lastTickRef.current);
+  });
+  const sortedMap = reactExports.useMemo(() => {
+    const newMap = /* @__PURE__ */ new Map();
+    const sortedNodes = Array.from(map.keys()).filter((node) => node.isConnected).sort(sortByDocumentPosition);
+    sortedNodes.forEach((node, index2) => {
+      const metadata = map.get(node) ?? {};
+      newMap.set(node, {
+        ...metadata,
+        index: index2
+      });
+    });
+    return newMap;
+  }, [map, mapTick]);
+  useIsoLayoutEffect(() => {
+    if (typeof MutationObserver !== "function" || sortedMap.size === 0) {
+      return void 0;
+    }
+    const mutationObserver = new MutationObserver((entries) => {
+      const diff = /* @__PURE__ */ new Set();
+      const updateDiff = (node) => diff.has(node) ? diff.delete(node) : diff.add(node);
+      entries.forEach((entry) => {
+        entry.removedNodes.forEach(updateDiff);
+        entry.addedNodes.forEach(updateDiff);
+      });
+      if (diff.size === 0) {
+        lastTickRef.current += 1;
+        setMapTick(lastTickRef.current);
+      }
+    });
+    sortedMap.forEach((_2, node) => {
+      if (node.parentElement) {
+        mutationObserver.observe(node.parentElement, {
+          childList: true
+        });
+      }
+    });
+    return () => {
+      mutationObserver.disconnect();
+    };
+  }, [sortedMap]);
+  useIsoLayoutEffect(() => {
+    const shouldUpdateLengths = lastTickRef.current === mapTick;
+    if (shouldUpdateLengths) {
+      if (elementsRef.current.length !== sortedMap.size) {
+        elementsRef.current.length = sortedMap.size;
+      }
+      if (labelsRef && labelsRef.current.length !== sortedMap.size) {
+        labelsRef.current.length = sortedMap.size;
+      }
+      nextIndexRef.current = sortedMap.size;
+    }
+    onMapChange(sortedMap);
+  }, [onMapChange, sortedMap, elementsRef, labelsRef, mapTick]);
+  useIsoLayoutEffect(() => {
+    return () => {
+      elementsRef.current = [];
+    };
+  }, [elementsRef]);
+  useIsoLayoutEffect(() => {
+    return () => {
+      if (labelsRef) {
+        labelsRef.current = [];
+      }
+    };
+  }, [labelsRef]);
+  const subscribeMapChange = useStableCallback((fn2) => {
+    listeners.add(fn2);
+    return () => {
+      listeners.delete(fn2);
+    };
+  });
+  useIsoLayoutEffect(() => {
+    listeners.forEach((l2) => l2(sortedMap));
+  }, [listeners, sortedMap]);
+  const contextValue = reactExports.useMemo(() => ({
+    register: register2,
+    unregister,
+    subscribeMapChange,
+    elementsRef,
+    labelsRef,
+    nextIndexRef
+  }), [register2, unregister, subscribeMapChange, elementsRef, labelsRef, nextIndexRef]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeListContext.Provider, {
+    value: contextValue,
+    children
+  });
+}
+function createMap() {
+  return /* @__PURE__ */ new Map();
+}
+function createListeners() {
+  return /* @__PURE__ */ new Set();
+}
+function sortByDocumentPosition(a, b2) {
+  const position = a.compareDocumentPosition(b2);
+  if (position & Node.DOCUMENT_POSITION_FOLLOWING || position & Node.DOCUMENT_POSITION_CONTAINED_BY) {
+    return -1;
+  }
+  if (position & Node.DOCUMENT_POSITION_PRECEDING || position & Node.DOCUMENT_POSITION_CONTAINS) {
+    return 1;
+  }
+  return 0;
+}
+const SelectPositionerContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useSelectPositionerContext() {
+  const context = reactExports.useContext(SelectPositionerContext);
+  if (!context) {
+    throw new Error(formatErrorMessage(59));
+  }
+  return context;
+}
+function clearStyles(element, originalStyles) {
+  if (element) {
+    Object.assign(element.style, originalStyles);
+  }
+}
+const LIST_FUNCTIONAL_STYLES = {
+  position: "relative",
+  maxHeight: "100%",
+  overflowX: "hidden",
+  overflowY: "auto"
+};
+const FIXED = {
+  position: "fixed"
+};
+const SelectPositioner = /* @__PURE__ */ reactExports.forwardRef(function SelectPositioner2(componentProps, forwardedRef) {
+  const {
+    anchor,
+    positionMethod = "absolute",
+    className,
+    render,
+    side = "bottom",
+    align = "center",
+    sideOffset = 0,
+    alignOffset = 0,
+    collisionBoundary = "clipping-ancestors",
+    collisionPadding,
+    arrowPadding = 5,
+    sticky = false,
+    disableAnchorTracking,
+    alignItemWithTrigger = true,
+    collisionAvoidance = DROPDOWN_COLLISION_AVOIDANCE,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    listRef,
+    labelsRef,
+    alignItemWithTriggerActiveRef,
+    selectedItemTextRef,
+    valuesRef,
+    initialValueRef,
+    popupRef,
+    setValue
+  } = useSelectRootContext();
+  const floatingRootContext = useSelectFloatingContext();
+  const open = useStore$1(store, selectors$2.open);
+  const mounted = useStore$1(store, selectors$2.mounted);
+  const modal = useStore$1(store, selectors$2.modal);
+  const value = useStore$1(store, selectors$2.value);
+  const openMethod = useStore$1(store, selectors$2.openMethod);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const triggerElement = useStore$1(store, selectors$2.triggerElement);
+  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
+  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
+  const scrollUpArrowRef = reactExports.useRef(null);
+  const scrollDownArrowRef = reactExports.useRef(null);
+  const [controlledAlignItemWithTrigger, setControlledAlignItemWithTrigger] = reactExports.useState(alignItemWithTrigger);
+  const alignItemWithTriggerActive = mounted && controlledAlignItemWithTrigger && openMethod !== "touch";
+  if (!mounted && controlledAlignItemWithTrigger !== alignItemWithTrigger) {
+    setControlledAlignItemWithTrigger(alignItemWithTrigger);
+  }
+  useIsoLayoutEffect(() => {
+    if (!mounted) {
+      if (selectors$2.scrollUpArrowVisible(store.state)) {
+        store.set("scrollUpArrowVisible", false);
+      }
+      if (selectors$2.scrollDownArrowVisible(store.state)) {
+        store.set("scrollDownArrowVisible", false);
+      }
+    }
+  }, [store, mounted]);
+  reactExports.useImperativeHandle(alignItemWithTriggerActiveRef, () => alignItemWithTriggerActive);
+  useScrollLock((alignItemWithTriggerActive || modal) && open && openMethod !== "touch", triggerElement);
+  const positioning = useAnchorPositioning({
+    anchor,
+    floatingRootContext,
+    positionMethod,
+    mounted,
+    side,
+    sideOffset,
+    align,
+    alignOffset,
+    arrowPadding,
+    collisionBoundary,
+    collisionPadding,
+    sticky,
+    disableAnchorTracking: disableAnchorTracking ?? alignItemWithTriggerActive,
+    collisionAvoidance,
+    keepMounted: true
+  });
+  const renderedSide = alignItemWithTriggerActive ? "none" : positioning.side;
+  const positionerStyles = alignItemWithTriggerActive ? FIXED : positioning.positionerStyles;
+  const defaultProps = reactExports.useMemo(() => {
+    const hiddenStyles2 = {};
+    if (!open) {
+      hiddenStyles2.pointerEvents = "none";
+    }
+    return {
+      role: "presentation",
+      hidden: !mounted,
+      style: {
+        ...positionerStyles,
+        ...hiddenStyles2
+      }
+    };
+  }, [open, mounted, positionerStyles]);
+  const state = {
+    open,
+    side: renderedSide,
+    align: positioning.align,
+    anchorHidden: positioning.anchorHidden
+  };
+  const setPositionerElement = useStableCallback((element2) => {
+    store.set("positionerElement", element2);
+  });
+  const element = useRenderElement("div", componentProps, {
+    ref: [forwardedRef, setPositionerElement],
+    state,
+    stateAttributesMapping: popupStateMapping,
+    props: [defaultProps, getDisabledMountTransitionStyles(transitionStatus), elementProps]
+  });
+  const prevMapSizeRef = reactExports.useRef(0);
+  const onMapChange = useStableCallback((map) => {
+    if (map.size === 0 && prevMapSizeRef.current === 0) {
+      return;
+    }
+    if (valuesRef.current.length === 0) {
+      return;
+    }
+    const prevSize = prevMapSizeRef.current;
+    prevMapSizeRef.current = map.size;
+    if (map.size === prevSize) {
+      return;
+    }
+    const eventDetails = createChangeEventDetails(none);
+    if (prevSize !== 0 && !store.state.multiple && value !== null) {
+      const selectedValueIndex = findItemIndex(valuesRef.current, value, isItemEqualToValue);
+      if (selectedValueIndex === -1) {
+        const initialSelectedValue = initialValueRef.current;
+        const hasInitial = initialSelectedValue != null && findItemIndex(valuesRef.current, initialSelectedValue, isItemEqualToValue) !== -1;
+        const nextValue = hasInitial ? initialSelectedValue : null;
+        setValue(nextValue, eventDetails);
+        if (nextValue === null) {
+          store.set("selectedIndex", null);
+          selectedItemTextRef.current = null;
+        }
+      }
+    }
+    if (prevSize !== 0 && store.state.multiple && Array.isArray(value)) {
+      const hasVisibleItem = (selectedItemValue) => findItemIndex(valuesRef.current, selectedItemValue, isItemEqualToValue) !== -1;
+      const nextValue = value.filter((selectedItemValue) => hasVisibleItem(selectedItemValue));
+      if (nextValue.length !== value.length || nextValue.some((selectedItemValue) => !selectedValueIncludes(value, selectedItemValue, isItemEqualToValue))) {
+        setValue(nextValue, eventDetails);
+        if (nextValue.length === 0) {
+          store.set("selectedIndex", null);
+          selectedItemTextRef.current = null;
+        }
+      }
+    }
+    if (open && alignItemWithTriggerActive) {
+      store.update({
+        scrollUpArrowVisible: false,
+        scrollDownArrowVisible: false
+      });
+      const stylesToClear = {
+        height: ""
+      };
+      clearStyles(positionerElement, stylesToClear);
+      clearStyles(popupRef.current, stylesToClear);
+    }
+  });
+  const contextValue = reactExports.useMemo(() => ({
+    ...positioning,
+    side: renderedSide,
+    alignItemWithTriggerActive,
+    setControlledAlignItemWithTrigger,
+    scrollUpArrowRef,
+    scrollDownArrowRef
+  }), [positioning, renderedSide, alignItemWithTriggerActive, setControlledAlignItemWithTrigger]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(CompositeList, {
+    elementsRef: listRef,
+    labelsRef,
+    onMapChange,
+    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectPositionerContext.Provider, {
+      value: contextValue,
+      children: [mounted && modal && /* @__PURE__ */ jsxRuntimeExports.jsx(InternalBackdrop, {
+        inert: inertValue(!open),
+        cutout: triggerElement
+      }), element]
+    })
+  });
+});
+function isMouseWithinBounds(event) {
+  const targetRect = event.currentTarget.getBoundingClientRect();
+  const isWithinBounds = targetRect.top + 1 <= event.clientY && event.clientY <= targetRect.bottom - 1 && targetRect.left + 1 <= event.clientX && event.clientX <= targetRect.right - 1;
+  return isWithinBounds;
+}
+const DISABLE_SCROLLBAR_CLASS_NAME = "base-ui-disable-scrollbar";
+const styleDisableScrollbar = {
+  className: DISABLE_SCROLLBAR_CLASS_NAME,
+  getElement(nonce) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("style", {
+      nonce,
+      href: DISABLE_SCROLLBAR_CLASS_NAME,
+      precedence: "base-ui:low",
+      children: `.${DISABLE_SCROLLBAR_CLASS_NAME}{scrollbar-width:none}.${DISABLE_SCROLLBAR_CLASS_NAME}::-webkit-scrollbar{display:none}`
+    });
+  }
+};
+function clamp(val, min2 = Number.MIN_SAFE_INTEGER, max2 = Number.MAX_SAFE_INTEGER) {
+  return Math.max(min2, Math.min(val, max2));
+}
+const CSPContext = /* @__PURE__ */ reactExports.createContext(void 0);
+const DEFAULT_CSP_CONTEXT_VALUE = {
+  disableStyleElements: false
+};
+function useCSPContext() {
+  return reactExports.useContext(CSPContext) ?? DEFAULT_CSP_CONTEXT_VALUE;
+}
+const SCROLL_EPS_PX = 1;
+const stateAttributesMapping$4 = {
+  ...popupStateMapping,
+  ...transitionStatusMapping
+};
+const SelectPopup = /* @__PURE__ */ reactExports.forwardRef(function SelectPopup2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    finalFocus,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    popupRef,
+    onOpenChangeComplete,
+    setOpen,
+    valueRef,
+    selectedItemTextRef,
+    keyboardActiveRef,
+    multiple,
+    handleScrollArrowVisibility,
+    scrollHandlerRef,
+    highlightItemOnHover
+  } = useSelectRootContext();
+  const {
+    side,
+    align,
+    alignItemWithTriggerActive,
+    setControlledAlignItemWithTrigger,
+    scrollDownArrowRef,
+    scrollUpArrowRef
+  } = useSelectPositionerContext();
+  const insideToolbar = useToolbarRootContext() != null;
+  const floatingRootContext = useSelectFloatingContext();
+  const {
+    nonce,
+    disableStyleElements
+  } = useCSPContext();
+  const highlightTimeout = useTimeout();
+  const id = useStore$1(store, selectors$2.id);
+  const open = useStore$1(store, selectors$2.open);
+  const mounted = useStore$1(store, selectors$2.mounted);
+  const popupProps = useStore$1(store, selectors$2.popupProps);
+  const transitionStatus = useStore$1(store, selectors$2.transitionStatus);
+  const triggerElement = useStore$1(store, selectors$2.triggerElement);
+  const positionerElement = useStore$1(store, selectors$2.positionerElement);
+  const listElement = useStore$1(store, selectors$2.listElement);
+  const initialHeightRef = reactExports.useRef(0);
+  const reachedMaxHeightRef = reactExports.useRef(false);
+  const maxHeightRef = reactExports.useRef(0);
+  const initialPlacedRef = reactExports.useRef(false);
+  const originalPositionerStylesRef = reactExports.useRef({});
+  const scrollArrowFrame = useAnimationFrame();
+  const handleScroll2 = useStableCallback((scroller) => {
+    if (!positionerElement || !popupRef.current || !initialPlacedRef.current) {
+      return;
+    }
+    if (reachedMaxHeightRef.current || !alignItemWithTriggerActive) {
+      handleScrollArrowVisibility();
+      return;
+    }
+    const isTopPositioned = positionerElement.style.top === "0px";
+    const isBottomPositioned = positionerElement.style.bottom === "0px";
+    const currentHeight = positionerElement.getBoundingClientRect().height;
+    const doc = ownerDocument(positionerElement);
+    const positionerStyles = getComputedStyle(positionerElement);
+    const marginTop = parseFloat(positionerStyles.marginTop);
+    const marginBottom = parseFloat(positionerStyles.marginBottom);
+    const maxPopupHeight = getMaxPopupHeight(getComputedStyle(popupRef.current));
+    const maxAvailableHeight = Math.min(doc.documentElement.clientHeight - marginTop - marginBottom, maxPopupHeight);
+    const scrollTop = scroller.scrollTop;
+    const maxScrollTop = getMaxScrollTop(scroller);
+    let nextPositionerHeight = 0;
+    let nextScrollTop = null;
+    let setReachedMax = false;
+    let scrollToMax = false;
+    const setHeight = (height) => {
+      positionerElement.style.height = `${height}px`;
+    };
+    const handleSmallDiff = (diff, targetScrollTop) => {
+      const heightDelta = clamp(diff, 0, maxAvailableHeight - currentHeight);
+      if (heightDelta > 0) {
+        setHeight(currentHeight + heightDelta);
+      }
+      scroller.scrollTop = targetScrollTop;
+      if (maxAvailableHeight - (currentHeight + heightDelta) <= SCROLL_EPS_PX) {
+        reachedMaxHeightRef.current = true;
+      }
+      handleScrollArrowVisibility();
+    };
+    if (isTopPositioned) {
+      const diff = maxScrollTop - scrollTop;
+      const idealHeight = currentHeight + diff;
+      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
+      nextPositionerHeight = nextHeight;
+      if (diff <= SCROLL_EPS_PX) {
+        handleSmallDiff(diff, maxScrollTop);
+        return;
+      }
+      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
+        scrollToMax = true;
+      } else {
+        setReachedMax = true;
+      }
+    } else if (isBottomPositioned) {
+      const diff = scrollTop;
+      const idealHeight = currentHeight + diff;
+      const nextHeight = Math.min(idealHeight, maxAvailableHeight);
+      const overshoot = idealHeight - maxAvailableHeight;
+      nextPositionerHeight = nextHeight;
+      if (diff <= SCROLL_EPS_PX) {
+        handleSmallDiff(diff, 0);
+        return;
+      }
+      if (maxAvailableHeight - nextHeight > SCROLL_EPS_PX) {
+        nextScrollTop = 0;
+      } else {
+        setReachedMax = true;
+        if (scrollTop < maxScrollTop) {
+          nextScrollTop = scrollTop - (diff - overshoot);
+        }
+      }
+    }
+    nextPositionerHeight = Math.ceil(nextPositionerHeight);
+    if (nextPositionerHeight !== 0) {
+      setHeight(nextPositionerHeight);
+    }
+    if (scrollToMax || nextScrollTop != null) {
+      const nextMaxScrollTop = getMaxScrollTop(scroller);
+      const target = scrollToMax ? nextMaxScrollTop : clamp(nextScrollTop, 0, nextMaxScrollTop);
+      if (Math.abs(scroller.scrollTop - target) > SCROLL_EPS_PX) {
+        scroller.scrollTop = target;
+      }
+    }
+    if (setReachedMax || nextPositionerHeight >= maxAvailableHeight - SCROLL_EPS_PX) {
+      reachedMaxHeightRef.current = true;
+    }
+    handleScrollArrowVisibility();
+  });
+  reactExports.useImperativeHandle(scrollHandlerRef, () => handleScroll2, [handleScroll2]);
+  useOpenChangeComplete({
+    open,
+    ref: popupRef,
+    onComplete() {
+      if (open) {
+        onOpenChangeComplete?.(true);
+      }
+    }
+  });
+  const state = {
+    open,
+    transitionStatus,
+    side,
+    align
+  };
+  useIsoLayoutEffect(() => {
+    if (!positionerElement || !popupRef.current || Object.keys(originalPositionerStylesRef.current).length) {
+      return;
+    }
+    originalPositionerStylesRef.current = {
+      top: positionerElement.style.top || "0",
+      left: positionerElement.style.left || "0",
+      right: positionerElement.style.right,
+      height: positionerElement.style.height,
+      bottom: positionerElement.style.bottom,
+      minHeight: positionerElement.style.minHeight,
+      maxHeight: positionerElement.style.maxHeight,
+      marginTop: positionerElement.style.marginTop,
+      marginBottom: positionerElement.style.marginBottom
+    };
+  }, [popupRef, positionerElement]);
+  useIsoLayoutEffect(() => {
+    if (open || alignItemWithTriggerActive) {
+      return;
+    }
+    initialPlacedRef.current = false;
+    reachedMaxHeightRef.current = false;
+    initialHeightRef.current = 0;
+    maxHeightRef.current = 0;
+    clearStyles(positionerElement, originalPositionerStylesRef.current);
+  }, [open, alignItemWithTriggerActive, positionerElement, popupRef]);
+  useIsoLayoutEffect(() => {
+    const popupElement = popupRef.current;
+    if (!open || !triggerElement || !positionerElement || !popupElement || store.state.transitionStatus === "ending") {
+      return;
+    }
+    if (!alignItemWithTriggerActive) {
+      initialPlacedRef.current = true;
+      scrollArrowFrame.request(handleScrollArrowVisibility);
+      popupElement.style.removeProperty("--transform-origin");
+      return;
+    }
+    queueMicrotask(() => {
+      const restoreTransformStyles = unsetTransformStyles(popupElement);
+      popupElement.style.removeProperty("--transform-origin");
+      try {
+        const positionerStyles = getComputedStyle(positionerElement);
+        const popupStyles = getComputedStyle(popupElement);
+        const doc = ownerDocument(triggerElement);
+        const win = getWindow$1(positionerElement);
+        const triggerRect = triggerElement.getBoundingClientRect();
+        const positionerRect = positionerElement.getBoundingClientRect();
+        const triggerX = triggerRect.left;
+        const triggerHeight = triggerRect.height;
+        const scroller = listElement || popupElement;
+        const scrollHeight = scroller.scrollHeight;
+        const borderBottom = parseFloat(popupStyles.borderBottomWidth);
+        const marginTop = parseFloat(positionerStyles.marginTop) || 10;
+        const marginBottom = parseFloat(positionerStyles.marginBottom) || 10;
+        const minHeight = parseFloat(positionerStyles.minHeight) || 100;
+        const maxPopupHeight = getMaxPopupHeight(popupStyles);
+        const paddingLeft = 5;
+        const paddingRight = 5;
+        const triggerCollisionThreshold = 20;
+        const viewportHeight = doc.documentElement.clientHeight - marginTop - marginBottom;
+        const viewportWidth = doc.documentElement.clientWidth;
+        const availableSpaceBeneathTrigger = viewportHeight - triggerRect.bottom + triggerHeight;
+        const textElement = selectedItemTextRef.current;
+        const valueElement = valueRef.current;
+        let textRect;
+        let offsetX = 0;
+        let offsetY = 0;
+        if (textElement && valueElement) {
+          const valueRect = valueElement.getBoundingClientRect();
+          textRect = textElement.getBoundingClientRect();
+          const valueLeftFromTriggerLeft = valueRect.left - triggerX;
+          const textLeftFromPositionerLeft = textRect.left - positionerRect.left;
+          const valueCenterFromPositionerTop = valueRect.top - triggerRect.top + valueRect.height / 2;
+          const textCenterFromTriggerTop = textRect.top - positionerRect.top + textRect.height / 2;
+          offsetX = valueLeftFromTriggerLeft - textLeftFromPositionerLeft;
+          offsetY = textCenterFromTriggerTop - valueCenterFromPositionerTop;
+        }
+        const idealHeight = availableSpaceBeneathTrigger + offsetY + marginBottom + borderBottom;
+        let height = Math.min(viewportHeight, idealHeight);
+        const maxHeight = viewportHeight - marginTop - marginBottom;
+        const scrollTop = idealHeight - height;
+        const left = Math.max(paddingLeft, triggerX + offsetX);
+        const maxRight = viewportWidth - paddingRight;
+        const rightOverflow = Math.max(0, left + positionerRect.width - maxRight);
+        positionerElement.style.left = `${left - rightOverflow}px`;
+        positionerElement.style.height = `${height}px`;
+        positionerElement.style.maxHeight = "auto";
+        positionerElement.style.marginTop = `${marginTop}px`;
+        positionerElement.style.marginBottom = `${marginBottom}px`;
+        popupElement.style.height = "100%";
+        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+        const isTopPositioned = scrollTop >= maxScrollTop;
+        if (isTopPositioned) {
+          height = Math.min(viewportHeight, positionerRect.height) - (scrollTop - maxScrollTop);
+        }
+        const fallbackToAlignPopupToTrigger = triggerRect.top < triggerCollisionThreshold || triggerRect.bottom > viewportHeight - triggerCollisionThreshold || height < Math.min(scrollHeight, minHeight);
+        const isPinchZoomed = (win.visualViewport?.scale ?? 1) !== 1 && isWebKit;
+        if (fallbackToAlignPopupToTrigger || isPinchZoomed) {
+          initialPlacedRef.current = true;
+          clearStyles(positionerElement, originalPositionerStylesRef.current);
+          reactDomExports.flushSync(() => setControlledAlignItemWithTrigger(false));
+          return;
+        }
+        if (isTopPositioned) {
+          const topOffset = Math.max(0, viewportHeight - idealHeight);
+          positionerElement.style.top = positionerRect.height >= maxHeight ? "0" : `${topOffset}px`;
+          positionerElement.style.height = `${height}px`;
+          scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+          initialHeightRef.current = Math.max(minHeight, height);
+        } else {
+          positionerElement.style.bottom = "0";
+          initialHeightRef.current = Math.max(minHeight, height);
+          scroller.scrollTop = scrollTop;
+        }
+        if (textRect) {
+          const popupTop = positionerRect.top;
+          const popupHeight = positionerRect.height;
+          const textCenterY = textRect.top + textRect.height / 2;
+          const transformOriginY = popupHeight > 0 ? (textCenterY - popupTop) / popupHeight * 100 : 50;
+          const clampedY = clamp(transformOriginY, 0, 100);
+          popupElement.style.setProperty("--transform-origin", `50% ${clampedY}%`);
+        }
+        if (initialHeightRef.current === viewportHeight || height >= maxPopupHeight) {
+          reachedMaxHeightRef.current = true;
+        }
+        handleScrollArrowVisibility();
+        setTimeout(() => {
+          initialPlacedRef.current = true;
+        });
+      } finally {
+        restoreTransformStyles();
+      }
+    });
+  }, [store, open, positionerElement, triggerElement, valueRef, selectedItemTextRef, popupRef, handleScrollArrowVisibility, alignItemWithTriggerActive, setControlledAlignItemWithTrigger, scrollArrowFrame, scrollDownArrowRef, scrollUpArrowRef, listElement]);
+  reactExports.useEffect(() => {
+    if (!alignItemWithTriggerActive || !positionerElement || !open) {
+      return void 0;
+    }
+    const win = getWindow$1(positionerElement);
+    function handleResize(event) {
+      setOpen(false, createChangeEventDetails(windowResize, event));
+    }
+    win.addEventListener("resize", handleResize);
+    return () => {
+      win.removeEventListener("resize", handleResize);
+    };
+  }, [setOpen, alignItemWithTriggerActive, positionerElement, open]);
+  const defaultProps = {
+    ...listElement ? {
+      role: "presentation",
+      "aria-orientation": void 0
+    } : {
+      role: "listbox",
+      "aria-multiselectable": multiple || void 0,
+      id: `${id}-list`
+    },
+    onKeyDown(event) {
+      keyboardActiveRef.current = true;
+      if (insideToolbar && COMPOSITE_KEYS.has(event.key)) {
+        event.stopPropagation();
+      }
+    },
+    onMouseMove() {
+      keyboardActiveRef.current = false;
+    },
+    onPointerLeave(event) {
+      if (!highlightItemOnHover || isMouseWithinBounds(event) || event.pointerType === "touch") {
+        return;
+      }
+      const popup = event.currentTarget;
+      highlightTimeout.start(0, () => {
+        store.set("activeIndex", null);
+        popup.focus({
+          preventScroll: true
+        });
+      });
+    },
+    onScroll(event) {
+      if (listElement) {
+        return;
+      }
+      handleScroll2(event.currentTarget);
+    },
+    ...alignItemWithTriggerActive && {
+      style: listElement ? {
+        height: "100%"
+      } : LIST_FUNCTIONAL_STYLES
+    }
+  };
+  const element = useRenderElement("div", componentProps, {
+    ref: [forwardedRef, popupRef],
+    state,
+    stateAttributesMapping: stateAttributesMapping$4,
+    props: [popupProps, defaultProps, getDisabledMountTransitionStyles(transitionStatus), {
+      className: !listElement && alignItemWithTriggerActive ? styleDisableScrollbar.className : void 0
+    }, elementProps]
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(reactExports.Fragment, {
+    children: [!disableStyleElements && styleDisableScrollbar.getElement(nonce), /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingFocusManager, {
+      context: floatingRootContext,
+      modal: false,
+      disabled: !mounted,
+      returnFocus: finalFocus,
+      restoreFocus: true,
+      children: element
+    })]
+  });
+});
+function getMaxPopupHeight(popupStyles) {
+  const maxHeightStyle = popupStyles.maxHeight || "";
+  return maxHeightStyle.endsWith("px") ? parseFloat(maxHeightStyle) || Infinity : Infinity;
+}
+function getMaxScrollTop(scroller) {
+  return Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+}
+const TRANSFORM_STYLE_RESETS = [["transform", "none"], ["scale", "1"], ["translate", "0 0"]];
+function unsetTransformStyles(popupElement) {
+  const {
+    style
+  } = popupElement;
+  const originalStyles = {};
+  for (const [property, value] of TRANSFORM_STYLE_RESETS) {
+    originalStyles[property] = style.getPropertyValue(property);
+    style.setProperty(property, value, "important");
+  }
+  return () => {
+    for (const [property] of TRANSFORM_STYLE_RESETS) {
+      const originalValue = originalStyles[property];
+      if (originalValue) {
+        style.setProperty(property, originalValue);
+      } else {
+        style.removeProperty(property);
+      }
+    }
+  };
+}
+const SelectList = /* @__PURE__ */ reactExports.forwardRef(function SelectList2(componentProps, forwardedRef) {
+  const {
+    className,
+    render,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    scrollHandlerRef
+  } = useSelectRootContext();
+  const {
+    alignItemWithTriggerActive
+  } = useSelectPositionerContext();
+  const hasScrollArrows = useStore$1(store, selectors$2.hasScrollArrows);
+  const openMethod = useStore$1(store, selectors$2.openMethod);
+  const multiple = useStore$1(store, selectors$2.multiple);
+  const id = useStore$1(store, selectors$2.id);
+  const defaultProps = {
+    id: `${id}-list`,
+    role: "listbox",
+    "aria-multiselectable": multiple || void 0,
+    onScroll(event) {
+      scrollHandlerRef.current?.(event.currentTarget);
+    },
+    ...alignItemWithTriggerActive && {
+      style: LIST_FUNCTIONAL_STYLES
+    },
+    className: hasScrollArrows && openMethod !== "touch" ? styleDisableScrollbar.className : void 0
+  };
+  const setListElement = useStableCallback((element) => {
+    store.set("listElement", element);
+  });
+  return useRenderElement("div", componentProps, {
+    ref: [forwardedRef, setListElement],
+    props: [defaultProps, elementProps]
+  });
+});
+let IndexGuessBehavior = /* @__PURE__ */ (function(IndexGuessBehavior2) {
+  IndexGuessBehavior2[IndexGuessBehavior2["None"] = 0] = "None";
+  IndexGuessBehavior2[IndexGuessBehavior2["GuessFromOrder"] = 1] = "GuessFromOrder";
+  return IndexGuessBehavior2;
+})({});
+function useCompositeListItem(params = {}) {
+  const {
+    label,
+    metadata,
+    textRef,
+    indexGuessBehavior,
+    index: externalIndex
+  } = params;
+  const {
+    register: register2,
+    unregister,
+    subscribeMapChange,
+    elementsRef,
+    labelsRef,
+    nextIndexRef
+  } = useCompositeListContext();
+  const indexRef = reactExports.useRef(-1);
+  const [index2, setIndex] = reactExports.useState(externalIndex ?? (indexGuessBehavior === IndexGuessBehavior.GuessFromOrder ? () => {
+    if (indexRef.current === -1) {
+      const newIndex = nextIndexRef.current;
+      nextIndexRef.current += 1;
+      indexRef.current = newIndex;
+    }
+    return indexRef.current;
+  } : -1));
+  const componentRef = reactExports.useRef(null);
+  const ref = reactExports.useCallback((node) => {
+    componentRef.current = node;
+    if (index2 !== -1 && node !== null) {
+      elementsRef.current[index2] = node;
+      if (labelsRef) {
+        const isLabelDefined = label !== void 0;
+        labelsRef.current[index2] = isLabelDefined ? label : textRef?.current?.textContent ?? node.textContent;
+      }
+    }
+  }, [index2, elementsRef, labelsRef, label, textRef]);
+  useIsoLayoutEffect(() => {
+    if (externalIndex != null) {
+      return void 0;
+    }
+    const node = componentRef.current;
+    if (node) {
+      register2(node, metadata);
+      return () => {
+        unregister(node);
+      };
+    }
+    return void 0;
+  }, [externalIndex, register2, unregister, metadata]);
+  useIsoLayoutEffect(() => {
+    if (externalIndex != null) {
+      return void 0;
+    }
+    return subscribeMapChange((map) => {
+      const i = componentRef.current ? map.get(componentRef.current)?.index : null;
+      if (i != null) {
+        setIndex(i);
+      }
+    });
+  }, [externalIndex, subscribeMapChange, setIndex]);
+  return reactExports.useMemo(() => ({
+    ref,
+    index: index2
+  }), [index2, ref]);
+}
+const SelectItemContext = /* @__PURE__ */ reactExports.createContext(void 0);
+function useSelectItemContext() {
+  const context = reactExports.useContext(SelectItemContext);
+  if (!context) {
+    throw new Error(formatErrorMessage(57));
+  }
+  return context;
+}
+const SelectItem$1 = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItem2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    value: itemValue = null,
+    label,
+    disabled: disabled2 = false,
+    nativeButton = false,
+    ...elementProps
+  } = componentProps;
+  const textRef = reactExports.useRef(null);
+  const listItem = useCompositeListItem({
+    label,
+    textRef,
+    indexGuessBehavior: IndexGuessBehavior.GuessFromOrder
+  });
+  const {
+    store,
+    getItemProps,
+    setOpen,
+    setValue,
+    selectionRef,
+    typingRef,
+    valuesRef,
+    keyboardActiveRef,
+    multiple,
+    highlightItemOnHover
+  } = useSelectRootContext();
+  const highlightTimeout = useTimeout();
+  const highlighted = useStore$1(store, selectors$2.isActive, listItem.index);
+  const selected = useStore$1(store, selectors$2.isSelected, listItem.index, itemValue);
+  const selectedByFocus = useStore$1(store, selectors$2.isSelectedByFocus, listItem.index);
+  const isItemEqualToValue = useStore$1(store, selectors$2.isItemEqualToValue);
+  const index2 = listItem.index;
+  const hasRegistered = index2 !== -1;
+  const itemRef = reactExports.useRef(null);
+  const indexRef = useValueAsRef(index2);
+  useIsoLayoutEffect(() => {
+    if (!hasRegistered) {
+      return void 0;
+    }
+    const values = valuesRef.current;
+    values[index2] = itemValue;
+    return () => {
+      delete values[index2];
+    };
+  }, [hasRegistered, index2, itemValue, valuesRef]);
+  useIsoLayoutEffect(() => {
+    if (!hasRegistered) {
+      return void 0;
+    }
+    const selectedValue = store.state.value;
+    let selectedCandidate = selectedValue;
+    if (multiple && Array.isArray(selectedValue) && selectedValue.length > 0) {
+      selectedCandidate = selectedValue[selectedValue.length - 1];
+    }
+    if (selectedCandidate !== void 0 && compareItemEquality(itemValue, selectedCandidate, isItemEqualToValue)) {
+      store.set("selectedIndex", index2);
+    }
+    return void 0;
+  }, [hasRegistered, index2, multiple, isItemEqualToValue, store, itemValue]);
+  const state = {
+    disabled: disabled2,
+    selected,
+    highlighted
+  };
+  const rootProps = getItemProps({
+    active: highlighted,
+    selected
+  });
+  rootProps.onFocus = void 0;
+  rootProps.id = void 0;
+  const lastKeyRef = reactExports.useRef(null);
+  const pointerTypeRef = reactExports.useRef("mouse");
+  const didPointerDownRef = reactExports.useRef(false);
+  const {
+    getButtonProps,
+    buttonRef
+  } = useButton({
+    disabled: disabled2,
+    focusableWhenDisabled: true,
+    native: nativeButton
+  });
+  function commitSelection(event) {
+    const selectedValue = store.state.value;
+    if (multiple) {
+      const currentValue = Array.isArray(selectedValue) ? selectedValue : [];
+      const nextValue = selected ? removeItem(currentValue, itemValue, isItemEqualToValue) : [...currentValue, itemValue];
+      setValue(nextValue, createChangeEventDetails(itemPress, event));
+    } else {
+      setValue(itemValue, createChangeEventDetails(itemPress, event));
+      setOpen(false, createChangeEventDetails(itemPress, event));
+    }
+  }
+  const defaultProps = {
+    role: "option",
+    "aria-selected": selected,
+    tabIndex: highlighted ? 0 : -1,
+    onFocus() {
+      store.set("activeIndex", index2);
+    },
+    onMouseEnter() {
+      if (!keyboardActiveRef.current && store.state.selectedIndex === null && highlightItemOnHover) {
+        store.set("activeIndex", index2);
+      }
+    },
+    onMouseMove() {
+      if (highlightItemOnHover) {
+        store.set("activeIndex", index2);
+      }
+    },
+    onMouseLeave(event) {
+      if (!highlightItemOnHover || keyboardActiveRef.current || isMouseWithinBounds(event)) {
+        return;
+      }
+      highlightTimeout.start(0, () => {
+        if (store.state.activeIndex === index2) {
+          store.set("activeIndex", null);
+        }
+      });
+    },
+    onTouchStart() {
+      selectionRef.current = {
+        allowSelectedMouseUp: false,
+        allowUnselectedMouseUp: false
+      };
+    },
+    onKeyDown(event) {
+      lastKeyRef.current = event.key;
+      store.set("activeIndex", index2);
+    },
+    onClick(event) {
+      didPointerDownRef.current = false;
+      if (event.type === "keydown" && lastKeyRef.current === null) {
+        return;
+      }
+      if (disabled2 || lastKeyRef.current === " " && typingRef.current || pointerTypeRef.current !== "touch" && !highlighted) {
+        return;
+      }
+      lastKeyRef.current = null;
+      commitSelection(event.nativeEvent);
+    },
+    onPointerEnter(event) {
+      pointerTypeRef.current = event.pointerType;
+    },
+    onPointerDown(event) {
+      pointerTypeRef.current = event.pointerType;
+      didPointerDownRef.current = true;
+    },
+    onMouseUp(event) {
+      if (disabled2) {
+        return;
+      }
+      if (didPointerDownRef.current) {
+        didPointerDownRef.current = false;
+        return;
+      }
+      const disallowSelectedMouseUp = !selectionRef.current.allowSelectedMouseUp && selected;
+      const disallowUnselectedMouseUp = !selectionRef.current.allowUnselectedMouseUp && !selected;
+      if (disallowSelectedMouseUp || disallowUnselectedMouseUp || pointerTypeRef.current !== "touch" && !highlighted) {
+        return;
+      }
+      commitSelection(event.nativeEvent);
+    }
+  };
+  const element = useRenderElement("div", componentProps, {
+    ref: [buttonRef, forwardedRef, listItem.ref, itemRef],
+    state,
+    props: [rootProps, defaultProps, elementProps, getButtonProps]
+  });
+  const contextValue = reactExports.useMemo(() => ({
+    selected,
+    indexRef,
+    textRef,
+    selectedByFocus,
+    hasRegistered
+  }), [selected, indexRef, textRef, selectedByFocus, hasRegistered]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemContext.Provider, {
+    value: contextValue,
+    children: element
+  });
+}));
+const SelectItemIndicator = /* @__PURE__ */ reactExports.forwardRef(function SelectItemIndicator2(componentProps, forwardedRef) {
+  const keepMounted = componentProps.keepMounted ?? false;
+  const {
+    selected
+  } = useSelectItemContext();
+  const shouldRender = keepMounted || selected;
+  if (!shouldRender) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Inner, {
+    ...componentProps,
+    ref: forwardedRef
+  });
+});
+const Inner = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef((componentProps, forwardedRef) => {
+  const {
+    render,
+    className,
+    keepMounted,
+    ...elementProps
+  } = componentProps;
+  const {
+    selected
+  } = useSelectItemContext();
+  const indicatorRef = reactExports.useRef(null);
+  const {
+    transitionStatus,
+    setMounted
+  } = useTransitionStatus(selected);
+  const state = {
+    selected,
+    transitionStatus
+  };
+  const element = useRenderElement("span", componentProps, {
+    ref: [forwardedRef, indicatorRef],
+    state,
+    props: [{
+      "aria-hidden": true,
+      children: "✔️"
+    }, elementProps],
+    stateAttributesMapping: transitionStatusMapping
+  });
+  useOpenChangeComplete({
+    open: selected,
+    ref: indicatorRef,
+    onComplete() {
+      if (!selected) {
+        setMounted(false);
+      }
+    }
+  });
+  return element;
+}));
+const SelectItemText = /* @__PURE__ */ reactExports.memo(/* @__PURE__ */ reactExports.forwardRef(function SelectItemText2(componentProps, forwardedRef) {
+  const {
+    indexRef,
+    textRef,
+    selectedByFocus,
+    hasRegistered
+  } = useSelectItemContext();
+  const {
+    selectedItemTextRef
+  } = useSelectRootContext();
+  const {
+    className,
+    render,
+    ...elementProps
+  } = componentProps;
+  const localRef = reactExports.useCallback((node) => {
+    if (!node || !hasRegistered) {
+      return;
+    }
+    const hasNoSelectedItemText = selectedItemTextRef.current === null || !selectedItemTextRef.current.isConnected;
+    if (selectedByFocus || hasNoSelectedItemText && indexRef.current === 0) {
+      selectedItemTextRef.current = node;
+    }
+  }, [selectedItemTextRef, indexRef, selectedByFocus, hasRegistered]);
+  const element = useRenderElement("div", componentProps, {
+    ref: [localRef, forwardedRef, textRef],
+    props: elementProps
+  });
+  return element;
+}));
+const SelectScrollArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollArrow2(componentProps, forwardedRef) {
+  const {
+    render,
+    className,
+    direction,
+    keepMounted = false,
+    ...elementProps
+  } = componentProps;
+  const {
+    store,
+    popupRef,
+    listRef,
+    handleScrollArrowVisibility,
+    scrollArrowsMountedCountRef
+  } = useSelectRootContext();
+  const {
+    side,
+    scrollDownArrowRef,
+    scrollUpArrowRef
+  } = useSelectPositionerContext();
+  const visibleSelector = direction === "up" ? selectors$2.scrollUpArrowVisible : selectors$2.scrollDownArrowVisible;
+  const stateVisible = useStore$1(store, visibleSelector);
+  const openMethod = useStore$1(store, selectors$2.openMethod);
+  const visible = stateVisible && openMethod !== "touch";
+  const timeout = useTimeout();
+  const scrollArrowRef = direction === "up" ? scrollUpArrowRef : scrollDownArrowRef;
+  const {
+    transitionStatus,
+    setMounted
+  } = useTransitionStatus(visible);
+  useIsoLayoutEffect(() => {
+    scrollArrowsMountedCountRef.current += 1;
+    if (!store.state.hasScrollArrows) {
+      store.set("hasScrollArrows", true);
+    }
+    return () => {
+      scrollArrowsMountedCountRef.current = Math.max(0, scrollArrowsMountedCountRef.current - 1);
+      if (scrollArrowsMountedCountRef.current === 0 && store.state.hasScrollArrows) {
+        store.set("hasScrollArrows", false);
+      }
+    };
+  }, [store, scrollArrowsMountedCountRef]);
+  useOpenChangeComplete({
+    open: visible,
+    ref: scrollArrowRef,
+    onComplete() {
+      if (!visible) {
+        setMounted(false);
+      }
+    }
+  });
+  const state = {
+    direction,
+    visible,
+    side,
+    transitionStatus
+  };
+  const defaultProps = {
+    "aria-hidden": true,
+    children: direction === "up" ? "▲" : "▼",
+    style: {
+      position: "absolute"
+    },
+    onMouseMove(event) {
+      if (event.movementX === 0 && event.movementY === 0 || timeout.isStarted()) {
+        return;
+      }
+      store.set("activeIndex", null);
+      function scrollNextItem() {
+        const scroller = store.state.listElement ?? popupRef.current;
+        if (!scroller) {
+          return;
+        }
+        store.set("activeIndex", null);
+        handleScrollArrowVisibility();
+        const isScrolledToTop = scroller.scrollTop === 0;
+        const isScrolledToBottom = Math.round(scroller.scrollTop + scroller.clientHeight) >= scroller.scrollHeight;
+        const list = listRef.current;
+        if (list.length === 0) {
+          if (direction === "up") {
+            store.set("scrollUpArrowVisible", !isScrolledToTop);
+          } else {
+            store.set("scrollDownArrowVisible", !isScrolledToBottom);
+          }
+        }
+        if (direction === "up" && isScrolledToTop || direction === "down" && isScrolledToBottom) {
+          timeout.clear();
+          return;
+        }
+        if ((store.state.listElement || popupRef.current) && listRef.current && listRef.current.length > 0) {
+          const items = listRef.current;
+          const scrollArrowHeight = scrollArrowRef.current?.offsetHeight || 0;
+          if (direction === "up") {
+            let firstVisibleIndex = 0;
+            const scrollTop = scroller.scrollTop + scrollArrowHeight;
+            for (let i = 0; i < items.length; i += 1) {
+              const item = items[i];
+              if (item) {
+                const itemTop = item.offsetTop;
+                if (itemTop >= scrollTop) {
+                  firstVisibleIndex = i;
+                  break;
+                }
+              }
+            }
+            const targetIndex = Math.max(0, firstVisibleIndex - 1);
+            if (targetIndex < firstVisibleIndex) {
+              const targetItem = items[targetIndex];
+              if (targetItem) {
+                scroller.scrollTop = Math.max(0, targetItem.offsetTop - scrollArrowHeight);
+              }
+            } else {
+              scroller.scrollTop = 0;
+            }
+          } else {
+            let lastVisibleIndex = items.length - 1;
+            const scrollBottom = scroller.scrollTop + scroller.clientHeight - scrollArrowHeight;
+            for (let i = 0; i < items.length; i += 1) {
+              const item = items[i];
+              if (item) {
+                const itemBottom = item.offsetTop + item.offsetHeight;
+                if (itemBottom > scrollBottom) {
+                  lastVisibleIndex = Math.max(0, i - 1);
+                  break;
+                }
+              }
+            }
+            const targetIndex = Math.min(items.length - 1, lastVisibleIndex + 1);
+            if (targetIndex > lastVisibleIndex) {
+              const targetItem = items[targetIndex];
+              if (targetItem) {
+                scroller.scrollTop = targetItem.offsetTop + targetItem.offsetHeight - scroller.clientHeight + scrollArrowHeight;
+              }
+            } else {
+              scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+            }
+          }
+        }
+        timeout.start(40, scrollNextItem);
+      }
+      timeout.start(40, scrollNextItem);
+    },
+    onMouseLeave() {
+      timeout.clear();
+    }
+  };
+  const element = useRenderElement("div", componentProps, {
+    ref: [forwardedRef, scrollArrowRef],
+    state,
+    props: [defaultProps, elementProps]
+  });
+  const shouldRender = visible || keepMounted;
+  if (!shouldRender) {
+    return null;
+  }
+  return element;
+});
+const SelectScrollDownArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollDownArrow2(props, forwardedRef) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
+    ...props,
+    ref: forwardedRef,
+    direction: "down"
+  });
+});
+const SelectScrollUpArrow = /* @__PURE__ */ reactExports.forwardRef(function SelectScrollUpArrow2(props, forwardedRef) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollArrow, {
+    ...props,
+    ref: forwardedRef,
+    direction: "up"
+  });
+});
+const Select = SelectRoot;
+function SelectValue({ className, ...props }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectValue$1,
+    {
+      "data-slot": "select-value",
+      className: cn$2("flex flex-1 text-left", className),
+      ...props
+    }
+  );
+}
+function SelectTrigger({
+  className,
+  size: size2 = "default",
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    SelectTrigger$1,
+    {
+      "data-slot": "select-trigger",
+      "data-size": size2,
+      className: cn$2(
+        "border-input data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4 flex w-fit items-center justify-between whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className
+      ),
+      ...props,
+      children: [
+        children,
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SelectIcon,
+          {
+            render: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { className: "text-muted-foreground size-4 pointer-events-none" })
+          }
+        )
+      ]
+    }
+  );
+}
+function SelectContent({
+  className,
+  children,
+  side = "bottom",
+  sideOffset = 4,
+  align = "center",
+  alignOffset = 0,
+  alignItemWithTrigger = true,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(SelectPortal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectPositioner,
+    {
+      side,
+      sideOffset,
+      align,
+      alignOffset,
+      alignItemWithTrigger,
+      className: "isolate z-50",
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        SelectPopup,
+        {
+          "data-slot": "select-content",
+          "data-align-trigger": alignItemWithTrigger,
+          className: cn$2("bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 min-w-36 rounded-lg shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 relative isolate z-50 max-h-(--available-height) w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto data-[align-trigger=true]:animate-none", className),
+          ...props,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollUpButton, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectList, { children }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectScrollDownButton, {})
+          ]
+        }
+      )
+    }
+  ) });
+}
+function SelectItem({
+  className,
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    SelectItem$1,
+    {
+      "data-slot": "select-item",
+      className: cn$2(
+        "focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className
+      ),
+      ...props,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItemText, { className: "flex flex-1 gap-2 shrink-0 whitespace-nowrap", children }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SelectItemIndicator,
+          {
+            render: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "pointer-events-none absolute right-2 flex size-4 items-center justify-center" }),
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { className: "pointer-events-none" })
+          }
+        )
+      ]
+    }
+  );
+}
+function SelectScrollUpButton({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectScrollUpArrow,
+    {
+      "data-slot": "select-scroll-up-button",
+      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 top-0 w-full", className),
+      ...props,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ChevronUp,
+        {}
+      )
+    }
+  );
+}
+function SelectScrollDownButton({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    SelectScrollDownArrow,
+    {
+      "data-slot": "select-scroll-down-button",
+      className: cn$2("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 bottom-0 w-full", className),
+      ...props,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ChevronDown,
+        {}
+      )
+    }
+  );
+}
 function HostForm({ onClose, workspaceId, host }) {
   const { createHost, updateHost } = useHostStore();
   const { keys, fetchKeys } = useKeyStore();
