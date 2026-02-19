@@ -376,6 +376,8 @@ function rowToHost(row) {
     port: row.port,
     username: row.username,
     authType: row.auth_type,
+    password: null,
+    // Passwords are not stored for security
     keyId: row.key_id,
     tags: row.tags ?? [],
     createdAt: row.created_at,

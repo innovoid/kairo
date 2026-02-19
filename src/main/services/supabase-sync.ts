@@ -48,6 +48,7 @@ function rowToHost(row: HostRow): Host {
     port: row.port,
     username: row.username,
     authType: row.auth_type,
+    password: null, // Passwords are not stored for security
     keyId: row.key_id,
     tags: row.tags ?? [],
     createdAt: row.created_at,
@@ -152,6 +153,7 @@ export const supabaseSync = {
 
   // Hosts CRUD with dual write (SQLite + Supabase)
   async createHost(supabase: SupabaseClient, input: CreateHostInput): Promise<Host> {
+    // Note: password is not stored in database (security), only used for connection
     const { data, error } = await supabase
       .from('hosts')
       .insert({
@@ -187,6 +189,8 @@ export const supabaseSync = {
   },
 
   async updateHost(supabase: SupabaseClient, id: string, input: UpdateHostInput): Promise<Host> {
+    // Note: password is not stored in database (security), only used for connection
+    // Filter to only include fields that exist in the database schema
     const updates: Record<string, unknown> = {};
     if (input.folderId !== undefined) updates.folder_id = input.folderId;
     if (input.label !== undefined) updates.label = input.label;
@@ -196,6 +200,7 @@ export const supabaseSync = {
     if (input.authType !== undefined) updates.auth_type = input.authType;
     if (input.keyId !== undefined) updates.key_id = input.keyId;
     if (input.tags !== undefined) updates.tags = input.tags;
+    // input.password is intentionally ignored - passwords are not persisted
 
     const { data, error } = await supabase
       .from('hosts')
