@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Terminal } from 'lucide-react';
 
 export function LoginPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,7 +22,15 @@ export function LoginPage() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name.trim(),
+            },
+          },
+        });
         if (error) throw error;
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -57,6 +66,20 @@ export function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -117,7 +140,11 @@ export function LoginPage() {
             <button
               type="button"
               className="text-primary underline-offset-4 hover:underline"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setName('');
+                setError(null);
+              }}
             >
               {isSignUp ? 'Sign in' : 'Sign up'}
             </button>
