@@ -18,8 +18,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { AiProvider, CursorStyle, BellStyle, TerminalTheme } from '@shared/types/settings';
 import { TERMINAL_THEMES, TERMINAL_THEME_NAMES } from '@shared/themes/terminal-themes';
+import AccountSettingsTab from './AccountSettingsTab';
 
-export type SettingsTab = 'terminal' | 'appearance' | 'ai';
+export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'account';
 
 interface SettingsPageProps {
   activeTab: SettingsTab;
@@ -36,6 +37,7 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
           {/* Nav wrapper — full height, owns the border */}
           <div className="w-44 shrink-0 border-r bg-muted/10 flex flex-col">
             <TabsList className="flex flex-col w-full rounded-none bg-transparent p-2 gap-0.5 justify-start">
+              <TabsTrigger value="account" className="w-full justify-start px-3 py-1.5 text-sm">Account</TabsTrigger>
               <TabsTrigger value="terminal" className="w-full justify-start px-3 py-1.5 text-sm">Terminal</TabsTrigger>
               <TabsTrigger value="appearance" className="w-full justify-start px-3 py-1.5 text-sm">Appearance</TabsTrigger>
               <TabsTrigger value="ai" className="w-full justify-start px-3 py-1.5 text-sm">AI</TabsTrigger>
@@ -44,6 +46,9 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
 
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto">
+            <TabsContent value="account" className="p-6 m-0">
+              <AccountSettingsTab />
+            </TabsContent>
             <TabsContent value="terminal" className="p-6 m-0">
               <TerminalTab />
             </TabsContent>
