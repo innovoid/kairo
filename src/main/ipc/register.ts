@@ -164,7 +164,7 @@ export function registerWorkspaceIpcHandlers(): void {
   // SSH Keys
   register('keys.list', withSupabase(keysIpcHandlers.list));
   register('keys.import', withSupabase(keysIpcHandlers.import));
-  register('keys.delete', keysIpcHandlers.delete);
+  register('keys.delete', withSupabase(keysIpcHandlers.delete));
   register('keys.exportPublic', keysIpcHandlers.exportPublic);
   register('keys.syncEncrypted', withSupabase(keysIpcHandlers.syncEncrypted));
 

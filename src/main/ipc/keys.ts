@@ -49,8 +49,19 @@ export const keysIpcHandlers = {
     return key;
   },
 
-  delete(_event: IpcMainInvokeEvent, id: string) {
+  async delete(event: IpcMainInvokeEvent, id: string) {
+    // Delete locally
     keyManager.delete(id);
+
+    // Delete from Supabase in background
+    try {
+      const supabase = getClient(event);
+      await supabase.from('ssh_keys').delete().eq('id', id);
+      console.log('[keys.delete] Key deleted from Supabase:', id);
+    } catch (error) {
+      console.error('[keys.delete] Failed to delete key from Supabase:', error);
+      // Don't throw - local deletion already succeeded
+    }
   },
 
   exportPublic(_event: IpcMainInvokeEvent, id: string) {

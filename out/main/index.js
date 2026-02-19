@@ -1489,8 +1489,15 @@ const keysIpcHandlers = {
     }
     return key;
   },
-  delete(_event, id) {
+  async delete(event, id) {
     keyManager.delete(id);
+    try {
+      const supabase = getClient$1(event);
+      await supabase.from("ssh_keys").delete().eq("id", id);
+      console.log("[keys.delete] Key deleted from Supabase:", id);
+    } catch (error) {
+      console.error("[keys.delete] Failed to delete key from Supabase:", error);
+    }
   },
   exportPublic(_event, id) {
     return keyManager.exportPublic(id);
@@ -1826,7 +1833,7 @@ function registerWorkspaceIpcHandlers() {
   register("sftp.pickUploadFiles", sftpIpcHandlers.pickUploadFiles);
   register("keys.list", withSupabase(keysIpcHandlers.list));
   register("keys.import", withSupabase(keysIpcHandlers.import));
-  register("keys.delete", keysIpcHandlers.delete);
+  register("keys.delete", withSupabase(keysIpcHandlers.delete));
   register("keys.exportPublic", keysIpcHandlers.exportPublic);
   register("keys.syncEncrypted", withSupabase(keysIpcHandlers.syncEncrypted));
   register("ai.complete", aiIpcHandlers.complete);
