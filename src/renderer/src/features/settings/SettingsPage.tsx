@@ -17,9 +17,8 @@ import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { AiProvider, CursorStyle, BellStyle } from '@shared/types/settings';
-import type { WorkspaceMember, WorkspaceRole } from '@shared/types/workspace';
 
-export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'team';
+export type SettingsTab = 'terminal' | 'appearance' | 'ai';
 
 interface SettingsPageProps {
   activeTab: SettingsTab;
@@ -39,7 +38,6 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
               <TabsTrigger value="terminal" className="w-full justify-start px-3 py-1.5 text-sm">Terminal</TabsTrigger>
               <TabsTrigger value="appearance" className="w-full justify-start px-3 py-1.5 text-sm">Appearance</TabsTrigger>
               <TabsTrigger value="ai" className="w-full justify-start px-3 py-1.5 text-sm">AI</TabsTrigger>
-              <TabsTrigger value="team" className="w-full justify-start px-3 py-1.5 text-sm">Team</TabsTrigger>
             </TabsList>
           </div>
 
@@ -53,9 +51,6 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             </TabsContent>
             <TabsContent value="ai" className="p-6 m-0">
               <AiTab />
-            </TabsContent>
-            <TabsContent value="team" className="p-6 m-0">
-              <TeamTab workspaceId={workspaceId} />
             </TabsContent>
           </div>
         </Tabs>
@@ -498,86 +493,3 @@ function AiTab() {
   );
 }
 
-// ─── Team Tab ─────────────────────────────────────────────────────────────────
-
-function TeamTab({ workspaceId }: { workspaceId: string }) {
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
-  const [error, setError] = useState<string | null>(null);
-  const [inviting, setInviting] = useState(false);
-
-  useEffect(() => {
-    window.workspaceApi.members.list(workspaceId).then((m) => setMembers(m as WorkspaceMember[]));
-  }, [workspaceId]);
-
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setInviting(true);
-    try {
-      await window.workspaceApi.invite({ workspaceId, email: inviteEmail, role: inviteRole });
-      setInviteEmail('');
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setInviting(false);
-    }
-  }
-
-  async function removeMember(userId: string) {
-    await window.workspaceApi.members.remove(workspaceId, userId);
-    setMembers((prev) => prev.filter((m) => m.userId !== userId));
-  }
-
-  return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h2 className="text-base font-semibold mb-1">Team</h2>
-        <p className="text-sm text-muted-foreground">Manage workspace members and send invitations.</p>
-      </div>
-      <Separator />
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium">Members ({members.length})</h3>
-        {members.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">No members found.</p>
-        ) : (
-          members.map((m) => (
-            <div key={m.userId} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
-              <span className="text-sm truncate flex-1">{m.email}</span>
-              <div className="flex items-center gap-2 shrink-0 ml-4">
-                <Badge variant="outline" className="text-xs capitalize">{m.role}</Badge>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={() => removeMember(m.userId)}>
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <Separator />
-
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">Invite member</h3>
-        <form onSubmit={handleInvite} className="flex gap-2">
-          <Input type="email" placeholder="Email address" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required className="flex-1" />
-          <Select value={inviteRole} onValueChange={(v) => { if (v) setInviteRole(v as WorkspaceRole); }}>
-            <SelectTrigger className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="member">Member</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button type="submit" size="default" disabled={inviting}>
-            {inviting ? 'Sending...' : 'Invite'}
-          </Button>
-        </form>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-      </div>
-    </div>
-  );
-}
