@@ -164,19 +164,17 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
         </DndContext>
 
         {/* Empty state */}
-        {filtered.length === 0 && (
+        {hosts.length === 0 && folders.length === 0 && (
           <div className="text-center py-20">
             <Server className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
-            <p className="text-sm font-medium">{search ? 'No matching hosts' : 'No hosts yet'}</p>
+            <p className="text-sm font-medium">No hosts yet</p>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
-              {search ? 'Try a different search' : 'Add a host to get started'}
+              Add a host to get started
             </p>
-            {!search && (
-              <Button variant="outline" size="sm" onClick={onAddHost}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add your first host
-              </Button>
-            )}
+            <Button variant="outline" size="sm" onClick={onAddHost}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add your first host
+            </Button>
           </div>
         )}
 

@@ -35,7 +35,7 @@ export function WorkspaceSwitcher() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger>
         <button className="flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent">
           <AvatarInitials name={workspaceName} size="sm" />
         </button>
