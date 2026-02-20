@@ -1,5 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../lib/logger';
 import type {
   ActiveWorkspaceContext,
   CreateWorkspaceInput,
@@ -212,7 +213,7 @@ export const workspaceIpcHandlers = {
     const activateCall = await supabase.rpc('set_active_workspace', { target_workspace_id: row.id });
     if (activateCall.error && !isMissingRpcError(activateCall.error, 'set_active_workspace')) {
       // Ignore activation errors — it may not be set up yet
-      console.warn('set_active_workspace failed (non-fatal):', activateCall.error.message);
+      logger.warn('set_active_workspace failed (non-fatal):', activateCall.error.message);
     }
 
     return toWorkspace(row);
