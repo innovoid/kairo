@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Host, HostFolder, CreateHostInput, UpdateHostInput, CreateFolderInput } from '@shared/types/hosts';
+import { useWorkspaceStore } from './workspace-store';
 
 interface HostState {
   hosts: Host[];
@@ -79,7 +80,7 @@ export const useHostStore = create<HostState>((set) => ({
       }));
     } catch (error) {
       // Refetch to restore correct state
-      const workspaceId = (window as any).currentWorkspaceId;
+      const workspaceId = useWorkspaceStore.getState().activeWorkspace?.id;
       if (workspaceId) {
         const hosts = await window.hostsApi.list(workspaceId);
         set({ hosts });
@@ -110,7 +111,7 @@ export const useHostStore = create<HostState>((set) => ({
       }));
     } catch (error) {
       // On error, refetch to get correct state
-      const workspaceId = (window as any).currentWorkspaceId; // TODO: pass workspace ID properly
+      const workspaceId = useWorkspaceStore.getState().activeWorkspace?.id;
       if (workspaceId) {
         const hosts = await window.hostsApi.list(workspaceId);
         set({ hosts });
