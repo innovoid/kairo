@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { hostQueries, folderQueries, keyQueries, getDb } from '../db';
 import type { Host, HostFolder, CreateHostInput, UpdateHostInput, CreateFolderInput } from '../../shared/types/hosts';
 import type { SshKey } from '../../shared/types/keys';
+import { logger } from '../lib/logger';
 
 type HostRow = {
   id: string;
@@ -191,7 +192,7 @@ export const supabaseSync = {
         tags: input.tags ?? [],
       })
       .then(({ error }) => {
-        if (error) console.error('Background sync failed for host create:', error);
+        if (error) logger.error('Background sync failed for host create:', error);
       });
 
     // Return immediately with local data
@@ -216,11 +217,11 @@ export const supabaseSync = {
     // LOCAL-FIRST: Update SQLite immediately, sync to Supabase in background
 
     try {
-      console.log('[supabaseSync.updateHost] Starting update:', { id, input });
+      logger.debug('[supabaseSync.updateHost] Starting update:', { id, input });
 
       // Get current host from SQLite
       const existingHost = hostQueries.getById(id);
-      console.log('[supabaseSync.updateHost] Existing host:', {
+      logger.debug('[supabaseSync.updateHost] Existing host:', {
         found: !!existingHost,
         id: existingHost?.id,
         hasAllFields: existingHost ? {
@@ -245,7 +246,7 @@ export const supabaseSync = {
       try {
         existingTags = JSON.parse(existingHost.tags);
       } catch (e) {
-        console.error('Failed to parse existing tags:', e);
+        logger.error('Failed to parse existing tags:', e);
         existingTags = [];
       }
 
@@ -281,7 +282,7 @@ export const supabaseSync = {
             fingerprint: keyRow.fingerprint,
             has_encrypted_sync: keyRow.has_encrypted_sync === 1,
           }).then(({ error }) => {
-            if (error) console.error('[supabaseSync.updateHost] Failed to sync key metadata:', error);
+            if (error) logger.error('[supabaseSync.updateHost] Failed to sync key metadata:', error);
           });
         }
       }
@@ -304,7 +305,7 @@ export const supabaseSync = {
         .update(updates)
         .eq('id', id)
         .then(({ error }) => {
-          if (error) console.error('Background sync failed for host update:', error);
+          if (error) logger.error('Background sync failed for host update:', error);
         });
 
       // Parse tags safely for return
@@ -312,11 +313,11 @@ export const supabaseSync = {
       try {
         parsedTags = JSON.parse(updatedHost.tags);
       } catch (e) {
-        console.error('Failed to parse tags for return:', updatedHost.tags, e);
+        logger.error('Failed to parse tags for return:', updatedHost.tags, e);
         parsedTags = [];
       }
 
-      console.log('[supabaseSync.updateHost] Returning updated host:', updatedHost.id);
+      logger.debug('[supabaseSync.updateHost] Returning updated host:', updatedHost.id);
 
       // Return immediately with local data
       return {
@@ -335,7 +336,7 @@ export const supabaseSync = {
         updatedAt: new Date(updatedHost.synced_at).toISOString(),
       };
     } catch (error) {
-      console.error('[supabaseSync.updateHost] Error updating host:', error);
+      logger.error('[supabaseSync.updateHost] Error updating host:', error);
       throw new Error(`Failed to update host locally: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
@@ -352,7 +353,7 @@ export const supabaseSync = {
       .delete()
       .eq('id', id)
       .then(({ error }) => {
-        if (error) console.error('Background sync failed for host delete:', error);
+        if (error) logger.error('Background sync failed for host delete:', error);
       });
   },
 
@@ -384,7 +385,7 @@ export const supabaseSync = {
         position: input.position ?? 0,
       })
       .then(({ error }) => {
-        if (error) console.error('Background sync failed for folder create:', error);
+        if (error) logger.error('Background sync failed for folder create:', error);
       });
 
     return {
@@ -418,7 +419,7 @@ export const supabaseSync = {
       .update({ name })
       .eq('id', id)
       .then(({ error }) => {
-        if (error) console.error('Background sync failed for folder update:', error);
+        if (error) logger.error('Background sync failed for folder update:', error);
       });
 
     return {
@@ -446,8 +447,8 @@ export const supabaseSync = {
       supabase.from('hosts').update({ folder_id: null }).eq('folder_id', id),
       supabase.from('host_folders').delete().eq('id', id),
     ]).then(([updateResult, deleteResult]) => {
-      if (updateResult.error) console.error('Background sync failed for moving hosts:', updateResult.error);
-      if (deleteResult.error) console.error('Background sync failed for folder delete:', deleteResult.error);
+      if (updateResult.error) logger.error('Background sync failed for moving hosts:', updateResult.error);
+      if (deleteResult.error) logger.error('Background sync failed for folder delete:', deleteResult.error);
     });
   },
 

@@ -4,6 +4,7 @@ import { keyManager } from '../services/key-manager';
 import { supabaseSync } from '../services/supabase-sync';
 import { workspaceEncryption } from '../services/workspace-encryption';
 import type { ImportKeyInput } from '../../shared/types/keys';
+import { logger } from '../lib/logger';
 
 function getClient(event: IpcMainInvokeEvent): SupabaseClient {
   const client = (event as unknown as { supabase: SupabaseClient }).supabase;
@@ -22,11 +23,11 @@ export const keysIpcHandlers = {
         try {
           await supabaseSync.syncKeyMetadata(supabase, key.id);
         } catch (error) {
-          console.error(`[keys.list] Failed to sync key ${key.id}:`, error);
+          logger.error(`[keys.list] Failed to sync key ${key.id}:`, error);
         }
       }
     } catch (error) {
-      console.error('[keys.list] Failed to sync keys to Supabase:', error);
+      logger.error('[keys.list] Failed to sync keys to Supabase:', error);
     }
 
     return localKeys;
@@ -40,9 +41,9 @@ export const keysIpcHandlers = {
     try {
       const supabase = getClient(event);
       await supabaseSync.syncKeyMetadata(supabase, key.id);
-      console.log('[keys.import] Key metadata synced to Supabase:', key.id);
+      logger.debug('[keys.import] Key metadata synced to Supabase:', key.id);
     } catch (error) {
-      console.error('[keys.import] Failed to sync key metadata to Supabase:', error);
+      logger.error('[keys.import] Failed to sync key metadata to Supabase:', error);
       // Don't throw - key is still usable locally
     }
 
@@ -57,9 +58,9 @@ export const keysIpcHandlers = {
     try {
       const supabase = getClient(event);
       await supabase.from('ssh_keys').delete().eq('id', id);
-      console.log('[keys.delete] Key deleted from Supabase:', id);
+      logger.debug('[keys.delete] Key deleted from Supabase:', id);
     } catch (error) {
-      console.error('[keys.delete] Failed to delete key from Supabase:', error);
+      logger.error('[keys.delete] Failed to delete key from Supabase:', error);
       // Don't throw - local deletion already succeeded
     }
   },

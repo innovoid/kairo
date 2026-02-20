@@ -2,6 +2,7 @@ import { createHash, pbkdf2Sync, randomBytes, createCipheriv, createDecipheriv }
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { keyQueries } from '../db';
 import { keyManager } from './key-manager';
+import { logger } from '../lib/logger';
 
 const PBKDF2_ITERATIONS = 100000;
 const KEY_LENGTH = 32;
@@ -241,7 +242,7 @@ export const workspaceEncryption = {
     const storagePath = `${workspaceId}/${keyId}.enc`;
     const { error } = await supabase.storage.from('encrypted-keys').remove([storagePath]);
 
-    if (error) console.error('Failed to delete encrypted key from cloud:', error);
+    if (error) logger.error('Failed to delete encrypted key from cloud:', error);
   },
 
   /**
@@ -312,7 +313,7 @@ export const workspaceEncryption = {
         // (This ensures we use the new passphrase for encryption)
         await this.syncKeyToCloud(supabase, workspaceId, key.id, newPassphrase);
       } catch (error) {
-        console.error(`Failed to re-encrypt key ${key.id}:`, error);
+        logger.error(`Failed to re-encrypt key ${key.id}:`, error);
         throw error;
       }
     }

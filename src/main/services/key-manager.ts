@@ -4,6 +4,7 @@ import type Database from 'better-sqlite3';
 import { keyQueries, privateKeyQueries, getDb } from '../db';
 import type { DbPrivateKey } from '../db';
 import type { SshKey, ImportKeyInput, KeyType } from '../../shared/types/keys';
+import { logger } from '../lib/logger';
 
 const { utils: sshUtils } = ssh2;
 
@@ -300,7 +301,7 @@ export function migratePrivateKeys(db: Database.Database): void {
           salt,
         });
       } catch (err) {
-        console.error(`Failed to migrate private key ${pk.key_id}:`, err);
+        logger.error(`Failed to migrate private key ${pk.key_id}:`, err);
         // Skip this key — it will remain as legacy and be retried next time
       }
     }

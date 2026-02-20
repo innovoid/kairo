@@ -64,8 +64,6 @@ export const useHostStore = create<HostState>((set) => ({
   },
 
   updateHost: async (id, input) => {
-    console.log('[host-store] updateHost called:', { id, input });
-
     // Optimistic update: apply changes immediately
     set((state) => ({
       hosts: state.hosts.map((h) =>
@@ -76,12 +74,10 @@ export const useHostStore = create<HostState>((set) => ({
     try {
       // Update backend and sync full data
       const updated = await window.hostsApi.update(id, input);
-      console.log('[host-store] updateHost success:', updated);
       set((state) => ({
         hosts: state.hosts.map((h) => (h.id === id ? updated : h)),
       }));
     } catch (error) {
-      console.error('[host-store] updateHost failed:', error);
       // Refetch to restore correct state
       const workspaceId = (window as any).currentWorkspaceId;
       if (workspaceId) {
@@ -114,7 +110,6 @@ export const useHostStore = create<HostState>((set) => ({
       }));
     } catch (error) {
       // On error, refetch to get correct state
-      console.error('Failed to move host:', error);
       const workspaceId = (window as any).currentWorkspaceId; // TODO: pass workspace ID properly
       if (workspaceId) {
         const hosts = await window.hostsApi.list(workspaceId);

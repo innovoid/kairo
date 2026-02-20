@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../lib/logger';
 import { workspaceIpcHandlers } from './workspace';
 import { hostsIpcHandlers } from './hosts';
 import { sshIpcHandlers } from './ssh';
@@ -63,15 +64,15 @@ function getSupabaseClientForSender(senderId: number): SupabaseClient {
 function withSupabase<TArgs extends unknown[], TResult>(handler: IpcHandler<TArgs, TResult>) {
   return async (event: IpcMainInvokeEvent, ...args: TArgs): Promise<TResult> => {
     try {
-      console.log('[withSupabase] Middleware called, sender:', event.sender.id, 'args:', args);
+      logger.debug('[withSupabase] Middleware called, sender:', event.sender.id, 'args:', args);
       const scopedEvent = event as IpcMainInvokeEvent & { supabase: SupabaseClient };
       scopedEvent.supabase = getSupabaseClientForSender(event.sender.id);
-      console.log('[withSupabase] Supabase client obtained, calling handler...');
+      logger.debug('[withSupabase] Supabase client obtained, calling handler...');
       const result = await handler(scopedEvent, ...args);
-      console.log('[withSupabase] Handler returned successfully');
+      logger.debug('[withSupabase] Handler returned successfully');
       return result;
     } catch (error) {
-      console.error('[withSupabase] ERROR in middleware:', {
+      logger.error('[withSupabase] ERROR in middleware:', {
         error,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -84,16 +85,16 @@ function withSupabase<TArgs extends unknown[], TResult>(handler: IpcHandler<TArg
 }
 
 function register(channel: string, handler: (...args: any[]) => Promise<any>) {
-  console.log('[register] Registering IPC handler for channel:', channel);
+  logger.debug('[register] Registering IPC handler for channel:', channel);
   ipcMain.removeHandler(channel);
   ipcMain.handle(channel, async (event, ...args) => {
-    console.log(`[IPC:${channel}] Handler invoked with args:`, args);
+    logger.debug(`[IPC:${channel}] Handler invoked with args:`, args);
     try {
       const result = await handler(event, ...args);
-      console.log(`[IPC:${channel}] Handler completed successfully`);
+      logger.debug(`[IPC:${channel}] Handler completed successfully`);
       return result;
     } catch (error) {
-      console.error(`[IPC:${channel}] Handler error:`, {
+      logger.error(`[IPC:${channel}] Handler error:`, {
         error,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
