@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
-import { platform } from 'os';
+import { platform, userInfo } from 'os';
+import { existsSync } from 'fs';
 import { logger } from '../lib/logger';
 import { recordingManager } from './recording-manager';
 
@@ -10,21 +11,114 @@ interface LocalSession {
 
 const sessions = new Map<string, LocalSession>();
 
+function detectShell(): string {
+  // Try process.env.SHELL first (works when launched from terminal)
+  if (process.env.SHELL && existsSync(process.env.SHELL)) {
+    return process.env.SHELL;
+  }
+
+  // Try to get from os.userInfo() (more reliable on macOS GUI apps)
+  try {
+    const info = userInfo();
+    if (info.shell && existsSync(info.shell)) {
+      return info.shell;
+    }
+  } catch {
+    // userInfo may fail in some environments
+  }
+
+  // Fall back to common shell locations
+  const commonShells = [
+    '/bin/zsh',
+    '/usr/bin/zsh',
+    '/bin/bash',
+    '/usr/bin/bash',
+    '/usr/local/bin/zsh',
+    '/usr/local/bin/bash',
+  ];
+
+  for (const shellPath of commonShells) {
+    if (existsSync(shellPath)) {
+      return shellPath;
+    }
+  }
+
+  // Last resort
+  return '/bin/sh';
+}
+
+function getShellEnvironment(): Record<string, string> {
+  const env = { ...process.env } as Record<string, string>;
+
+  // Ensure PATH includes common locations on macOS/Linux
+  if (platform() !== 'win32') {
+    const paths = [
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+    ];
+
+    if (env.PATH) {
+      // Add missing paths to existing PATH
+      const existingPaths = env.PATH.split(':');
+      for (const p of paths) {
+        if (!existingPaths.includes(p)) {
+          existingPaths.unshift(p);
+        }
+      }
+      env.PATH = existingPaths.join(':');
+    } else {
+      // No PATH set, use defaults
+      env.PATH = paths.join(':');
+    }
+
+    // Ensure HOME is set
+    if (!env.HOME) {
+      try {
+        env.HOME = userInfo().homedir;
+      } catch {
+        env.HOME = '/tmp';
+      }
+    }
+
+    // Set TERM if not already set
+    if (!env.TERM) {
+      env.TERM = 'xterm-256color';
+    }
+  }
+
+  return env;
+}
+
 export const localShellManager = {
   connect(sessionId: string, sender: WebContents, options?: { shell?: string; cwd?: string }): void {
     localShellManager.disconnect(sessionId);
 
-    const defaultShell = platform() === 'win32' ? 'powershell.exe' : process.env.SHELL || '/bin/zsh';
+    const defaultShell = platform() === 'win32' ? 'powershell.exe' : detectShell();
     const shell = options?.shell || defaultShell;
-    const cwd = options?.cwd || process.env.HOME || '/';
+    const cwd = options?.cwd || process.env.HOME || process.env.USERPROFILE || '/';
 
-    const ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd,
-      env: process.env as Record<string, string>,
-    });
+    logger.debug(`Spawning local shell: ${shell} in ${cwd}`);
+
+    let ptyProcess: pty.IPty;
+    try {
+      ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd,
+        env: getShellEnvironment(),
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to spawn local shell: ${errorMsg}`);
+      if (!sender.isDestroyed()) {
+        sender.send('ssh:error', sessionId, `Failed to start local shell: ${errorMsg}`);
+      }
+      return;
+    }
 
     sessions.set(sessionId, { pty: ptyProcess });
 
