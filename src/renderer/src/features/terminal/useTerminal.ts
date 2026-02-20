@@ -37,6 +37,7 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
       scrollback: settings?.scrollbackLines ?? 10000,
       lineHeight: settings?.lineHeight ?? 1.2,
       allowTransparency: false,
+      allowProposedApi: true,
     });
 
     const fitAddon = new FitAddon();
