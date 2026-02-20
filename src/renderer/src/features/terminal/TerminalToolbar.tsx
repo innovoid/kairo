@@ -1,21 +1,28 @@
+import { useState } from 'react';
+import type { Terminal } from '@xterm/xterm';
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
+import { useRecordingStore } from '@/stores/recording-store';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { X, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio } from 'lucide-react';
+import { X, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface TerminalToolbarProps {
   tab: Tab;
+  terminal: React.RefObject<Terminal | null>;
   onSplit?: (direction: 'horizontal' | 'vertical') => void;
   onClosePane?: () => void;
 }
 
-export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarProps) {
+export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: TerminalToolbarProps) {
   const { closeTab, openTab, tabs } = useSessionStore();
   const { enabled, targetSessionIds, toggle, addTarget, removeTarget } = useBroadcastStore();
+  const { isRecording, startRecording, stopRecording } = useRecordingStore();
+  const [recordingState, setRecordingState] = useState(false);
 
   function disconnect() {
     if (tab.sessionId) {
@@ -48,6 +55,37 @@ export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarPr
     }
   }
 
+  async function toggleRecording() {
+    if (!tab.sessionId) return;
+
+    const currentlyRecording = isRecording(tab.sessionId);
+
+    if (!currentlyRecording) {
+      // Start recording
+      const term = terminal.current;
+      if (!term) {
+        toast.error('Terminal not ready');
+        return;
+      }
+      const cols = term.cols;
+      const rows = term.rows;
+      await window.recordingApi.start(tab.sessionId, cols, rows);
+      startRecording(tab.sessionId);
+      setRecordingState(true);
+      toast.success('Recording started');
+    } else {
+      // Stop recording
+      const filepath = await window.recordingApi.stop(tab.sessionId);
+      stopRecording(tab.sessionId);
+      setRecordingState(false);
+      if (filepath) {
+        toast.success(`Recording saved: ${filepath}`);
+      } else {
+        toast.error('Failed to save recording');
+      }
+    }
+  }
+
   // Get all connected terminal sessions
   const allTerminalSessions = [...tabs.values()]
     .filter((t) => t.tabType === 'terminal' && t.sessionId && t.status === 'connected')
@@ -64,6 +102,15 @@ export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarPr
         {tab.hostname} — {tab.label}
       </span>
       <div className="ml-auto flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn('h-6 px-2 text-xs', recordingState && 'text-red-500')}
+          onClick={toggleRecording}
+          title={recordingState ? 'Stop recording' : 'Start recording'}
+        >
+          <Circle className={cn('h-3.5 w-3.5', recordingState && 'fill-red-500')} />
+        </Button>
         <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={openSftp} title="Open SFTP">
           <FolderOpen className="h-3.5 w-3.5" />
         </Button>

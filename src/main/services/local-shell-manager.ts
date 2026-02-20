@@ -2,6 +2,7 @@ import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
 import { platform } from 'os';
 import { logger } from '../lib/logger';
+import { recordingManager } from './recording-manager';
 
 interface LocalSession {
   pty: pty.IPty;
@@ -30,6 +31,9 @@ export const localShellManager = {
     ptyProcess.onData((data) => {
       if (!sender.isDestroyed()) {
         sender.send('ssh:data', sessionId, data);
+      }
+      if (recordingManager.isRecording(sessionId)) {
+        recordingManager.appendData(sessionId, data);
       }
     });
 

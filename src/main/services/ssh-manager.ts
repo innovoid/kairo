@@ -3,6 +3,7 @@ import type { WebContents } from 'electron';
 import type { SshSessionConfig } from '../../shared/types/ssh';
 import { privateKeyQueries } from '../db';
 import { keyManager } from './key-manager';
+import { recordingManager } from './recording-manager';
 
 const { Client } = ssh2;
 type ConnectConfig = ssh2.ConnectConfig;
@@ -60,14 +61,22 @@ export const sshManager = {
         if (session) session.shell = stream;
 
         stream.on('data', (data: Buffer) => {
+          const dataStr = data.toString('utf8');
           if (!sender.isDestroyed()) {
-            sender.send('ssh:data', sessionId, data.toString('utf8'));
+            sender.send('ssh:data', sessionId, dataStr);
+          }
+          if (recordingManager.isRecording(sessionId)) {
+            recordingManager.appendData(sessionId, dataStr);
           }
         });
 
         stream.stderr.on('data', (data: Buffer) => {
+          const dataStr = data.toString('utf8');
           if (!sender.isDestroyed()) {
-            sender.send('ssh:data', sessionId, data.toString('utf8'));
+            sender.send('ssh:data', sessionId, dataStr);
+          }
+          if (recordingManager.isRecording(sessionId)) {
+            recordingManager.appendData(sessionId, dataStr);
           }
         });
 

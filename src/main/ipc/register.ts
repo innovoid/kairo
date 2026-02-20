@@ -11,6 +11,7 @@ import { aiIpcHandlers } from './ai';
 import { settingsIpcHandlers } from './settings';
 import { apiKeysIpcHandlers } from './api-keys';
 import { snippetsIpcHandlers } from './snippets';
+import { recordingIpcHandlers } from './recording';
 
 type IpcHandler<TArgs extends unknown[] = unknown[], TResult = unknown> = (
   event: IpcMainInvokeEvent,
@@ -192,4 +193,11 @@ export function registerWorkspaceIpcHandlers(): void {
   register('snippets.create', withSupabase(snippetsIpcHandlers.create));
   register('snippets.update', withSupabase(snippetsIpcHandlers.update));
   register('snippets.delete', withSupabase(snippetsIpcHandlers.delete));
+
+  // Recording
+  register('recording.start', recordingIpcHandlers.start);
+  register('recording.stop', recordingIpcHandlers.stop);
+  register('recording.list', recordingIpcHandlers.list);
+  register('recording.read', recordingIpcHandlers.read);
+  register('recording.isRecording', recordingIpcHandlers.isRecording);
 }
