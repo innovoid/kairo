@@ -14,9 +14,10 @@ interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   sessionId: string;
   settings?: UserSettings | null;
+  isVisible?: boolean;
 }
 
-export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOptions) {
+export function useTerminal({ containerRef, sessionId, settings, isVisible = true }: UseTerminalOptions) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
@@ -41,6 +42,8 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
       letterSpacing: 0,
       fontWeight: 'normal',
       fontWeightBold: 'bold',
+      rendererType: 'canvas', // Use canvas renderer instead of webgl for better compatibility
+      drawBoldTextInBrightColors: true,
     });
 
     const fitAddon = new FitAddon();
@@ -115,8 +118,8 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
 
     // Resize observer
     const resizeObserver = new ResizeObserver(() => {
-      // Skip resize if container is not visible (hidden tab)
-      if (!containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
+      // Skip resize if not visible or container has no dimensions
+      if (!isVisible || !containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
         return;
       }
 
@@ -140,7 +143,23 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
       fitAddonRef.current = null;
       searchAddonRef.current = null;
     };
-  }, [sessionId]);
+  }, [sessionId, isVisible]);
+
+  // Handle visibility changes - refit terminal when tab becomes visible
+  useEffect(() => {
+    if (isVisible && terminalRef.current && fitAddonRef.current && containerRef.current) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        if (containerRef.current && containerRef.current.offsetWidth > 0) {
+          fitAddonRef.current?.fit();
+          const { cols, rows } = terminalRef.current!;
+          if (cols > 0 && rows > 0) {
+            window.sshApi.resize(sessionId, cols, rows);
+          }
+        }
+      });
+    }
+  }, [isVisible, sessionId]);
 
   return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef };
 }

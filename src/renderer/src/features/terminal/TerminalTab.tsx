@@ -16,9 +16,10 @@ interface TerminalTabProps {
   onSplit?: (direction: 'horizontal' | 'vertical') => void;
   onClosePane?: () => void;
   isPane?: boolean;
+  isVisible?: boolean;
 }
 
-export function TerminalTab({ tab, onSplit, onClosePane, isPane }: TerminalTabProps) {
+export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = true }: TerminalTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { updateTabStatus } = useSessionStore();
   const { settings } = useSettingsStore();
@@ -32,6 +33,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane }: TerminalTabPr
     containerRef,
     sessionId: tab.sessionId!,
     settings,
+    isVisible,
   });
 
   useEffect(() => {

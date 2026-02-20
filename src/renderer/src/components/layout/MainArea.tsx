@@ -71,41 +71,44 @@ export function MainArea() {
 
   return (
     <div className="flex-1 relative overflow-hidden">
-      {terminalAndSftpTabs.map((tab) => (
-        <div
-          key={tab.tabId}
-          className={tab.tabId === activeTabId ? 'absolute inset-0' : 'hidden'}
-        >
-          {tab.tabType === 'terminal' ? (
-            <ErrorBoundary fallbackLabel="Terminal crashed">
-              {tab.paneTree ? (
-                <SplitPaneLayout
-                  pane={tab.paneTree}
-                  parentTab={tab}
-                  onSplit={(sessionId, direction) => {
-                    const newSessionId = `local-${Date.now()}`;
-                    splitPane(tab.tabId, direction, newSessionId);
-                    window.sshApi.connect(newSessionId, { type: 'local' });
-                    setFocusedPaneSessionId(newSessionId);
-                  }}
-                  onClosePane={(sessionId) => {
-                    closePane(tab.tabId, sessionId);
-                    if (focusedPaneSessionId === sessionId) setFocusedPaneSessionId(null);
-                  }}
-                  focusedSessionId={focusedPaneSessionId ?? undefined}
-                  onFocus={setFocusedPaneSessionId}
-                />
-              ) : (
-                <TerminalTab tab={tab} />
-              )}
-            </ErrorBoundary>
-          ) : (
-            <ErrorBoundary fallbackLabel="SFTP crashed">
-              <SftpTab tab={tab} />
-            </ErrorBoundary>
-          )}
-        </div>
-      ))}
+      {terminalAndSftpTabs.map((tab) => {
+        const isVisible = tab.tabId === activeTabId;
+        return (
+          <div
+            key={tab.tabId}
+            className={isVisible ? 'absolute inset-0' : 'hidden'}
+          >
+            {tab.tabType === 'terminal' ? (
+              <ErrorBoundary fallbackLabel="Terminal crashed">
+                {tab.paneTree ? (
+                  <SplitPaneLayout
+                    pane={tab.paneTree}
+                    parentTab={tab}
+                    onSplit={(sessionId, direction) => {
+                      const newSessionId = `local-${Date.now()}`;
+                      splitPane(tab.tabId, direction, newSessionId);
+                      window.sshApi.connect(newSessionId, { type: 'local' });
+                      setFocusedPaneSessionId(newSessionId);
+                    }}
+                    onClosePane={(sessionId) => {
+                      closePane(tab.tabId, sessionId);
+                      if (focusedPaneSessionId === sessionId) setFocusedPaneSessionId(null);
+                    }}
+                    focusedSessionId={focusedPaneSessionId ?? undefined}
+                    onFocus={setFocusedPaneSessionId}
+                  />
+                ) : (
+                  <TerminalTab tab={tab} isVisible={isVisible} />
+                )}
+              </ErrorBoundary>
+            ) : (
+              <ErrorBoundary fallbackLabel="SFTP crashed">
+                <SftpTab tab={tab} />
+              </ErrorBoundary>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
