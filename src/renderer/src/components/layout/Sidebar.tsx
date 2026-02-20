@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-import { Server, KeyRound, Building2, Settings } from 'lucide-react';
+import { Server, KeyRound, Building2, Settings, TerminalSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -19,10 +19,11 @@ interface SidebarProps {
   onGoKeys: () => void;
   onGoWorkspace: () => void;
   onOpenProfile: () => void;
+  onOpenLocalTerminal: () => void;
   activeView: 'hosts' | 'keys' | 'workspace' | 'settings' | 'profile';
 }
 
-export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, activeView }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onOpenProfile, onOpenLocalTerminal, activeView }: SidebarProps) {
   const [user, setUser] = useState<User | null>(null);
   const [userName, setUserName] = useState('User');
 
@@ -57,6 +58,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
         <NavButton icon={Server} label="Hosts" active={activeView === 'hosts'} onClick={onGoHome} />
         <NavButton icon={KeyRound} label="SSH Keys" active={activeView === 'keys'} onClick={onGoKeys} />
         <NavButton icon={Building2} label="Workspace" active={activeView === 'workspace'} onClick={onGoWorkspace} />
+        <NavButton icon={TerminalSquare} label="Local Terminal" onClick={onOpenLocalTerminal} />
 
         <div className="flex-1" />
 

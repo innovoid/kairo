@@ -82,6 +82,18 @@ export function AppShell() {
     openTab({ tabId: 'profile', tabType: 'profile', label: 'Profile' });
   }
 
+  function handleOpenLocalTerminal() {
+    const sessionId = `local-${Date.now()}`;
+    openTab({
+      tabId: sessionId,
+      tabType: 'terminal',
+      label: 'Local Terminal',
+      sessionId,
+      status: 'connecting',
+    });
+    window.sshApi.connect(sessionId, { type: 'local' });
+  }
+
   function handleAddHost() {
     setEditingHost(null);
     setActivePanel('host-form');
@@ -130,6 +142,7 @@ export function AppShell() {
           onGoKeys={handleGoKeys}
           onGoWorkspace={handleGoWorkspace}
           onOpenProfile={handleGoProfile}
+          onOpenLocalTerminal={handleOpenLocalTerminal}
           activeView={sidebarView}
         />
 
