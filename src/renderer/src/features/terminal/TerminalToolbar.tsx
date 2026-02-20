@@ -1,7 +1,10 @@
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
+import { useBroadcastStore } from '@/stores/broadcast-store';
 import { Button } from '@/components/ui/button';
-import { X, FolderOpen, SplitSquareHorizontal, SplitSquareVertical } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { X, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TerminalToolbarProps {
@@ -11,7 +14,8 @@ interface TerminalToolbarProps {
 }
 
 export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarProps) {
-  const { closeTab, openTab } = useSessionStore();
+  const { closeTab, openTab, tabs } = useSessionStore();
+  const { enabled, targetSessionIds, toggle, addTarget, removeTarget } = useBroadcastStore();
 
   function disconnect() {
     if (tab.sessionId) {
@@ -32,6 +36,22 @@ export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarPr
       status: 'connected',
     });
   }
+
+  function toggleBroadcast() {
+    if (!enabled && tab.sessionId) {
+      // Enable and add this session as a target
+      toggle();
+      addTarget(tab.sessionId);
+    } else {
+      // Disable
+      toggle();
+    }
+  }
+
+  // Get all connected terminal sessions
+  const allTerminalSessions = [...tabs.values()]
+    .filter((t) => t.tabType === 'terminal' && t.sessionId && t.status === 'connected')
+    .map((t) => ({ sessionId: t.sessionId!, label: t.label }));
 
   return (
     <div className="flex items-center gap-2 px-3 h-8 border-b bg-muted/20 shrink-0">
@@ -56,6 +76,50 @@ export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarPr
               <SplitSquareVertical className="h-3.5 w-3.5" />
             </Button>
           </>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn('h-6 px-2 text-xs', enabled && 'text-blue-500')}
+          onClick={toggleBroadcast}
+          title={enabled ? 'Disable broadcast' : 'Enable broadcast'}
+        >
+          <Radio className="h-3.5 w-3.5" />
+        </Button>
+        {enabled && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="Broadcast targets">
+                <span className="text-blue-500">({targetSessionIds.length})</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="end">
+              <div className="text-xs font-semibold mb-2">Broadcast Targets</div>
+              <div className="space-y-2">
+                {allTerminalSessions.map(({ sessionId, label }) => (
+                  <div key={sessionId} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`broadcast-${sessionId}`}
+                      checked={targetSessionIds.includes(sessionId)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          addTarget(sessionId);
+                        } else {
+                          removeTarget(sessionId);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`broadcast-${sessionId}`}
+                      className="text-xs cursor-pointer flex-1"
+                    >
+                      {label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
         {onClosePane ? (
           <Button

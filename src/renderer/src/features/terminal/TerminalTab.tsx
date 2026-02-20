@@ -3,10 +3,12 @@ import { toast } from 'sonner';
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useBroadcastStore } from '@/stores/broadcast-store';
 import { useTerminal } from './useTerminal';
 import { TerminalToolbar } from './TerminalToolbar';
 import { TerminalSearchBar } from './TerminalSearchBar';
 import { SnippetPickerOverlay } from '@/features/snippets/SnippetPickerOverlay';
+import { cn } from '@/lib/utils';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalTabProps {
@@ -20,8 +22,11 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane }: TerminalTabPr
   const containerRef = useRef<HTMLDivElement>(null);
   const { updateTabStatus } = useSessionStore();
   const { settings } = useSettingsStore();
+  const { targetSessionIds } = useBroadcastStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showSnippetPicker, setShowSnippetPicker] = useState(false);
+
+  const isBroadcastTarget = tab.sessionId && targetSessionIds.includes(tab.sessionId);
 
   const { terminal, searchAddon } = useTerminal({
     containerRef,
@@ -83,7 +88,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane }: TerminalTabPr
   }, []);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={cn('flex flex-col h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>
       <TerminalToolbar tab={tab} onSplit={isPane ? onSplit : undefined} onClosePane={isPane ? onClosePane : undefined} />
       <div className="relative flex-1 overflow-hidden">
         <div ref={containerRef} className="absolute inset-0 bg-[#09090b] p-1" />

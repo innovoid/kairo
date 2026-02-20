@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
+import { useBroadcastStore } from '@/stores/broadcast-store';
 
 interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -52,6 +53,16 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
     // Handle keyboard input
     const disposeOnData = terminal.onData((data) => {
       window.sshApi.send(sessionId, data);
+
+      // Broadcast to other terminals if enabled
+      const { enabled, targetSessionIds } = useBroadcastStore.getState();
+      if (enabled) {
+        for (const targetId of targetSessionIds) {
+          if (targetId !== sessionId) {
+            window.sshApi.send(targetId, data);
+          }
+        }
+      }
     });
 
     // Resize observer
