@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { SshSessionStatus } from '@shared/types/ssh';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
 import type { PaneNode } from '@shared/types/pane';
+import { disposeTerminalSession } from '@/features/terminal/useTerminal';
 
 export type TabType = 'hosts' | 'keys' | 'team' | 'workspace' | 'settings' | 'profile' | 'terminal' | 'sftp' | 'snippets';
 
@@ -73,6 +74,24 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => {
       const tab = state.tabs.get(tabId);
       if (!tab || !tab.closable) return state;
+
+      // Cleanup terminal sessions when closing terminal tabs
+      if (tab.tabType === 'terminal') {
+        if (tab.paneTree) {
+          // Close all sessions in pane tree
+          function collectSessionIds(node: PaneNode): string[] {
+            if (node.type === 'terminal') {
+              return [node.sessionId];
+            }
+            return node.children.flatMap(collectSessionIds);
+          }
+          const sessionIds = collectSessionIds(tab.paneTree);
+          sessionIds.forEach(sid => disposeTerminalSession(sid));
+        } else if (tab.sessionId) {
+          // Close single terminal session
+          disposeTerminalSession(tab.sessionId);
+        }
+      }
 
       const newTabs = new Map(state.tabs);
       newTabs.delete(tabId);
@@ -155,6 +174,9 @@ export const useSessionStore = create<SessionState>((set) => ({
   },
 
   closePane: (tabId, sessionId) => {
+    // Cleanup the terminal session for the closed pane
+    disposeTerminalSession(sessionId);
+
     set((state) => {
       const tab = state.tabs.get(tabId);
       if (!tab || !tab.paneTree) return state;
