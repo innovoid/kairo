@@ -50,7 +50,20 @@ export const useAiStore = create<AiState>((set, get) => ({
     // Read provider from settings store, API key from local encrypted storage
     const settings = useSettingsStore.getState().settings;
     const provider = settings?.aiProvider ?? 'openai';
-    const apiKey = await window.apiKeysApi.get(provider);
+
+    let apiKey: string | null;
+    try {
+      apiKey = await window.apiKeysApi.get(provider);
+    } catch {
+      const errMessage: AiMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Failed to retrieve API key. Please check your settings.',
+        createdAt: new Date().toISOString(),
+      };
+      set((state) => ({ messages: [...state.messages, errMessage], isStreaming: false }));
+      return;
+    }
 
     if (!apiKey) {
       const errMessage: AiMessage = {

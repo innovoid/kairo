@@ -34,8 +34,8 @@ const mockApiKeysApi = {
 
 describe('useAiStore', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    // Reset default mock behaviours
+    vi.resetAllMocks();
+    // Re-set default mock implementations after reset clears them
     mockApiKeysApi.get.mockResolvedValue('test-api-key');
     // Reset store state
     useAiStore.setState({
@@ -164,6 +164,15 @@ describe('useAiStore', () => {
       );
       expect(errorMessage).toBeDefined();
       expect(mockAiApi.complete).not.toHaveBeenCalled();
+    });
+
+    it('should handle API key load error gracefully', async () => {
+      mockApiKeysApi.get.mockRejectedValue(new Error('IPC error'));
+      const { sendMessage } = useAiStore.getState();
+      await sendMessage('Hello AI');
+      const state = useAiStore.getState();
+      expect(state.isStreaming).toBe(false);
+      expect(state.messages.some(m => m.role === 'assistant' && m.content.includes('Failed'))).toBe(true);
     });
 
     it('should use correct API key for different providers', async () => {

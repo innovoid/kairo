@@ -328,7 +328,9 @@ function AiTab() {
       setOpenaiKey(oai || '');
       setAnthropicKey(anth || '');
       setGeminiKey(gem || '');
-    }).catch(() => {});
+    }).catch(() => {
+      toast.error('Failed to load API keys');
+    });
   }, []);
 
   useEffect(() => {
@@ -379,6 +381,22 @@ function AiTab() {
         <p className="text-sm text-muted-foreground">Configure API keys for AI assistants.</p>
       </div>
       <Separator />
+
+      {/* Active provider selector */}
+      <div className="space-y-2">
+        <Label>Active AI Provider</Label>
+        <Select value={aiProvider} onValueChange={(v) => setAiProvider(v as AiProvider)}>
+          <SelectTrigger className="w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="openai">OpenAI</SelectItem>
+            <SelectItem value="anthropic">Anthropic</SelectItem>
+            <SelectItem value="gemini">Google Gemini</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">The AI provider used in the AI assistant.</p>
+      </div>
 
       {/* OpenAI Section */}
       <div className="border rounded-lg">

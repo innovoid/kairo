@@ -11,10 +11,14 @@ export const apiKeyStore = {
       .get(`api_key:${provider}`) as { value: string } | undefined;
     if (!row) return null;
     try {
+      if (row.value.startsWith('plain:')) {
+        return row.value.slice('plain:'.length);
+      }
       if (safeStorage.isEncryptionAvailable()) {
         return safeStorage.decryptString(Buffer.from(row.value, 'base64'));
       }
-      return row.value; // fallback: stored as plain text
+      // safeStorage not available but value looks encrypted — can't decrypt
+      return null;
     } catch {
       return null;
     }
@@ -24,7 +28,7 @@ export const apiKeyStore = {
     const db = getDb();
     const value = safeStorage.isEncryptionAvailable()
       ? safeStorage.encryptString(key).toString('base64')
-      : key;
+      : `plain:${key}`;
     db.prepare("insert or replace into app_secrets (key, value) values (?, ?)")
       .run(`api_key:${provider}`, value);
   },
