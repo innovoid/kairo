@@ -48,7 +48,13 @@ function detectShell(): string {
 }
 
 function getShellEnvironment(): Record<string, string> {
-  const env = { ...process.env } as Record<string, string>;
+  // Filter out undefined and null values from process.env
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && value !== null) {
+      env[key] = value;
+    }
+  }
 
   // Ensure PATH includes common locations on macOS/Linux
   if (platform() !== 'win32') {
@@ -100,16 +106,39 @@ export const localShellManager = {
     const shell = options?.shell || defaultShell;
     const cwd = options?.cwd || process.env.HOME || process.env.USERPROFILE || '/';
 
+    // Verify shell exists before spawning
+    if (platform() !== 'win32' && !existsSync(shell)) {
+      const errorMsg = `Shell not found: ${shell}`;
+      logger.error(errorMsg);
+      if (!sender.isDestroyed()) {
+        sender.send('ssh:error', sessionId, errorMsg);
+      }
+      return;
+    }
+
+    // Verify cwd exists
+    if (!existsSync(cwd)) {
+      const errorMsg = `Working directory not found: ${cwd}`;
+      logger.error(errorMsg);
+      if (!sender.isDestroyed()) {
+        sender.send('ssh:error', sessionId, errorMsg);
+      }
+      return;
+    }
+
     logger.debug(`Spawning local shell: ${shell} in ${cwd}`);
 
     let ptyProcess: pty.IPty;
     try {
+      const env = getShellEnvironment();
+      logger.debug(`Environment keys: ${Object.keys(env).length}, PATH: ${env.PATH?.substring(0, 100)}, HOME: ${env.HOME}`);
+
       ptyProcess = pty.spawn(shell, [], {
         name: 'xterm-256color',
         cols: 80,
         rows: 24,
         cwd,
-        env: getShellEnvironment(),
+        env,
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
