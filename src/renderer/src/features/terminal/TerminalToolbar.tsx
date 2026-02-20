@@ -93,35 +93,35 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
     .map((t) => ({ sessionId: t.sessionId!, label: t.label }));
 
   return (
-    <div className="flex items-center gap-2 px-3 h-8 border-b bg-muted/20 shrink-0">
-      <div className={cn('w-2 h-2 rounded-full shrink-0',
-        tab.status === 'connected' ? 'bg-green-500' :
-        tab.status === 'connecting' ? 'bg-yellow-500' :
-        tab.status === 'error' ? 'bg-red-500' : 'bg-muted-foreground/30'
+    <div className="flex items-center gap-2 px-3 h-9 border-b bg-card/50 backdrop-blur-sm shrink-0">
+      <div className={cn('w-2 h-2 rounded-full shrink-0 transition-colors duration-200',
+        tab.status === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' :
+        tab.status === 'connecting' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)] animate-pulse' :
+        tab.status === 'error' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-muted-foreground/30'
       )} />
-      <span className="text-xs text-muted-foreground font-mono">
-        {tab.hostname} — {tab.label}
+      <span className="text-xs text-muted-foreground/80 font-mono tracking-wide">
+        {tab.hostname} <span className="text-muted-foreground/50">—</span> {tab.label}
       </span>
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-0.5">
         <Button
           variant="ghost"
           size="sm"
-          className={cn('h-6 px-2 text-xs', recordingState && 'text-red-500')}
+          className={cn('h-7 px-2 text-xs hover:bg-accent/50', recordingState && 'text-red-500 hover:text-red-600')}
           onClick={toggleRecording}
           title={recordingState ? 'Stop recording' : 'Start recording'}
         >
-          <Circle className={cn('h-3.5 w-3.5', recordingState && 'fill-red-500')} />
+          <Circle className={cn('h-3.5 w-3.5 transition-all', recordingState && 'fill-red-500')} />
         </Button>
         <RecordingControls />
-        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={openSftp} title="Open SFTP">
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs hover:bg-accent/50" onClick={openSftp} title="Open SFTP">
           <FolderOpen className="h-3.5 w-3.5" />
         </Button>
         {onSplit && (
           <>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onSplit('horizontal')} title="Split horizontal">
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs hover:bg-accent/50" onClick={() => onSplit('horizontal')} title="Split horizontal">
               <SplitSquareHorizontal className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onSplit('vertical')} title="Split vertical">
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs hover:bg-accent/50" onClick={() => onSplit('vertical')} title="Split vertical">
               <SplitSquareVertical className="h-3.5 w-3.5" />
             </Button>
           </>
@@ -129,7 +129,7 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
         <Button
           variant="ghost"
           size="sm"
-          className={cn('h-6 px-2 text-xs', enabled && 'text-blue-500')}
+          className={cn('h-7 px-2 text-xs hover:bg-accent/50', enabled && 'text-primary hover:text-primary')}
           onClick={toggleBroadcast}
           title={enabled ? 'Disable broadcast' : 'Enable broadcast'}
         >
