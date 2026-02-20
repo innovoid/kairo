@@ -82,6 +82,10 @@ export function AppShell() {
     openTab({ tabId: 'profile', tabType: 'profile', label: 'Profile' });
   }
 
+  function handleOpenSnippets() {
+    openTab({ tabId: 'snippets', tabType: 'snippets', label: 'Snippets' });
+  }
+
   function handleOpenLocalTerminal() {
     const sessionId = `local-${Date.now()}`;
     openTab({
@@ -130,6 +134,7 @@ export function AppShell() {
     activeTab?.tabType === 'keys' ? 'keys' :
     activeTab?.tabType === 'workspace' ? 'workspace' :
     activeTab?.tabType === 'profile' ? 'profile' :
+    activeTab?.tabType === 'snippets' ? 'snippets' :
     'hosts';
 
   return (
@@ -143,6 +148,7 @@ export function AppShell() {
           onGoWorkspace={handleGoWorkspace}
           onOpenProfile={handleGoProfile}
           onOpenLocalTerminal={handleOpenLocalTerminal}
+          onOpenSnippets={handleOpenSnippets}
           activeView={sidebarView}
         />
 

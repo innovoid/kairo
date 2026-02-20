@@ -1,14 +1,16 @@
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { Button } from '@/components/ui/button';
-import { X, FolderOpen } from 'lucide-react';
+import { X, FolderOpen, SplitSquareHorizontal, SplitSquareVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TerminalToolbarProps {
   tab: Tab;
+  onSplit?: (direction: 'horizontal' | 'vertical') => void;
+  onClosePane?: () => void;
 }
 
-export function TerminalToolbar({ tab }: TerminalToolbarProps) {
+export function TerminalToolbar({ tab, onSplit, onClosePane }: TerminalToolbarProps) {
   const { closeTab, openTab } = useSessionStore();
 
   function disconnect() {
@@ -45,15 +47,37 @@ export function TerminalToolbar({ tab }: TerminalToolbarProps) {
         <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={openSftp} title="Open SFTP">
           <FolderOpen className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-          onClick={disconnect}
-          title="Disconnect"
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        {onSplit && (
+          <>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onSplit('horizontal')} title="Split horizontal">
+              <SplitSquareHorizontal className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onSplit('vertical')} title="Split vertical">
+              <SplitSquareVertical className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
+        {onClosePane ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={onClosePane}
+            title="Close pane"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+            onClick={disconnect}
+            title="Disconnect"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     </div>
   );

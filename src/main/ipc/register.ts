@@ -10,6 +10,7 @@ import { keysIpcHandlers } from './keys';
 import { aiIpcHandlers } from './ai';
 import { settingsIpcHandlers } from './settings';
 import { apiKeysIpcHandlers } from './api-keys';
+import { snippetsIpcHandlers } from './snippets';
 
 type IpcHandler<TArgs extends unknown[] = unknown[], TResult = unknown> = (
   event: IpcMainInvokeEvent,
@@ -185,4 +186,10 @@ export function registerWorkspaceIpcHandlers(): void {
   register('apiKeys.get', apiKeysIpcHandlers.get);
   register('apiKeys.set', apiKeysIpcHandlers.set);
   register('apiKeys.delete', apiKeysIpcHandlers.delete);
+
+  // Snippets
+  register('snippets.list', withSupabase(snippetsIpcHandlers.list));
+  register('snippets.create', withSupabase(snippetsIpcHandlers.create));
+  register('snippets.update', withSupabase(snippetsIpcHandlers.update));
+  register('snippets.delete', withSupabase(snippetsIpcHandlers.delete));
 }

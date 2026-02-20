@@ -92,6 +92,17 @@ function runMigrations(db: Database.Database): void {
       key text primary key,
       value text not null
     );
+
+    create table if not exists snippets (
+      id text primary key,
+      workspace_id text not null,
+      name text not null,
+      command text not null,
+      description text,
+      tags text default '[]',
+      created_by text,
+      synced_at integer
+    );
   `);
 
   // Add salt column to private_keys if it doesn't exist (migration for existing databases)
@@ -249,5 +260,40 @@ export const settingsQueries = {
       insert or replace into settings_cache (user_id, data, synced_at)
       values (?, ?, ?)
     `).run(userId, data, Date.now());
+  },
+};
+
+export interface DbSnippet {
+  id: string;
+  workspace_id: string;
+  name: string;
+  command: string;
+  description: string | null;
+  tags: string; // JSON array string
+  created_by: string | null;
+  synced_at: number | null;
+}
+
+export const snippetQueries = {
+  listByWorkspace: (workspaceId: string): DbSnippet[] => {
+    const db = getDb();
+    return db.prepare('select * from snippets where workspace_id = ?').all(workspaceId) as DbSnippet[];
+  },
+  getById: (id: string): DbSnippet | undefined => {
+    const db = getDb();
+    return db.prepare('select * from snippets where id = ?').get(id) as DbSnippet | undefined;
+  },
+  upsert: (snippet: DbSnippet): void => {
+    const db = getDb();
+    db.prepare(`
+      insert or replace into snippets
+        (id, workspace_id, name, command, description, tags, created_by, synced_at)
+      values
+        (@id, @workspace_id, @name, @command, @description, @tags, @created_by, @synced_at)
+    `).run(snippet);
+  },
+  delete: (id: string): void => {
+    const db = getDb();
+    db.prepare('delete from snippets where id = ?').run(id);
   },
 };

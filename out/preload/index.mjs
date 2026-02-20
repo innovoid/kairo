@@ -116,3 +116,9 @@ const settingsApi = {
   update: (input) => ipcRenderer.invoke("settings.update", input)
 };
 contextBridge.exposeInMainWorld("settingsApi", settingsApi);
+const apiKeysApi = {
+  get: (provider) => ipcRenderer.invoke("apiKeys.get", provider),
+  set: (provider, key) => ipcRenderer.invoke("apiKeys.set", provider, key),
+  delete: (provider) => ipcRenderer.invoke("apiKeys.delete", provider)
+};
+contextBridge.exposeInMainWorld("apiKeysApi", apiKeysApi);

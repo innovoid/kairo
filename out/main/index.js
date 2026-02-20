@@ -1,16 +1,27 @@
-import { app, dialog, ipcMain, BrowserWindow } from "electron";
+import { app, dialog, safeStorage, ipcMain, BrowserWindow } from "electron";
 import { join } from "node:path";
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
+import log from "electron-log/main.js";
 import Database from "better-sqlite3";
 import { mkdirSync, createReadStream, createWriteStream } from "node:fs";
 import ssh2 from "ssh2";
 import { createDecipheriv, createHash, randomBytes, createCipheriv, pbkdf2Sync } from "node:crypto";
+import * as pty from "node-pty";
+import { platform } from "os";
 import { stat } from "node:fs/promises";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
 const require2 = __cjs_mod__.createRequire(import.meta.url);
+log.transports.file.level = "info";
+log.transports.console.level = "debug";
+const logger = {
+  debug: log.debug.bind(log),
+  info: log.info.bind(log),
+  warn: log.warn.bind(log),
+  error: log.error.bind(log)
+};
 const toWorkspace = (row) => ({
   id: row.id,
   name: row.name,
@@ -120,7 +131,7 @@ const workspaceIpcHandlers = {
     }
     const activateCall = await supabase.rpc("set_active_workspace", { target_workspace_id: row.id });
     if (activateCall.error && !isMissingRpcError(activateCall.error, "set_active_workspace")) {
-      console.warn("set_active_workspace failed (non-fatal):", activateCall.error.message);
+      logger.warn("set_active_workspace failed (non-fatal):", activateCall.error.message);
     }
     return toWorkspace(row);
   },
@@ -240,6 +251,14 @@ function getDb() {
   _db.pragma("journal_mode = WAL");
   _db.pragma("foreign_keys = ON");
   runMigrations(_db);
+  try {
+    const legacyCount = _db.prepare("select count(*) as cnt from private_keys where salt is null").get();
+    if (legacyCount && legacyCount.cnt > 0) {
+      const { migratePrivateKeys } = require2("./services/key-manager");
+      migratePrivateKeys(_db);
+    }
+  } catch {
+  }
   return _db;
 }
 function runMigrations(db) {
@@ -282,7 +301,8 @@ function runMigrations(db) {
       key_id text primary key,
       encrypted_blob text not null,
       iv text not null,
-      auth_tag text not null
+      auth_tag text not null,
+      salt text
     );
 
     create table if not exists settings_cache (
@@ -290,7 +310,16 @@ function runMigrations(db) {
       data text not null,
       synced_at integer
     );
+
+    create table if not exists app_secrets (
+      key text primary key,
+      value text not null
+    );
   `);
+  const cols = db.prepare("pragma table_info('private_keys')").all();
+  if (!cols.some((c) => c.name === "salt")) {
+    db.exec("alter table private_keys add column salt text");
+  }
 }
 const hostQueries = {
   listByWorkspace: (workspaceId) => {
@@ -370,8 +399,8 @@ const privateKeyQueries = {
   upsert: (pk) => {
     const db = getDb();
     db.prepare(`
-      insert or replace into private_keys (key_id, encrypted_blob, iv, auth_tag)
-      values (@key_id, @encrypted_blob, @iv, @auth_tag)
+      insert or replace into private_keys (key_id, encrypted_blob, iv, auth_tag, salt)
+      values (@key_id, @encrypted_blob, @iv, @auth_tag, @salt)
     `).run(pk);
   },
   delete: (keyId) => {
@@ -518,7 +547,7 @@ const supabaseSync = {
       key_id: input.keyId ?? null,
       tags: input.tags ?? []
     }).then(({ error }) => {
-      if (error) console.error("Background sync failed for host create:", error);
+      if (error) logger.error("Background sync failed for host create:", error);
     });
     return {
       id: newHost.id,
@@ -538,9 +567,9 @@ const supabaseSync = {
   },
   async updateHost(supabase, id, input) {
     try {
-      console.log("[supabaseSync.updateHost] Starting update:", { id, input });
+      logger.debug("[supabaseSync.updateHost] Starting update:", { id, input });
       const existingHost = hostQueries.getById(id);
-      console.log("[supabaseSync.updateHost] Existing host:", {
+      logger.debug("[supabaseSync.updateHost] Existing host:", {
         found: !!existingHost,
         id: existingHost?.id,
         hasAllFields: existingHost ? {
@@ -560,7 +589,7 @@ const supabaseSync = {
       try {
         existingTags = JSON.parse(existingHost.tags);
       } catch (e) {
-        console.error("Failed to parse existing tags:", e);
+        logger.error("Failed to parse existing tags:", e);
         existingTags = [];
       }
       const updatedHost = {
@@ -589,7 +618,7 @@ const supabaseSync = {
             fingerprint: keyRow.fingerprint,
             has_encrypted_sync: keyRow.has_encrypted_sync === 1
           }).then(({ error }) => {
-            if (error) console.error("[supabaseSync.updateHost] Failed to sync key metadata:", error);
+            if (error) logger.error("[supabaseSync.updateHost] Failed to sync key metadata:", error);
           });
         }
       }
@@ -603,16 +632,16 @@ const supabaseSync = {
       if (input.keyId !== void 0) updates.key_id = input.keyId;
       if (input.tags !== void 0) updates.tags = input.tags;
       supabase.from("hosts").update(updates).eq("id", id).then(({ error }) => {
-        if (error) console.error("Background sync failed for host update:", error);
+        if (error) logger.error("Background sync failed for host update:", error);
       });
       let parsedTags = [];
       try {
         parsedTags = JSON.parse(updatedHost.tags);
       } catch (e) {
-        console.error("Failed to parse tags for return:", updatedHost.tags, e);
+        logger.error("Failed to parse tags for return:", updatedHost.tags, e);
         parsedTags = [];
       }
-      console.log("[supabaseSync.updateHost] Returning updated host:", updatedHost.id);
+      logger.debug("[supabaseSync.updateHost] Returning updated host:", updatedHost.id);
       return {
         id: updatedHost.id,
         workspaceId: updatedHost.workspace_id,
@@ -629,14 +658,14 @@ const supabaseSync = {
         updatedAt: new Date(updatedHost.synced_at).toISOString()
       };
     } catch (error) {
-      console.error("[supabaseSync.updateHost] Error updating host:", error);
+      logger.error("[supabaseSync.updateHost] Error updating host:", error);
       throw new Error(`Failed to update host locally: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   },
   async deleteHost(supabase, id) {
     hostQueries.delete(id);
     supabase.from("hosts").delete().eq("id", id).then(({ error }) => {
-      if (error) console.error("Background sync failed for host delete:", error);
+      if (error) logger.error("Background sync failed for host delete:", error);
     });
   },
   async createFolder(supabase, input) {
@@ -658,7 +687,7 @@ const supabaseSync = {
       name: input.name,
       position: input.position ?? 0
     }).then(({ error }) => {
-      if (error) console.error("Background sync failed for folder create:", error);
+      if (error) logger.error("Background sync failed for folder create:", error);
     });
     return {
       id: newFolder.id,
@@ -679,7 +708,7 @@ const supabaseSync = {
     };
     folderQueries.upsert(updatedFolder);
     supabase.from("host_folders").update({ name }).eq("id", id).then(({ error }) => {
-      if (error) console.error("Background sync failed for folder update:", error);
+      if (error) logger.error("Background sync failed for folder update:", error);
     });
     return {
       id: updatedFolder.id,
@@ -698,8 +727,8 @@ const supabaseSync = {
       supabase.from("hosts").update({ folder_id: null }).eq("folder_id", id),
       supabase.from("host_folders").delete().eq("id", id)
     ]).then(([updateResult, deleteResult]) => {
-      if (updateResult.error) console.error("Background sync failed for moving hosts:", updateResult.error);
-      if (deleteResult.error) console.error("Background sync failed for folder delete:", deleteResult.error);
+      if (updateResult.error) logger.error("Background sync failed for moving hosts:", updateResult.error);
+      if (deleteResult.error) logger.error("Background sync failed for folder delete:", deleteResult.error);
     });
   },
   // Sync keys to Supabase (metadata only, no private keys)
@@ -761,7 +790,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.pullHosts(supabase, workspaceId);
     } catch (error) {
-      console.error("Error in listHosts:", error);
+      logger.error("Error in listHosts:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to list hosts");
     }
   },
@@ -770,25 +799,25 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.createHost(supabase, input);
     } catch (error) {
-      console.error("Error in createHost:", error);
+      logger.error("Error in createHost:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to create host");
     }
   },
   async updateHost(event, id, input) {
     try {
-      console.log("[hosts.update] Received update request:", {
+      logger.debug("[hosts.update] Received update request:", {
         id,
         inputKeys: Object.keys(input),
         input: JSON.stringify(input, null, 2)
       });
       const supabase = getClient$2(event);
       const result = await supabaseSync.updateHost(supabase, id, input);
-      console.log("[hosts.update] Update successful:", result.id);
+      logger.debug("[hosts.update] Update successful:", result.id);
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : "No stack trace";
-      console.error("[hosts.update] ERROR:", {
+      logger.error("[hosts.update] ERROR:", {
         message: errorMessage,
         stack: errorStack,
         id,
@@ -804,7 +833,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.deleteHost(supabase, id);
     } catch (error) {
-      console.error("Error in deleteHost:", error);
+      logger.error("Error in deleteHost:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to delete host");
     }
   },
@@ -813,7 +842,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.updateHost(supabase, id, { folderId });
     } catch (error) {
-      console.error("Error in moveHostToFolder:", error);
+      logger.error("Error in moveHostToFolder:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to move host to folder");
     }
   },
@@ -822,7 +851,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.pullFolders(supabase, workspaceId);
     } catch (error) {
-      console.error("Error in listFolders:", error);
+      logger.error("Error in listFolders:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to list folders");
     }
   },
@@ -831,7 +860,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.createFolder(supabase, input);
     } catch (error) {
-      console.error("Error in createFolder:", error);
+      logger.error("Error in createFolder:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to create folder");
     }
   },
@@ -840,7 +869,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.updateFolder(supabase, id, name);
     } catch (error) {
-      console.error("Error in updateFolder:", error);
+      logger.error("Error in updateFolder:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to update folder");
     }
   },
@@ -849,7 +878,7 @@ const hostsIpcHandlers = {
       const supabase = getClient$2(event);
       return await supabaseSync.deleteFolder(supabase, id);
     } catch (error) {
-      console.error("Error in deleteFolder:", error);
+      logger.error("Error in deleteFolder:", error);
       throw new Error(error instanceof Error ? error.message : "Failed to delete folder");
     }
   }
@@ -876,9 +905,59 @@ function detectKeyType(keyData) {
   if (lower.includes("rsa")) return "rsa";
   return "other";
 }
-function encryptPrivateKey(keyData) {
+const PBKDF2_ITERATIONS$1 = 1e5;
+const KEY_LENGTH$1 = 32;
+let _cachedMasterSecret = null;
+function getMasterSecret(db) {
+  if (_cachedMasterSecret) return _cachedMasterSecret;
+  const ROW_KEY = "master_key_v1";
+  const ROW_KEY_PLAIN = "master_key_v1_plain";
+  try {
+    const { safeStorage: safeStorage2 } = require2("electron");
+    if (safeStorage2.isEncryptionAvailable()) {
+      const row = db.prepare("select value from app_secrets where key = ?").get(ROW_KEY);
+      if (row) {
+        const masterKeyB64 = safeStorage2.decryptString(Buffer.from(row.value, "base64"));
+        _cachedMasterSecret = Buffer.from(masterKeyB64, "base64");
+        return _cachedMasterSecret;
+      }
+      const masterKey2 = randomBytes(KEY_LENGTH$1);
+      const encryptedBlob = safeStorage2.encryptString(masterKey2.toString("base64"));
+      db.prepare("insert into app_secrets (key, value) values (?, ?)").run(
+        ROW_KEY,
+        encryptedBlob.toString("base64")
+      );
+      _cachedMasterSecret = masterKey2;
+      return _cachedMasterSecret;
+    }
+  } catch {
+  }
+  const plainRow = db.prepare("select value from app_secrets where key = ?").get(ROW_KEY_PLAIN);
+  if (plainRow) {
+    _cachedMasterSecret = Buffer.from(plainRow.value, "base64");
+    return _cachedMasterSecret;
+  }
+  const masterKey = randomBytes(KEY_LENGTH$1);
+  db.prepare("insert into app_secrets (key, value) values (?, ?)").run(
+    ROW_KEY_PLAIN,
+    masterKey.toString("base64")
+  );
+  _cachedMasterSecret = masterKey;
+  return _cachedMasterSecret;
+}
+function deriveEncryptionKey(salt, db) {
+  const dbInstance = getDb();
+  const masterSecret = getMasterSecret(dbInstance);
+  return pbkdf2Sync(masterSecret, salt, PBKDF2_ITERATIONS$1, KEY_LENGTH$1, "sha256");
+}
+function getLegacyKey() {
   const keyBuf = Buffer.alloc(32);
   Buffer.from("archterm-v1-secret-key-padding!!").copy(keyBuf);
+  return keyBuf;
+}
+function encryptPrivateKey(keyData) {
+  const salt = randomBytes(32);
+  const keyBuf = deriveEncryptionKey(salt);
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", keyBuf, iv);
   const encrypted = Buffer.concat([cipher.update(keyData, "utf8"), cipher.final()]);
@@ -886,12 +965,17 @@ function encryptPrivateKey(keyData) {
   return {
     encrypted_blob: encrypted.toString("base64"),
     iv: iv.toString("base64"),
-    auth_tag: authTag.toString("base64")
+    auth_tag: authTag.toString("base64"),
+    salt: salt.toString("base64")
   };
 }
-function decryptPrivateKey(encrypted_blob, iv, auth_tag) {
-  const keyBuf = Buffer.alloc(32);
-  Buffer.from("archterm-v1-secret-key-padding!!").copy(keyBuf);
+function decryptPrivateKey(encrypted_blob, iv, auth_tag, saltBase64) {
+  let keyBuf;
+  if (saltBase64) {
+    keyBuf = deriveEncryptionKey(Buffer.from(saltBase64, "base64"));
+  } else {
+    keyBuf = getLegacyKey();
+  }
   const ivBuf = Buffer.from(iv, "base64");
   const decipher = createDecipheriv("aes-256-gcm", keyBuf, ivBuf);
   decipher.setAuthTag(Buffer.from(auth_tag, "base64"));
@@ -943,8 +1027,8 @@ const keyManager = {
       has_encrypted_sync: 0,
       synced_at: Date.now()
     });
-    const { encrypted_blob, iv, auth_tag } = encryptPrivateKey(pemOrOpenSsh);
-    privateKeyQueries.upsert({ key_id: id, encrypted_blob, iv, auth_tag });
+    const { encrypted_blob, iv, auth_tag, salt } = encryptPrivateKey(pemOrOpenSsh);
+    privateKeyQueries.upsert({ key_id: id, encrypted_blob, iv, auth_tag, salt });
     return {
       id,
       workspaceId,
@@ -966,16 +1050,16 @@ const keyManager = {
   async getDecryptedKey(keyId) {
     const pk = privateKeyQueries.get(keyId);
     if (!pk) return null;
-    return decryptPrivateKey(pk.encrypted_blob, pk.iv, pk.auth_tag);
+    return decryptPrivateKey(pk.encrypted_blob, pk.iv, pk.auth_tag, pk.salt);
   }
 };
 const { Client } = ssh2;
-const sessions = /* @__PURE__ */ new Map();
+const sessions$1 = /* @__PURE__ */ new Map();
 const sshManager = {
   async connect(sessionId, config, sender) {
     sshManager.disconnect(sessionId);
     const client = new Client();
-    sessions.set(sessionId, { client, shell: null, hostId: config.hostId });
+    sessions$1.set(sessionId, { client, shell: null, hostId: config.hostId });
     const connectConfig = {
       host: config.host,
       port: config.port,
@@ -989,7 +1073,7 @@ const sshManager = {
       const decrypted = await keyManager.getDecryptedKey(config.privateKeyId);
       if (!decrypted) {
         sender.send("ssh:error", sessionId, "Private key not found for this host");
-        sessions.delete(sessionId);
+        sessions$1.delete(sessionId);
         return;
       }
       connectConfig.privateKey = decrypted;
@@ -998,10 +1082,10 @@ const sshManager = {
       client.shell({ term: "xterm-256color" }, (err, stream) => {
         if (err) {
           sender.send("ssh:error", sessionId, err.message);
-          sessions.delete(sessionId);
+          sessions$1.delete(sessionId);
           return;
         }
-        const session = sessions.get(sessionId);
+        const session = sessions$1.get(sessionId);
         if (session) session.shell = stream;
         stream.on("data", (data) => {
           if (!sender.isDestroyed()) {
@@ -1014,7 +1098,7 @@ const sshManager = {
           }
         });
         stream.on("close", () => {
-          sessions.delete(sessionId);
+          sessions$1.delete(sessionId);
           if (!sender.isDestroyed()) {
             sender.send("ssh:closed", sessionId);
           }
@@ -1023,13 +1107,25 @@ const sshManager = {
       });
     });
     client.on("error", (err) => {
-      sessions.delete(sessionId);
+      sessions$1.delete(sessionId);
       if (!sender.isDestroyed()) {
-        sender.send("ssh:error", sessionId, err.message);
+        let userMessage = err.message;
+        if (err.message.includes("All configured authentication methods failed")) {
+          userMessage = "Authentication failed. Check your username, password, or SSH key.";
+        } else if (err.message.includes("ECONNREFUSED")) {
+          userMessage = `Connection refused by ${config.host}:${config.port}. Is the SSH server running?`;
+        } else if (err.message.includes("ETIMEDOUT") || err.message.includes("Timed out")) {
+          userMessage = `Connection timed out to ${config.host}:${config.port}. Check the hostname and your network.`;
+        } else if (err.message.includes("ENOTFOUND") || err.message.includes("getaddrinfo")) {
+          userMessage = `Host not found: ${config.host}. Check the hostname or DNS.`;
+        } else if (err.message.includes("EHOSTUNREACH")) {
+          userMessage = `Host unreachable: ${config.host}. Check your network connection.`;
+        }
+        sender.send("ssh:error", sessionId, userMessage);
       }
     });
     client.on("close", () => {
-      sessions.delete(sessionId);
+      sessions$1.delete(sessionId);
       if (!sender.isDestroyed()) {
         sender.send("ssh:closed", sessionId);
       }
@@ -1037,45 +1133,116 @@ const sshManager = {
     client.connect(connectConfig);
   },
   disconnect(sessionId) {
-    const session = sessions.get(sessionId);
+    const session = sessions$1.get(sessionId);
     if (session) {
       try {
         session.shell?.close();
         session.client.end();
       } catch {
       }
-      sessions.delete(sessionId);
+      sessions$1.delete(sessionId);
     }
   },
   send(sessionId, data) {
-    const session = sessions.get(sessionId);
+    const session = sessions$1.get(sessionId);
     session?.shell?.write(data);
   },
   resize(sessionId, cols, rows) {
-    const session = sessions.get(sessionId);
+    const session = sessions$1.get(sessionId);
     session?.shell?.setWindow(rows, cols, 0, 0);
   },
   getSftpClient(sessionId) {
-    return sessions.get(sessionId)?.client;
+    return sessions$1.get(sessionId)?.client;
   },
   disconnectAll() {
-    for (const [id] of sessions) {
+    for (const [id] of sessions$1) {
       sshManager.disconnect(id);
     }
   }
 };
+const sessions = /* @__PURE__ */ new Map();
+const localShellManager = {
+  connect(sessionId, sender, options) {
+    localShellManager.disconnect(sessionId);
+    const defaultShell = platform() === "win32" ? "powershell.exe" : process.env.SHELL || "/bin/zsh";
+    const shell = options?.shell || defaultShell;
+    const cwd = options?.cwd || process.env.HOME || "/";
+    const ptyProcess = pty.spawn(shell, [], {
+      name: "xterm-256color",
+      cols: 80,
+      rows: 24,
+      cwd,
+      env: process.env
+    });
+    sessions.set(sessionId, { pty: ptyProcess });
+    ptyProcess.onData((data) => {
+      if (!sender.isDestroyed()) {
+        sender.send("ssh:data", sessionId, data);
+      }
+    });
+    ptyProcess.onExit(({ exitCode }) => {
+      sessions.delete(sessionId);
+      if (!sender.isDestroyed()) {
+        sender.send("ssh:closed", sessionId);
+      }
+      logger.debug(`Local shell exited with code ${exitCode} for session ${sessionId}`);
+    });
+    if (!sender.isDestroyed()) {
+      sender.send("ssh:data", sessionId, "");
+    }
+  },
+  disconnect(sessionId) {
+    const session = sessions.get(sessionId);
+    if (session) {
+      try {
+        session.pty.kill();
+      } catch {
+      }
+      sessions.delete(sessionId);
+    }
+  },
+  send(sessionId, data) {
+    sessions.get(sessionId)?.pty.write(data);
+  },
+  resize(sessionId, cols, rows) {
+    sessions.get(sessionId)?.pty.resize(cols, rows);
+  },
+  has(sessionId) {
+    return sessions.has(sessionId);
+  }
+};
 const sshIpcHandlers = {
   async connect(event, sessionId, config) {
-    await sshManager.connect(sessionId, config, event.sender);
+    if (config.type === "local") {
+      localShellManager.connect(sessionId, event.sender, config);
+      return;
+    }
+    await sshManager.connect(
+      sessionId,
+      config,
+      event.sender
+    );
   },
   disconnect(_event, sessionId) {
-    sshManager.disconnect(sessionId);
+    if (localShellManager.has(sessionId)) {
+      localShellManager.disconnect(sessionId);
+    } else {
+      sshManager.disconnect(sessionId);
+    }
   },
   send(_event, sessionId, data) {
-    sshManager.send(sessionId, data);
+    if (localShellManager.has(sessionId)) {
+      localShellManager.send(sessionId, data);
+    } else {
+      sshManager.send(sessionId, data);
+    }
   },
   resize(_event, sessionId, cols, rows) {
-    sshManager.resize(sessionId, cols, rows);
+    if (localShellManager.has(sessionId)) {
+      localShellManager.resize(sessionId, cols, rows);
+    } else {
+      sshManager.resize(sessionId, cols, rows);
+    }
   }
 };
 function statsToEntry(name, remotePath, s) {
@@ -1370,16 +1537,8 @@ const workspaceEncryption = {
       const valid = await this.verifyPassphrase(supabase, workspaceId, passphrase);
       if (!valid) throw new Error("Invalid workspace passphrase");
     }
-    const pk = privateKeyQueries.get(keyId);
-    if (!pk) throw new Error("Private key not found in local storage");
-    const keyBuf = Buffer.alloc(32);
-    Buffer.from("archterm-v1-secret-key-padding!!").copy(keyBuf);
-    const localDecipher = createDecipheriv("aes-256-gcm", keyBuf, Buffer.from(pk.iv, "base64"));
-    localDecipher.setAuthTag(Buffer.from(pk.auth_tag, "base64"));
-    const privateKeyData = Buffer.concat([
-      localDecipher.update(Buffer.from(pk.encrypted_blob, "base64")),
-      localDecipher.final()
-    ]).toString("utf8");
+    const privateKeyData = await keyManager.getDecryptedKey(keyId);
+    if (!privateKeyData) throw new Error("Private key not found in local storage");
     const { data: encData, error: encError } = await supabase.from("workspace_encryption").select("salt").eq("workspace_id", workspaceId).single();
     if (encError || !encData) throw new Error("Workspace encryption not initialized");
     const salt = Buffer.from(encData.salt, "base64");
@@ -1433,7 +1592,7 @@ const workspaceEncryption = {
   async deleteKeyFromCloud(supabase, workspaceId, keyId) {
     const storagePath = `${workspaceId}/${keyId}.enc`;
     const { error } = await supabase.storage.from("encrypted-keys").remove([storagePath]);
-    if (error) console.error("Failed to delete encrypted key from cloud:", error);
+    if (error) logger.error("Failed to delete encrypted key from cloud:", error);
   },
   /**
    * Change workspace passphrase (re-encrypt all keys)
@@ -1472,7 +1631,7 @@ const workspaceEncryption = {
         }).eq("workspace_id", workspaceId);
         await this.syncKeyToCloud(supabase, workspaceId, key.id, newPassphrase);
       } catch (error) {
-        console.error(`Failed to re-encrypt key ${key.id}:`, error);
+        logger.error(`Failed to re-encrypt key ${key.id}:`, error);
         throw error;
       }
     }
@@ -1492,11 +1651,11 @@ const keysIpcHandlers = {
         try {
           await supabaseSync.syncKeyMetadata(supabase, key.id);
         } catch (error) {
-          console.error(`[keys.list] Failed to sync key ${key.id}:`, error);
+          logger.error(`[keys.list] Failed to sync key ${key.id}:`, error);
         }
       }
     } catch (error) {
-      console.error("[keys.list] Failed to sync keys to Supabase:", error);
+      logger.error("[keys.list] Failed to sync keys to Supabase:", error);
     }
     return localKeys;
   },
@@ -1505,9 +1664,9 @@ const keysIpcHandlers = {
     try {
       const supabase = getClient$1(event);
       await supabaseSync.syncKeyMetadata(supabase, key.id);
-      console.log("[keys.import] Key metadata synced to Supabase:", key.id);
+      logger.debug("[keys.import] Key metadata synced to Supabase:", key.id);
     } catch (error) {
-      console.error("[keys.import] Failed to sync key metadata to Supabase:", error);
+      logger.error("[keys.import] Failed to sync key metadata to Supabase:", error);
     }
     return key;
   },
@@ -1516,9 +1675,9 @@ const keysIpcHandlers = {
     try {
       const supabase = getClient$1(event);
       await supabase.from("ssh_keys").delete().eq("id", id);
-      console.log("[keys.delete] Key deleted from Supabase:", id);
+      logger.debug("[keys.delete] Key deleted from Supabase:", id);
     } catch (error) {
-      console.error("[keys.delete] Failed to delete key from Supabase:", error);
+      logger.error("[keys.delete] Failed to delete key from Supabase:", error);
     }
   },
   exportPublic(_event, id) {
@@ -1648,10 +1807,7 @@ const DEFAULT_SETTINGS = {
   cursorStyle: "bar",
   bellStyle: "none",
   lineHeight: 1.2,
-  aiProvider: "openai",
-  openaiApiKeyEncrypted: null,
-  anthropicApiKeyEncrypted: null,
-  geminiApiKeyEncrypted: null
+  aiProvider: "openai"
 };
 const settingsIpcHandlers = {
   async get(event) {
@@ -1676,9 +1832,6 @@ const settingsIpcHandlers = {
         bellStyle: data.bell_style ?? "none",
         lineHeight: data.line_height ?? 1.2,
         aiProvider: data.ai_provider ?? "openai",
-        openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
-        anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
-        geminiApiKeyEncrypted: data.gemini_api_key_encrypted ?? null,
         updatedAt: data.updated_at
       };
       settingsQueries.upsert(user.id, JSON.stringify(settings));
@@ -1706,9 +1859,6 @@ const settingsIpcHandlers = {
     if (input.bellStyle !== void 0) updates.bell_style = input.bellStyle;
     if (input.lineHeight !== void 0) updates.line_height = input.lineHeight;
     if (input.aiProvider !== void 0) updates.ai_provider = input.aiProvider;
-    if (input.openaiApiKey !== void 0) updates.openai_api_key_encrypted = input.openaiApiKey;
-    if (input.anthropicApiKey !== void 0) updates.anthropic_api_key_encrypted = input.anthropicApiKey;
-    if (input.geminiApiKey !== void 0) updates.gemini_api_key_encrypted = input.geminiApiKey;
     const { data, error } = await supabase.from("settings").upsert({ user_id: user.id, ...updates }, { onConflict: "user_id" }).select("*").single();
     if (error) throw error;
     const settings = {
@@ -1723,13 +1873,48 @@ const settingsIpcHandlers = {
       bellStyle: data.bell_style ?? "none",
       lineHeight: data.line_height ?? 1.2,
       aiProvider: data.ai_provider ?? "openai",
-      openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
-      anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
-      geminiApiKeyEncrypted: data.gemini_api_key_encrypted ?? null,
       updatedAt: data.updated_at
     };
     settingsQueries.upsert(user.id, JSON.stringify(settings));
     return settings;
+  }
+};
+const apiKeyStore = {
+  get(provider) {
+    const db = getDb();
+    const row = db.prepare("select value from app_secrets where key = ?").get(`api_key:${provider}`);
+    if (!row) return null;
+    try {
+      if (row.value.startsWith("plain:")) {
+        return row.value.slice("plain:".length);
+      }
+      if (safeStorage.isEncryptionAvailable()) {
+        return safeStorage.decryptString(Buffer.from(row.value, "base64"));
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+  set(provider, key) {
+    const db = getDb();
+    const value = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(key).toString("base64") : `plain:${key}`;
+    db.prepare("insert or replace into app_secrets (key, value) values (?, ?)").run(`api_key:${provider}`, value);
+  },
+  delete(provider) {
+    const db = getDb();
+    db.prepare("delete from app_secrets where key = ?").run(`api_key:${provider}`);
+  }
+};
+const apiKeysIpcHandlers = {
+  get(_event, provider) {
+    return apiKeyStore.get(provider);
+  },
+  set(_event, provider, key) {
+    apiKeyStore.set(provider, key);
+  },
+  delete(_event, provider) {
+    apiKeyStore.delete(provider);
   }
 };
 const supabaseByAccessToken = /* @__PURE__ */ new Map();
@@ -1771,15 +1956,15 @@ function getSupabaseClientForSender(senderId) {
 function withSupabase(handler) {
   return async (event, ...args) => {
     try {
-      console.log("[withSupabase] Middleware called, sender:", event.sender.id, "args:", args);
+      logger.debug("[withSupabase] Middleware called, sender:", event.sender.id, "args:", args);
       const scopedEvent = event;
       scopedEvent.supabase = getSupabaseClientForSender(event.sender.id);
-      console.log("[withSupabase] Supabase client obtained, calling handler...");
+      logger.debug("[withSupabase] Supabase client obtained, calling handler...");
       const result = await handler(scopedEvent, ...args);
-      console.log("[withSupabase] Handler returned successfully");
+      logger.debug("[withSupabase] Handler returned successfully");
       return result;
     } catch (error) {
-      console.error("[withSupabase] ERROR in middleware:", {
+      logger.error("[withSupabase] ERROR in middleware:", {
         error,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : void 0,
@@ -1791,16 +1976,16 @@ function withSupabase(handler) {
   };
 }
 function register(channel, handler) {
-  console.log("[register] Registering IPC handler for channel:", channel);
+  logger.debug("[register] Registering IPC handler for channel:", channel);
   ipcMain.removeHandler(channel);
   ipcMain.handle(channel, async (event, ...args) => {
-    console.log(`[IPC:${channel}] Handler invoked with args:`, args);
+    logger.debug(`[IPC:${channel}] Handler invoked with args:`, args);
     try {
       const result = await handler(event, ...args);
-      console.log(`[IPC:${channel}] Handler completed successfully`);
+      logger.debug(`[IPC:${channel}] Handler completed successfully`);
       return result;
     } catch (error) {
-      console.error(`[IPC:${channel}] Handler error:`, {
+      logger.error(`[IPC:${channel}] Handler error:`, {
         error,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : void 0
@@ -1869,6 +2054,9 @@ function registerWorkspaceIpcHandlers() {
   register("ai.translateCommand", aiIpcHandlers.translateCommand);
   register("settings.get", withSupabase(settingsIpcHandlers.get));
   register("settings.update", withSupabase(settingsIpcHandlers.update));
+  register("apiKeys.get", apiKeysIpcHandlers.get);
+  register("apiKeys.set", apiKeysIpcHandlers.set);
+  register("apiKeys.delete", apiKeysIpcHandlers.delete);
 }
 function createMainWindow() {
   const window = new BrowserWindow({
