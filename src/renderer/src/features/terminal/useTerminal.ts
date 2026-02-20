@@ -17,25 +17,20 @@ interface UseTerminalOptions {
   isVisible?: boolean;
 }
 
-// Module-level map to store terminal instances across component unmounts
-// This allows sessions to persist when tabs are switched but not closed
-const terminalInstances = new Map<string, {
+// Module-level storage for terminal instances
+const terminalCache = new Map<string, {
   terminal: Terminal;
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
-  onDataDisposer: { dispose: () => void };
 }>();
 
-// Cleanup function to dispose terminal instance and disconnect PTY session
-// Call this when a tab is explicitly closed
+// Cleanup function to disconnect PTY session and dispose terminal
 export function disposeTerminalSession(sessionId: string): void {
-  const instance = terminalInstances.get(sessionId);
-  if (instance) {
-    instance.onDataDisposer.dispose();
-    instance.terminal.dispose();
-    terminalInstances.delete(sessionId);
+  const cached = terminalCache.get(sessionId);
+  if (cached) {
+    cached.terminal.dispose();
+    terminalCache.delete(sessionId);
   }
-  // Disconnect PTY session
   window.sshApi.disconnect(sessionId);
 }
 
@@ -43,49 +38,45 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
-  const disposeOnDataRef = useRef<{ dispose: () => void } | null>(null);
-  const disposeOnSelectionChangeRef = useRef<{ dispose: () => void } | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const pasteHandlerRef = useRef<((e: ClipboardEvent) => void) | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Check if terminal instance already exists (from previous mount)
-    const existingInstance = terminalInstances.get(sessionId);
-    let isNewTerminal = false;
+    let terminal: Terminal;
+    let fitAddon: FitAddon;
+    let searchAddon: SearchAddon;
 
-    if (existingInstance && containerRef.current) {
-      // Reuse existing terminal instance
-      const { terminal, fitAddon, searchAddon, onDataDisposer } = existingInstance;
+    // Check if we already have a terminal instance for this session
+    const cached = terminalCache.get(sessionId);
 
-      // Re-attach to DOM
-      terminal.open(containerRef.current);
+    if (cached) {
+      // Reuse existing terminal
+      terminal = cached.terminal;
+      fitAddon = cached.fitAddon;
+      searchAddon = cached.searchAddon;
 
-      terminalRef.current = terminal;
-      fitAddonRef.current = fitAddon;
-      searchAddonRef.current = searchAddon;
-      disposeOnDataRef.current = onDataDisposer;
+      // Attach to new container
+      if (terminal.element) {
+        containerRef.current.appendChild(terminal.element);
+        terminal.focus();
 
-      // Refit after reattaching
-      requestAnimationFrame(() => {
-        if (containerRef.current && containerRef.current.offsetWidth > 0) {
-          fitAddon.fit();
-          const { cols, rows } = terminal;
-          if (cols > 0 && rows > 0) {
-            window.sshApi.resize(sessionId, cols, rows);
+        // Refit
+        requestAnimationFrame(() => {
+          if (containerRef.current && containerRef.current.offsetWidth > 0) {
+            fitAddon.fit();
+            const { cols, rows } = terminal;
+            if (cols > 0 && rows > 0) {
+              window.sshApi.resize(sessionId, cols, rows);
+            }
           }
-        }
-      });
+        });
+      }
     } else {
-      isNewTerminal = true;
-      // Create new terminal instance
-
-      // Get the selected theme or fallback to dracula
+      // Create new terminal
       const themeName = settings?.terminalTheme ?? 'dracula';
       const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES['dracula'].theme;
 
-      const terminal = new Terminal({
+      terminal = new Terminal({
         fontFamily: settings?.terminalFont ?? 'JetBrains Mono, Menlo, monospace',
         fontSize: settings?.terminalFontSize ?? 14,
         theme: selectedTheme,
@@ -98,14 +89,14 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         letterSpacing: 0,
         fontWeight: 'normal',
         fontWeightBold: 'bold',
-        rendererType: 'canvas', // Use canvas renderer instead of webgl for better compatibility
+        rendererType: 'canvas',
         drawBoldTextInBrightColors: true,
-        macOptionIsMeta: false, // Allows Option+key for international keyboards
+        macOptionIsMeta: false,
       });
 
-      const fitAddon = new FitAddon();
+      fitAddon = new FitAddon();
       const webLinksAddon = new WebLinksAddon();
-      const searchAddon = new SearchAddon();
+      searchAddon = new SearchAddon();
       const unicode11Addon = new Unicode11Addon();
       const serializeAddon = new SerializeAddon();
       const imageAddon = new ImageAddon();
@@ -117,13 +108,11 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       terminal.loadAddon(serializeAddon);
       terminal.loadAddon(imageAddon);
 
-      // Enable Unicode 11 support
       terminal.unicode.activeVersion = '11';
 
       terminal.open(containerRef.current);
+      terminal.focus();
 
-      // Use requestAnimationFrame to ensure the terminal is rendered before fitting
-      // This helps with character width calculations and font rendering
       requestAnimationFrame(() => {
         if (containerRef.current && containerRef.current.offsetWidth > 0) {
           fitAddon.fit();
@@ -134,15 +123,10 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         }
       });
 
-      terminalRef.current = terminal;
-      fitAddonRef.current = fitAddon;
-      searchAddonRef.current = searchAddon;
-
-      // Setup onData handler for new terminal
-      const onDataDisposer = terminal.onData((data) => {
+      // Handle keyboard input
+      terminal.onData((data) => {
         window.sshApi.send(sessionId, data);
 
-        // Broadcast to other terminals if enabled
         const { enabled, targetSessionIds } = useBroadcastStore.getState();
         if (enabled) {
           for (const targetId of targetSessionIds) {
@@ -152,22 +136,19 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
           }
         }
       });
-      disposeOnDataRef.current = onDataDisposer;
 
-      // Store instance for reuse
-      terminalInstances.set(sessionId, { terminal, fitAddon, searchAddon, onDataDisposer });
+      // Store in cache
+      terminalCache.set(sessionId, { terminal, fitAddon, searchAddon });
     }
 
-    // Setup event listeners that need to be recreated on each mount
-    const terminal = terminalRef.current!;
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
+    searchAddonRef.current = searchAddon;
 
     // Copy-on-select functionality
-    if (disposeOnSelectionChangeRef.current) {
-      disposeOnSelectionChangeRef.current.dispose();
-      disposeOnSelectionChangeRef.current = null;
-    }
+    let disposeOnSelectionChange: { dispose: () => void } | null = null;
     if (settings?.copyOnSelect) {
-      disposeOnSelectionChangeRef.current = terminal.onSelectionChange(() => {
+      disposeOnSelectionChange = terminal.onSelectionChange(() => {
         const selection = terminal.getSelection();
         if (selection) {
           navigator.clipboard.writeText(selection);
@@ -176,9 +157,6 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
     }
 
     // Multi-line paste warning
-    if (pasteHandlerRef.current && containerRef.current) {
-      containerRef.current.removeEventListener('paste', pasteHandlerRef.current);
-    }
     const handlePaste = (event: ClipboardEvent) => {
       const text = event.clipboardData?.getData('text');
       if (text && text.includes('\n')) {
@@ -189,72 +167,44 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         }
       }
     };
-    pasteHandlerRef.current = handlePaste;
-    if (containerRef.current) {
-      containerRef.current.addEventListener('paste', handlePaste);
-    }
+    containerRef.current.addEventListener('paste', handlePaste);
 
-    // Resize observer (recreate on mount to observe current container)
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-    }
-    resizeObserverRef.current = new ResizeObserver(() => {
-      // Skip resize if not visible or container has no dimensions
+    // Resize observer
+    const resizeObserver = new ResizeObserver(() => {
       if (!isVisible || !containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
         return;
       }
 
-      const fitAddon = fitAddonRef.current;
-      const terminal = terminalRef.current;
-      if (!fitAddon || !terminal) return;
-
       fitAddon.fit();
       const { cols, rows } = terminal;
 
-      // Only resize PTY if we have valid dimensions
       if (cols > 0 && rows > 0) {
         window.sshApi.resize(sessionId, cols, rows);
       }
     });
-    if (containerRef.current) {
-      resizeObserverRef.current.observe(containerRef.current);
-    }
+    resizeObserver.observe(containerRef.current);
 
     return () => {
-      // Cleanup event listeners
-      if (disposeOnSelectionChangeRef.current) {
-        disposeOnSelectionChangeRef.current.dispose();
-        disposeOnSelectionChangeRef.current = null;
-      }
-      if (pasteHandlerRef.current && containerRef.current) {
-        containerRef.current.removeEventListener('paste', pasteHandlerRef.current);
-      }
-      if (resizeObserverRef.current) {
-        resizeObserverRef.current.disconnect();
-        resizeObserverRef.current = null;
-      }
+      disposeOnSelectionChange?.dispose();
+      containerRef.current?.removeEventListener('paste', handlePaste);
+      resizeObserver.disconnect();
 
-      // IMPORTANT: Only detach from DOM, don't dispose the terminal instance
-      // The terminal instance is kept alive in terminalInstances map for reuse
-      // The PTY session continues running in the background
-      const terminal = terminalRef.current;
-      if (terminal && terminal.element) {
-        // Remove from DOM but keep terminal instance alive
+      // Detach from DOM but keep terminal alive
+      if (terminal.element && terminal.element.parentElement) {
         terminal.element.remove();
       }
 
-      // Clear refs but don't dispose onDataDisposer (it persists with terminal instance)
       terminalRef.current = null;
       fitAddonRef.current = null;
       searchAddonRef.current = null;
-      disposeOnDataRef.current = null; // Will be restored from map on remount
     };
-  }, [sessionId]);
+  }, [sessionId, settings?.copyOnSelect]);
 
-  // Handle visibility changes - refit terminal when tab becomes visible
+  // Focus terminal when tab becomes visible
   useEffect(() => {
     if (isVisible && terminalRef.current && fitAddonRef.current && containerRef.current) {
-      // Use requestAnimationFrame to ensure DOM has updated
+      terminalRef.current.focus();
+
       requestAnimationFrame(() => {
         if (containerRef.current && containerRef.current.offsetWidth > 0) {
           fitAddonRef.current?.fit();
