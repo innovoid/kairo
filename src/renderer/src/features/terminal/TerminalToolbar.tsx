@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { X, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { RecordingControls } from './RecordingControls';
 
 interface TerminalToolbarProps {
   tab: Tab;
@@ -111,6 +112,7 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
         >
           <Circle className={cn('h-3.5 w-3.5', recordingState && 'fill-red-500')} />
         </Button>
+        <RecordingControls />
         <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={openSftp} title="Open SFTP">
           <FolderOpen className="h-3.5 w-3.5" />
         </Button>
