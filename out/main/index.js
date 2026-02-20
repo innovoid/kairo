@@ -7,6 +7,8 @@ import Database from "better-sqlite3";
 import { mkdirSync, createReadStream, createWriteStream } from "node:fs";
 import ssh2 from "ssh2";
 import { createDecipheriv, createHash, randomBytes, createCipheriv, pbkdf2Sync } from "node:crypto";
+import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync as mkdirSync$1 } from "fs";
+import { join as join$1 } from "path";
 import * as pty from "node-pty";
 import { platform } from "os";
 import { stat } from "node:fs/promises";
@@ -315,6 +317,17 @@ function runMigrations(db) {
       key text primary key,
       value text not null
     );
+
+    create table if not exists snippets (
+      id text primary key,
+      workspace_id text not null,
+      name text not null,
+      command text not null,
+      description text,
+      tags text default '[]',
+      created_by text,
+      synced_at integer
+    );
   `);
   const cols = db.prepare("pragma table_info('private_keys')").all();
   if (!cols.some((c) => c.name === "salt")) {
@@ -419,6 +432,29 @@ const settingsQueries = {
       insert or replace into settings_cache (user_id, data, synced_at)
       values (?, ?, ?)
     `).run(userId, data, Date.now());
+  }
+};
+const snippetQueries = {
+  listByWorkspace: (workspaceId) => {
+    const db = getDb();
+    return db.prepare("select * from snippets where workspace_id = ?").all(workspaceId);
+  },
+  getById: (id) => {
+    const db = getDb();
+    return db.prepare("select * from snippets where id = ?").get(id);
+  },
+  upsert: (snippet) => {
+    const db = getDb();
+    db.prepare(`
+      insert or replace into snippets
+        (id, workspace_id, name, command, description, tags, created_by, synced_at)
+      values
+        (@id, @workspace_id, @name, @command, @description, @tags, @created_by, @synced_at)
+    `).run(snippet);
+  },
+  delete: (id) => {
+    const db = getDb();
+    db.prepare("delete from snippets where id = ?").run(id);
   }
 };
 function rowToHost(row) {
@@ -779,7 +815,7 @@ const supabaseSync = {
     }));
   }
 };
-function getClient$2(event) {
+function getClient$3(event) {
   const client = event.supabase;
   if (!client) throw new Error("Not authenticated");
   return client;
@@ -787,7 +823,7 @@ function getClient$2(event) {
 const hostsIpcHandlers = {
   async listHosts(event, workspaceId) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.pullHosts(supabase, workspaceId);
     } catch (error) {
       logger.error("Error in listHosts:", error);
@@ -796,7 +832,7 @@ const hostsIpcHandlers = {
   },
   async createHost(event, input) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.createHost(supabase, input);
     } catch (error) {
       logger.error("Error in createHost:", error);
@@ -810,7 +846,7 @@ const hostsIpcHandlers = {
         inputKeys: Object.keys(input),
         input: JSON.stringify(input, null, 2)
       });
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       const result = await supabaseSync.updateHost(supabase, id, input);
       logger.debug("[hosts.update] Update successful:", result.id);
       return result;
@@ -830,7 +866,7 @@ const hostsIpcHandlers = {
   },
   async deleteHost(event, id) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.deleteHost(supabase, id);
     } catch (error) {
       logger.error("Error in deleteHost:", error);
@@ -839,7 +875,7 @@ const hostsIpcHandlers = {
   },
   async moveHostToFolder(event, id, folderId) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.updateHost(supabase, id, { folderId });
     } catch (error) {
       logger.error("Error in moveHostToFolder:", error);
@@ -848,7 +884,7 @@ const hostsIpcHandlers = {
   },
   async listFolders(event, workspaceId) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.pullFolders(supabase, workspaceId);
     } catch (error) {
       logger.error("Error in listFolders:", error);
@@ -857,7 +893,7 @@ const hostsIpcHandlers = {
   },
   async createFolder(event, input) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.createFolder(supabase, input);
     } catch (error) {
       logger.error("Error in createFolder:", error);
@@ -866,7 +902,7 @@ const hostsIpcHandlers = {
   },
   async updateFolder(event, id, name) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.updateFolder(supabase, id, name);
     } catch (error) {
       logger.error("Error in updateFolder:", error);
@@ -875,7 +911,7 @@ const hostsIpcHandlers = {
   },
   async deleteFolder(event, id) {
     try {
-      const supabase = getClient$2(event);
+      const supabase = getClient$3(event);
       return await supabaseSync.deleteFolder(supabase, id);
     } catch (error) {
       logger.error("Error in deleteFolder:", error);
@@ -1053,6 +1089,80 @@ const keyManager = {
     return decryptPrivateKey(pk.encrypted_blob, pk.iv, pk.auth_tag, pk.salt);
   }
 };
+const activeRecordings = /* @__PURE__ */ new Map();
+function getRecordingsDir() {
+  const dir = join$1(app.getPath("userData"), "recordings");
+  if (!existsSync(dir)) {
+    mkdirSync$1(dir, { recursive: true });
+  }
+  return dir;
+}
+const recordingManager = {
+  start(sessionId, cols, rows) {
+    if (activeRecordings.has(sessionId)) {
+      logger.warn(`Recording already active for session ${sessionId}`);
+      return;
+    }
+    const startTime = Date.now();
+    const recording = {
+      sessionId,
+      startTime,
+      events: [],
+      header: {
+        version: 2,
+        width: cols,
+        height: rows,
+        timestamp: Math.floor(startTime / 1e3)
+      }
+    };
+    activeRecordings.set(sessionId, recording);
+    logger.info(`Started recording for session ${sessionId}`);
+  },
+  appendData(sessionId, data) {
+    const recording = activeRecordings.get(sessionId);
+    if (!recording) return;
+    const relativeTime = (Date.now() - recording.startTime) / 1e3;
+    recording.events.push([relativeTime, "o", data]);
+  },
+  stop(sessionId) {
+    const recording = activeRecordings.get(sessionId);
+    if (!recording) {
+      logger.warn(`No active recording for session ${sessionId}`);
+      return null;
+    }
+    activeRecordings.delete(sessionId);
+    const timestamp = new Date(recording.startTime);
+    const filename = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, "0")}-${String(timestamp.getDate()).padStart(2, "0")}_${String(timestamp.getHours()).padStart(2, "0")}-${String(timestamp.getMinutes()).padStart(2, "0")}-${String(timestamp.getSeconds()).padStart(2, "0")}.cast`;
+    const filepath = join$1(getRecordingsDir(), filename);
+    const lines = [
+      JSON.stringify(recording.header),
+      ...recording.events.map((e) => JSON.stringify(e))
+    ];
+    writeFileSync(filepath, lines.join("\n"), "utf8");
+    logger.info(`Saved recording to ${filepath}`);
+    return filepath;
+  },
+  list() {
+    const dir = getRecordingsDir();
+    if (!existsSync(dir)) return [];
+    const files = readdirSync(dir).filter((f) => f.endsWith(".cast"));
+    return files.map((filename) => {
+      const filepath = join$1(dir, filename);
+      const stat2 = require2("fs").statSync(filepath);
+      return {
+        filename,
+        path: filepath,
+        timestamp: stat2.mtimeMs
+      };
+    });
+  },
+  read(path) {
+    return readFileSync(path, "utf8");
+  },
+  isRecording(sessionId) {
+    return activeRecordings.has(sessionId);
+  }
+};
 const { Client } = ssh2;
 const sessions$1 = /* @__PURE__ */ new Map();
 const sshManager = {
@@ -1088,13 +1198,21 @@ const sshManager = {
         const session = sessions$1.get(sessionId);
         if (session) session.shell = stream;
         stream.on("data", (data) => {
+          const dataStr = data.toString("utf8");
           if (!sender.isDestroyed()) {
-            sender.send("ssh:data", sessionId, data.toString("utf8"));
+            sender.send("ssh:data", sessionId, dataStr);
+          }
+          if (recordingManager.isRecording(sessionId)) {
+            recordingManager.appendData(sessionId, dataStr);
           }
         });
         stream.stderr.on("data", (data) => {
+          const dataStr = data.toString("utf8");
           if (!sender.isDestroyed()) {
-            sender.send("ssh:data", sessionId, data.toString("utf8"));
+            sender.send("ssh:data", sessionId, dataStr);
+          }
+          if (recordingManager.isRecording(sessionId)) {
+            recordingManager.appendData(sessionId, dataStr);
           }
         });
         stream.on("close", () => {
@@ -1178,6 +1296,9 @@ const localShellManager = {
     ptyProcess.onData((data) => {
       if (!sender.isDestroyed()) {
         sender.send("ssh:data", sessionId, data);
+      }
+      if (recordingManager.isRecording(sessionId)) {
+        recordingManager.appendData(sessionId, data);
       }
     });
     ptyProcess.onExit(({ exitCode }) => {
@@ -1637,7 +1758,7 @@ const workspaceEncryption = {
     }
   }
 };
-function getClient$1(event) {
+function getClient$2(event) {
   const client = event.supabase;
   if (!client) throw new Error("Not authenticated");
   return client;
@@ -1646,7 +1767,7 @@ const keysIpcHandlers = {
   async list(event, workspaceId) {
     const localKeys = keyManager.list(workspaceId);
     try {
-      const supabase = getClient$1(event);
+      const supabase = getClient$2(event);
       for (const key of localKeys) {
         try {
           await supabaseSync.syncKeyMetadata(supabase, key.id);
@@ -1662,7 +1783,7 @@ const keysIpcHandlers = {
   async import(event, input) {
     const key = await keyManager.import(input);
     try {
-      const supabase = getClient$1(event);
+      const supabase = getClient$2(event);
       await supabaseSync.syncKeyMetadata(supabase, key.id);
       logger.debug("[keys.import] Key metadata synced to Supabase:", key.id);
     } catch (error) {
@@ -1673,7 +1794,7 @@ const keysIpcHandlers = {
   async delete(event, id) {
     keyManager.delete(id);
     try {
-      const supabase = getClient$1(event);
+      const supabase = getClient$2(event);
       await supabase.from("ssh_keys").delete().eq("id", id);
       logger.debug("[keys.delete] Key deleted from Supabase:", id);
     } catch (error) {
@@ -1684,36 +1805,36 @@ const keysIpcHandlers = {
     return keyManager.exportPublic(id);
   },
   async syncEncrypted(event, id) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     await supabaseSync.syncKeyMetadata(supabase, id);
   },
   // Workspace encryption methods
   async isWorkspaceEncryptionInitialized(event, workspaceId) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.isInitialized(supabase, workspaceId);
   },
   async initializeWorkspaceEncryption(event, workspaceId, passphrase) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.initializeWorkspace(supabase, workspaceId, passphrase);
   },
   async verifyWorkspacePassphrase(event, workspaceId, passphrase) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.verifyPassphrase(supabase, workspaceId, passphrase);
   },
   async syncKeyToCloud(event, workspaceId, keyId, passphrase) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.syncKeyToCloud(supabase, workspaceId, keyId, passphrase);
   },
   async downloadKeyFromCloud(event, workspaceId, keyId, passphrase) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.downloadKeyFromCloud(supabase, workspaceId, keyId, passphrase);
   },
   async deleteKeyFromCloud(event, workspaceId, keyId) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.deleteKeyFromCloud(supabase, workspaceId, keyId);
   },
   async changeWorkspacePassphrase(event, workspaceId, oldPassphrase, newPassphrase) {
-    const supabase = getClient$1(event);
+    const supabase = getClient$2(event);
     return workspaceEncryption.changePassphrase(supabase, workspaceId, oldPassphrase, newPassphrase);
   }
 };
@@ -1793,7 +1914,7 @@ const aiIpcHandlers = {
     await aiProxy.translateCommand(input, event.sender);
   }
 };
-function getClient(event) {
+function getClient$1(event) {
   const client = event.supabase;
   if (!client) throw new Error("Not authenticated");
   return client;
@@ -1811,7 +1932,7 @@ const DEFAULT_SETTINGS = {
 };
 const settingsIpcHandlers = {
   async get(event) {
-    const supabase = getClient(event);
+    const supabase = getClient$1(event);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
     const cached = settingsQueries.get(user.id);
@@ -1846,7 +1967,7 @@ const settingsIpcHandlers = {
     return defaults;
   },
   async update(event, input) {
-    const supabase = getClient(event);
+    const supabase = getClient$1(event);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
     const updates = {};
@@ -1915,6 +2036,134 @@ const apiKeysIpcHandlers = {
   },
   delete(_event, provider) {
     apiKeyStore.delete(provider);
+  }
+};
+function getClient(event) {
+  const client = event.supabase;
+  if (!client) throw new Error("Not authenticated");
+  return client;
+}
+function rowToSnippet(row) {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    name: row.name,
+    command: row.command,
+    description: row.description ?? void 0,
+    tags: Array.isArray(row.tags) ? row.tags : JSON.parse(row.tags || "[]"),
+    createdBy: row.created_by ?? void 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+const snippetsIpcHandlers = {
+  async list(event, workspaceId) {
+    try {
+      const supabase = getClient(event);
+      const { data, error } = await supabase.from("snippets").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false });
+      if (error) throw error;
+      const snippets = (data ?? []).map(rowToSnippet);
+      for (const snippet of snippets) {
+        snippetQueries.upsert({
+          id: snippet.id,
+          workspace_id: snippet.workspaceId,
+          name: snippet.name,
+          command: snippet.command,
+          description: snippet.description ?? null,
+          tags: JSON.stringify(snippet.tags),
+          created_by: snippet.createdBy ?? null,
+          synced_at: Date.now()
+        });
+      }
+      return snippets;
+    } catch (error) {
+      logger.error("Error in snippets.list:", error);
+      const rows = snippetQueries.listByWorkspace(workspaceId);
+      return rows.map(rowToSnippet);
+    }
+  },
+  async create(event, input) {
+    try {
+      const supabase = getClient(event);
+      const { data, error } = await supabase.from("snippets").insert({
+        workspace_id: input.workspaceId,
+        name: input.name,
+        command: input.command,
+        description: input.description ?? null,
+        tags: input.tags ?? []
+      }).select().single();
+      if (error) throw error;
+      const snippet = rowToSnippet(data);
+      snippetQueries.upsert({
+        id: snippet.id,
+        workspace_id: snippet.workspaceId,
+        name: snippet.name,
+        command: snippet.command,
+        description: snippet.description ?? null,
+        tags: JSON.stringify(snippet.tags),
+        created_by: snippet.createdBy ?? null,
+        synced_at: Date.now()
+      });
+      return snippet;
+    } catch (error) {
+      logger.error("Error in snippets.create:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to create snippet");
+    }
+  },
+  async update(event, input) {
+    try {
+      const supabase = getClient(event);
+      const updateData = {};
+      if (input.name !== void 0) updateData.name = input.name;
+      if (input.command !== void 0) updateData.command = input.command;
+      if (input.description !== void 0) updateData.description = input.description;
+      if (input.tags !== void 0) updateData.tags = input.tags;
+      const { data, error } = await supabase.from("snippets").update(updateData).eq("id", input.id).select().single();
+      if (error) throw error;
+      const snippet = rowToSnippet(data);
+      snippetQueries.upsert({
+        id: snippet.id,
+        workspace_id: snippet.workspaceId,
+        name: snippet.name,
+        command: snippet.command,
+        description: snippet.description ?? null,
+        tags: JSON.stringify(snippet.tags),
+        created_by: snippet.createdBy ?? null,
+        synced_at: Date.now()
+      });
+      return snippet;
+    } catch (error) {
+      logger.error("Error in snippets.update:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to update snippet");
+    }
+  },
+  async delete(event, id) {
+    try {
+      const supabase = getClient(event);
+      const { error } = await supabase.from("snippets").delete().eq("id", id);
+      if (error) throw error;
+      snippetQueries.delete(id);
+    } catch (error) {
+      logger.error("Error in snippets.delete:", error);
+      throw new Error(error instanceof Error ? error.message : "Failed to delete snippet");
+    }
+  }
+};
+const recordingIpcHandlers = {
+  start(_event, sessionId, cols, rows) {
+    recordingManager.start(sessionId, cols, rows);
+  },
+  stop(_event, sessionId) {
+    return recordingManager.stop(sessionId);
+  },
+  list(_event) {
+    return recordingManager.list();
+  },
+  read(_event, path) {
+    return recordingManager.read(path);
+  },
+  isRecording(_event, sessionId) {
+    return recordingManager.isRecording(sessionId);
   }
 };
 const supabaseByAccessToken = /* @__PURE__ */ new Map();
@@ -2057,6 +2306,15 @@ function registerWorkspaceIpcHandlers() {
   register("apiKeys.get", apiKeysIpcHandlers.get);
   register("apiKeys.set", apiKeysIpcHandlers.set);
   register("apiKeys.delete", apiKeysIpcHandlers.delete);
+  register("snippets.list", withSupabase(snippetsIpcHandlers.list));
+  register("snippets.create", withSupabase(snippetsIpcHandlers.create));
+  register("snippets.update", withSupabase(snippetsIpcHandlers.update));
+  register("snippets.delete", withSupabase(snippetsIpcHandlers.delete));
+  register("recording.start", recordingIpcHandlers.start);
+  register("recording.stop", recordingIpcHandlers.stop);
+  register("recording.list", recordingIpcHandlers.list);
+  register("recording.read", recordingIpcHandlers.read);
+  register("recording.isRecording", recordingIpcHandlers.isRecording);
 }
 function createMainWindow() {
   const window = new BrowserWindow({

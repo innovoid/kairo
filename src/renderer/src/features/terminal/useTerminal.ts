@@ -3,6 +3,9 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { SerializeAddon } from '@xterm/addon-serialize';
+import { ImageAddon } from '@xterm/addon-image';
 import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useBroadcastStore } from '@/stores/broadcast-store';
@@ -39,16 +42,50 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
     const fitAddon = new FitAddon();
     const webLinksAddon = new WebLinksAddon();
     const searchAddon = new SearchAddon();
+    const unicode11Addon = new Unicode11Addon();
+    const serializeAddon = new SerializeAddon();
+    const imageAddon = new ImageAddon();
 
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
     terminal.loadAddon(searchAddon);
+    terminal.loadAddon(unicode11Addon);
+    terminal.loadAddon(serializeAddon);
+    terminal.loadAddon(imageAddon);
+
+    // Enable Unicode 11 support
+    terminal.unicode.activeVersion = '11';
+
     terminal.open(containerRef.current);
     fitAddon.fit();
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
+
+    // Copy-on-select functionality
+    let disposeOnSelectionChange: { dispose: () => void } | null = null;
+    if (settings?.copyOnSelect) {
+      disposeOnSelectionChange = terminal.onSelectionChange(() => {
+        const selection = terminal.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection);
+        }
+      });
+    }
+
+    // Multi-line paste warning
+    const handlePaste = (event: ClipboardEvent) => {
+      const text = event.clipboardData?.getData('text');
+      if (text && text.includes('\n')) {
+        event.preventDefault();
+        const lines = text.split('\n').length;
+        if (confirm(`You're about to paste ${lines} lines. This will execute commands immediately. Continue?`)) {
+          terminal.paste(text);
+        }
+      }
+    };
+    containerRef.current.addEventListener('paste', handlePaste);
 
     // Handle keyboard input
     const disposeOnData = terminal.onData((data) => {
@@ -75,6 +112,8 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
 
     return () => {
       disposeOnData.dispose();
+      disposeOnSelectionChange?.dispose();
+      containerRef.current?.removeEventListener('paste', handlePaste);
       resizeObserver.disconnect();
       terminal.dispose();
       terminalRef.current = null;

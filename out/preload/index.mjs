@@ -122,3 +122,18 @@ const apiKeysApi = {
   delete: (provider) => ipcRenderer.invoke("apiKeys.delete", provider)
 };
 contextBridge.exposeInMainWorld("apiKeysApi", apiKeysApi);
+const snippetsApi = {
+  list: (workspaceId) => ipcRenderer.invoke("snippets.list", workspaceId),
+  create: (input) => ipcRenderer.invoke("snippets.create", input),
+  update: (input) => ipcRenderer.invoke("snippets.update", input),
+  delete: (id) => ipcRenderer.invoke("snippets.delete", id)
+};
+contextBridge.exposeInMainWorld("snippetsApi", snippetsApi);
+const recordingApi = {
+  start: (sessionId, cols, rows) => ipcRenderer.invoke("recording.start", sessionId, cols, rows),
+  stop: (sessionId) => ipcRenderer.invoke("recording.stop", sessionId),
+  list: () => ipcRenderer.invoke("recording.list"),
+  read: (path) => ipcRenderer.invoke("recording.read", path),
+  isRecording: (sessionId) => ipcRenderer.invoke("recording.isRecording", sessionId)
+};
+contextBridge.exposeInMainWorld("recordingApi", recordingApi);

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -76,6 +77,7 @@ function TerminalTab() {
   const [cursorStyle, setCursorStyle] = useState<CursorStyle>('bar');
   const [bellStyle, setBellStyle] = useState<BellStyle>('none');
   const [lineHeight, setLineHeight] = useState('1.2');
+  const [copyOnSelect, setCopyOnSelect] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -91,6 +93,7 @@ function TerminalTab() {
       setCursorStyle(settings.cursorStyle ?? 'bar');
       setBellStyle(settings.bellStyle ?? 'none');
       setLineHeight(String(settings.lineHeight ?? 1.2));
+      setCopyOnSelect(settings.copyOnSelect ?? false);
     }
   }, [settings]);
 
@@ -105,6 +108,7 @@ function TerminalTab() {
         cursorStyle,
         bellStyle,
         lineHeight: parseFloat(lineHeight),
+        copyOnSelect,
       });
     } finally {
       setSaving(false);
@@ -255,6 +259,19 @@ function TerminalTab() {
               <SelectItem value="visual">Visual (flash)</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="copy-on-select">Copy on select</Label>
+              <p className="text-sm text-muted-foreground">Automatically copy selected text to clipboard</p>
+            </div>
+            <Switch
+              id="copy-on-select"
+              checked={copyOnSelect}
+              onCheckedChange={setCopyOnSelect}
+            />
+          </div>
         </div>
       </div>
       <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button>

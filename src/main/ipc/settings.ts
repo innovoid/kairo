@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'userId' | 'updatedAt'> = {
   cursorStyle: 'bar',
   bellStyle: 'none',
   lineHeight: 1.2,
+  copyOnSelect: false,
   aiProvider: 'openai',
 };
 
@@ -52,6 +53,7 @@ export const settingsIpcHandlers = {
         cursorStyle: data.cursor_style ?? 'bar',
         bellStyle: data.bell_style ?? 'none',
         lineHeight: data.line_height ?? 1.2,
+        copyOnSelect: data.copy_on_select ?? false,
         aiProvider: data.ai_provider ?? 'openai',
         updatedAt: data.updated_at,
       };
@@ -83,6 +85,7 @@ export const settingsIpcHandlers = {
     if (input.cursorStyle !== undefined) updates.cursor_style = input.cursorStyle;
     if (input.bellStyle !== undefined) updates.bell_style = input.bellStyle;
     if (input.lineHeight !== undefined) updates.line_height = input.lineHeight;
+    if (input.copyOnSelect !== undefined) updates.copy_on_select = input.copyOnSelect;
     if (input.aiProvider !== undefined) updates.ai_provider = input.aiProvider;
 
     const { data, error } = await supabase

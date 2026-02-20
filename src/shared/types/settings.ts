@@ -14,6 +14,7 @@ export interface UserSettings {
   cursorStyle: CursorStyle;
   bellStyle: BellStyle;
   lineHeight: number;
+  copyOnSelect: boolean;
   aiProvider: AiProvider;
   updatedAt: string;
 }
@@ -27,5 +28,6 @@ export interface UpdateSettingsInput {
   cursorStyle?: CursorStyle;
   bellStyle?: BellStyle;
   lineHeight?: number;
+  copyOnSelect?: boolean;
   aiProvider?: AiProvider;
 }
