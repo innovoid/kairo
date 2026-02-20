@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon } from '@xterm/addon-search';
 import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 
@@ -14,6 +15,7 @@ interface UseTerminalOptions {
 export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOptions) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -35,14 +37,17 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
 
     const fitAddon = new FitAddon();
     const webLinksAddon = new WebLinksAddon();
+    const searchAddon = new SearchAddon();
 
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
+    terminal.loadAddon(searchAddon);
     terminal.open(containerRef.current);
     fitAddon.fit();
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
+    searchAddonRef.current = searchAddon;
 
     // Handle keyboard input
     const disposeOnData = terminal.onData((data) => {
@@ -63,8 +68,9 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
       terminal.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
+      searchAddonRef.current = null;
     };
   }, [sessionId]);
 
-  return { terminal: terminalRef, fitAddon: fitAddonRef };
+  return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef };
 }
