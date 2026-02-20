@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { InviteMemberDialog } from './InviteMemberDialog';
 import type { WorkspaceMember, WorkspaceRole } from '@shared/types/workspace';
 import {
   Table,
@@ -70,10 +71,7 @@ export function TeamPage({ workspaceId }: TeamPageProps) {
             <h1 className="text-lg font-semibold">Team</h1>
             <p className="text-sm text-muted-foreground">Manage workspace members and permissions</p>
           </div>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Invite Member
-          </Button>
+          <InviteMemberDialog workspaceId={workspaceId} onInvited={loadMembers} />
         </div>
 
         {/* Members List */}
