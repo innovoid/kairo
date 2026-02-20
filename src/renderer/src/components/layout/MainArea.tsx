@@ -1,6 +1,7 @@
 import { useSessionStore } from '@/stores/session-store';
 import { TerminalTab } from '@/features/terminal/TerminalTab';
 import { SftpTab } from '@/features/sftp/SftpTab';
+import { ErrorBoundary } from '../ErrorBoundary';
 
 export function MainArea() {
   const tabs = useSessionStore((s) => s.tabs);
@@ -23,9 +24,13 @@ export function MainArea() {
           className={tab.tabId === activeTabId ? 'absolute inset-0' : 'hidden'}
         >
           {tab.tabType === 'terminal' ? (
-            <TerminalTab tab={tab} />
+            <ErrorBoundary fallbackLabel="Terminal crashed">
+              <TerminalTab tab={tab} />
+            </ErrorBoundary>
           ) : (
-            <SftpTab tab={tab} />
+            <ErrorBoundary fallbackLabel="SFTP crashed">
+              <SftpTab tab={tab} />
+            </ErrorBoundary>
           )}
         </div>
       ))}

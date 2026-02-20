@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -40,6 +41,7 @@ export function TerminalTab({ tab }: TerminalTabProps) {
       if (sessionId === tab.sessionId) {
         updateTabStatus(tab.tabId, 'error');
         terminal.current?.write(`\r\n\x1b[31mError: ${error}\x1b[0m\r\n`);
+        toast.error(error);
       }
     });
 

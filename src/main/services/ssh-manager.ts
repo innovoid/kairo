@@ -85,7 +85,19 @@ export const sshManager = {
     client.on('error', (err) => {
       sessions.delete(sessionId);
       if (!sender.isDestroyed()) {
-        sender.send('ssh:error', sessionId, err.message);
+        let userMessage = err.message;
+        if (err.message.includes('All configured authentication methods failed')) {
+          userMessage = 'Authentication failed. Check your username, password, or SSH key.';
+        } else if (err.message.includes('ECONNREFUSED')) {
+          userMessage = `Connection refused by ${config.host}:${config.port}. Is the SSH server running?`;
+        } else if (err.message.includes('ETIMEDOUT') || err.message.includes('Timed out')) {
+          userMessage = `Connection timed out to ${config.host}:${config.port}. Check the hostname and your network.`;
+        } else if (err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo')) {
+          userMessage = `Host not found: ${config.host}. Check the hostname or DNS.`;
+        } else if (err.message.includes('EHOSTUNREACH')) {
+          userMessage = `Host unreachable: ${config.host}. Check your network connection.`;
+        }
+        sender.send('ssh:error', sessionId, userMessage);
       }
     });
 
