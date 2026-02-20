@@ -38,6 +38,9 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
       lineHeight: settings?.lineHeight ?? 1.2,
       allowTransparency: false,
       allowProposedApi: true,
+      letterSpacing: 0,
+      fontWeight: 'normal',
+      fontWeightBold: 'bold',
     });
 
     const fitAddon = new FitAddon();
@@ -58,7 +61,14 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
     terminal.unicode.activeVersion = '11';
 
     terminal.open(containerRef.current);
-    fitAddon.fit();
+
+    // Use requestAnimationFrame to ensure the terminal is rendered before fitting
+    // This helps with character width calculations and font rendering
+    requestAnimationFrame(() => {
+      if (containerRef.current && containerRef.current.offsetWidth > 0) {
+        fitAddon.fit();
+      }
+    });
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -105,9 +115,18 @@ export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOp
 
     // Resize observer
     const resizeObserver = new ResizeObserver(() => {
+      // Skip resize if container is not visible (hidden tab)
+      if (!containerRef.current || containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
+        return;
+      }
+
       fitAddon.fit();
       const { cols, rows } = terminal;
-      window.sshApi.resize(sessionId, cols, rows);
+
+      // Only resize PTY if we have valid dimensions
+      if (cols > 0 && rows > 0) {
+        window.sshApi.resize(sessionId, cols, rows);
+      }
     });
     resizeObserver.observe(containerRef.current);
 

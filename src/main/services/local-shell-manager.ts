@@ -93,6 +93,12 @@ function getShellEnvironment(): Record<string, string> {
     if (!env.TERM) {
       env.TERM = 'xterm-256color';
     }
+
+    // Set locale variables for proper character rendering
+    if (!env.LANG && !env.LC_ALL) {
+      env.LANG = 'en_US.UTF-8';
+      env.LC_ALL = 'en_US.UTF-8';
+    }
   }
 
   return env;
