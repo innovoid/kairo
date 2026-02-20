@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { SshSessionConfig } from '../shared/types/ssh';
+import type { SessionConnectConfig } from '../shared/types/session';
+
+export type { SessionConnectConfig };
 
 const sshApi = {
-  connect: (sessionId: string, config: SshSessionConfig & { hostId: string }): Promise<void> =>
+  connect: (sessionId: string, config: SessionConnectConfig): Promise<void> =>
     ipcRenderer.invoke('ssh.connect', sessionId, config),
   disconnect: (sessionId: string): Promise<void> =>
     ipcRenderer.invoke('ssh.disconnect', sessionId),
