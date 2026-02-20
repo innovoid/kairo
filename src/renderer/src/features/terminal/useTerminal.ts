@@ -23,6 +23,7 @@ const terminalInstances = new Map<string, {
   terminal: Terminal;
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
+  onDataDisposer: { dispose: () => void };
 }>();
 
 // Cleanup function to dispose terminal instance and disconnect PTY session
@@ -30,6 +31,7 @@ const terminalInstances = new Map<string, {
 export function disposeTerminalSession(sessionId: string): void {
   const instance = terminalInstances.get(sessionId);
   if (instance) {
+    instance.onDataDisposer.dispose();
     instance.terminal.dispose();
     terminalInstances.delete(sessionId);
   }
@@ -51,9 +53,11 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
 
     // Check if terminal instance already exists (from previous mount)
     const existingInstance = terminalInstances.get(sessionId);
+    let isNewTerminal = false;
+
     if (existingInstance && containerRef.current) {
       // Reuse existing terminal instance
-      const { terminal, fitAddon, searchAddon } = existingInstance;
+      const { terminal, fitAddon, searchAddon, onDataDisposer } = existingInstance;
 
       // Re-attach to DOM
       terminal.open(containerRef.current);
@@ -61,6 +65,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       terminalRef.current = terminal;
       fitAddonRef.current = fitAddon;
       searchAddonRef.current = searchAddon;
+      disposeOnDataRef.current = onDataDisposer;
 
       // Refit after reattaching
       requestAnimationFrame(() => {
@@ -73,6 +78,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         }
       });
     } else {
+      isNewTerminal = true;
       // Create new terminal instance
 
       // Get the selected theme or fallback to dracula
@@ -132,11 +138,27 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       fitAddonRef.current = fitAddon;
       searchAddonRef.current = searchAddon;
 
+      // Setup onData handler for new terminal
+      const onDataDisposer = terminal.onData((data) => {
+        window.sshApi.send(sessionId, data);
+
+        // Broadcast to other terminals if enabled
+        const { enabled, targetSessionIds } = useBroadcastStore.getState();
+        if (enabled) {
+          for (const targetId of targetSessionIds) {
+            if (targetId !== sessionId) {
+              window.sshApi.send(targetId, data);
+            }
+          }
+        }
+      });
+      disposeOnDataRef.current = onDataDisposer;
+
       // Store instance for reuse
-      terminalInstances.set(sessionId, { terminal, fitAddon, searchAddon });
+      terminalInstances.set(sessionId, { terminal, fitAddon, searchAddon, onDataDisposer });
     }
 
-    // Setup event listeners (only if not already setup or if settings changed)
+    // Setup event listeners that need to be recreated on each mount
     const terminal = terminalRef.current!;
 
     // Copy-on-select functionality
@@ -170,23 +192,6 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
     pasteHandlerRef.current = handlePaste;
     if (containerRef.current) {
       containerRef.current.addEventListener('paste', handlePaste);
-    }
-
-    // Handle keyboard input (setup once per terminal instance)
-    if (!disposeOnDataRef.current) {
-      disposeOnDataRef.current = terminal.onData((data) => {
-        window.sshApi.send(sessionId, data);
-
-        // Broadcast to other terminals if enabled
-        const { enabled, targetSessionIds } = useBroadcastStore.getState();
-        if (enabled) {
-          for (const targetId of targetSessionIds) {
-            if (targetId !== sessionId) {
-              window.sshApi.send(targetId, data);
-            }
-          }
-        }
-      });
     }
 
     // Resize observer (recreate on mount to observe current container)
@@ -238,10 +243,11 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         terminal.element.remove();
       }
 
-      // Clear refs but don't dispose
+      // Clear refs but don't dispose onDataDisposer (it persists with terminal instance)
       terminalRef.current = null;
       fitAddonRef.current = null;
       searchAddonRef.current = null;
+      disposeOnDataRef.current = null; // Will be restored from map on remount
     };
   }, [sessionId]);
 
