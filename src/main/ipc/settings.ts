@@ -13,10 +13,12 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'userId' | 'updatedAt'> = {
   theme: 'dark',
   terminalFont: 'JetBrains Mono',
   terminalFontSize: 14,
+  terminalTheme: 'dracula',
+  scrollbackLines: 1000,
+  cursorStyle: 'bar',
+  bellStyle: 'none',
+  lineHeight: 1.2,
   aiProvider: 'openai',
-  openaiApiKeyEncrypted: null,
-  anthropicApiKeyEncrypted: null,
-  geminiApiKeyEncrypted: null,
 };
 
 export const settingsIpcHandlers = {
@@ -45,10 +47,12 @@ export const settingsIpcHandlers = {
         theme: data.theme ?? 'dark',
         terminalFont: data.terminal_font ?? 'JetBrains Mono',
         terminalFontSize: data.terminal_font_size ?? 14,
+        terminalTheme: data.terminal_theme ?? 'dracula',
+        scrollbackLines: data.scrollback_lines ?? 1000,
+        cursorStyle: data.cursor_style ?? 'bar',
+        bellStyle: data.bell_style ?? 'none',
+        lineHeight: data.line_height ?? 1.2,
         aiProvider: data.ai_provider ?? 'openai',
-        openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
-        anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
-        geminiApiKeyEncrypted: data.gemini_api_key_encrypted ?? null,
         updatedAt: data.updated_at,
       };
       settingsQueries.upsert(user.id, JSON.stringify(settings));
@@ -74,10 +78,12 @@ export const settingsIpcHandlers = {
     if (input.theme !== undefined) updates.theme = input.theme;
     if (input.terminalFont !== undefined) updates.terminal_font = input.terminalFont;
     if (input.terminalFontSize !== undefined) updates.terminal_font_size = input.terminalFontSize;
+    if (input.terminalTheme !== undefined) updates.terminal_theme = input.terminalTheme;
+    if (input.scrollbackLines !== undefined) updates.scrollback_lines = input.scrollbackLines;
+    if (input.cursorStyle !== undefined) updates.cursor_style = input.cursorStyle;
+    if (input.bellStyle !== undefined) updates.bell_style = input.bellStyle;
+    if (input.lineHeight !== undefined) updates.line_height = input.lineHeight;
     if (input.aiProvider !== undefined) updates.ai_provider = input.aiProvider;
-    if (input.openaiApiKey !== undefined) updates.openai_api_key_encrypted = input.openaiApiKey;
-    if (input.anthropicApiKey !== undefined) updates.anthropic_api_key_encrypted = input.anthropicApiKey;
-    if (input.geminiApiKey !== undefined) updates.gemini_api_key_encrypted = input.geminiApiKey;
 
     const { data, error } = await supabase
       .from('settings')
@@ -93,10 +99,12 @@ export const settingsIpcHandlers = {
       theme: data.theme ?? 'dark',
       terminalFont: data.terminal_font ?? 'JetBrains Mono',
       terminalFontSize: data.terminal_font_size ?? 14,
+      terminalTheme: data.terminal_theme ?? 'dracula',
+      scrollbackLines: data.scrollback_lines ?? 1000,
+      cursorStyle: data.cursor_style ?? 'bar',
+      bellStyle: data.bell_style ?? 'none',
+      lineHeight: data.line_height ?? 1.2,
       aiProvider: data.ai_provider ?? 'openai',
-      openaiApiKeyEncrypted: data.openai_api_key_encrypted ?? null,
-      anthropicApiKeyEncrypted: data.anthropic_api_key_encrypted ?? null,
-      geminiApiKeyEncrypted: data.gemini_api_key_encrypted ?? null,
       updatedAt: data.updated_at,
     };
 

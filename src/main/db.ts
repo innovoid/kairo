@@ -18,6 +18,23 @@ export function getDb(): Database.Database {
   _db.pragma('journal_mode = WAL');
   _db.pragma('foreign_keys = ON');
   runMigrations(_db);
+
+  // Migrate legacy private keys to safeStorage-backed encryption.
+  // Lazy require to avoid circular dependency (key-manager imports from db).
+  try {
+    const legacyCount = _db
+      .prepare('select count(*) as cnt from private_keys where salt is null')
+      .get() as { cnt: number } | undefined;
+
+    if (legacyCount && legacyCount.cnt > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { migratePrivateKeys } = require('./services/key-manager') as typeof import('./services/key-manager');
+      migratePrivateKeys(_db);
+    }
+  } catch {
+    // Migration is best-effort; legacy keys still decrypt via fallback
+  }
+
   return _db;
 }
 
@@ -61,7 +78,8 @@ function runMigrations(db: Database.Database): void {
       key_id text primary key,
       encrypted_blob text not null,
       iv text not null,
-      auth_tag text not null
+      auth_tag text not null,
+      salt text
     );
 
     create table if not exists settings_cache (
@@ -69,7 +87,31 @@ function runMigrations(db: Database.Database): void {
       data text not null,
       synced_at integer
     );
+
+    create table if not exists app_secrets (
+      key text primary key,
+      value text not null
+    );
+
+    create table if not exists snippets (
+      id text primary key,
+      workspace_id text not null,
+      name text not null,
+      command text not null,
+      description text,
+      tags text default '[]',
+      created_by text,
+      synced_at integer
+    );
   `);
+
+  // Add salt column to private_keys if it doesn't exist (migration for existing databases)
+  const cols = db
+    .prepare("pragma table_info('private_keys')")
+    .all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'salt')) {
+    db.exec('alter table private_keys add column salt text');
+  }
 }
 
 // Typed query helpers
@@ -113,6 +155,7 @@ export interface DbPrivateKey {
   encrypted_blob: string;
   iv: string;
   auth_tag: string;
+  salt: string | null;
 }
 
 export const hostQueries = {
@@ -143,6 +186,10 @@ export const folderQueries = {
   listByWorkspace: (workspaceId: string): DbHostFolder[] => {
     const db = getDb();
     return db.prepare('select * from host_folders where workspace_id = ?').all(workspaceId) as DbHostFolder[];
+  },
+  getById: (id: string): DbHostFolder | undefined => {
+    const db = getDb();
+    return db.prepare('select * from host_folders where id = ?').get(id) as DbHostFolder | undefined;
   },
   upsert: (folder: DbHostFolder): void => {
     const db = getDb();
@@ -192,8 +239,8 @@ export const privateKeyQueries = {
   upsert: (pk: DbPrivateKey): void => {
     const db = getDb();
     db.prepare(`
-      insert or replace into private_keys (key_id, encrypted_blob, iv, auth_tag)
-      values (@key_id, @encrypted_blob, @iv, @auth_tag)
+      insert or replace into private_keys (key_id, encrypted_blob, iv, auth_tag, salt)
+      values (@key_id, @encrypted_blob, @iv, @auth_tag, @salt)
     `).run(pk);
   },
   delete: (keyId: string): void => {
@@ -213,5 +260,40 @@ export const settingsQueries = {
       insert or replace into settings_cache (user_id, data, synced_at)
       values (?, ?, ?)
     `).run(userId, data, Date.now());
+  },
+};
+
+export interface DbSnippet {
+  id: string;
+  workspace_id: string;
+  name: string;
+  command: string;
+  description: string | null;
+  tags: string; // JSON array string
+  created_by: string | null;
+  synced_at: number | null;
+}
+
+export const snippetQueries = {
+  listByWorkspace: (workspaceId: string): DbSnippet[] => {
+    const db = getDb();
+    return db.prepare('select * from snippets where workspace_id = ?').all(workspaceId) as DbSnippet[];
+  },
+  getById: (id: string): DbSnippet | undefined => {
+    const db = getDb();
+    return db.prepare('select * from snippets where id = ?').get(id) as DbSnippet | undefined;
+  },
+  upsert: (snippet: DbSnippet): void => {
+    const db = getDb();
+    db.prepare(`
+      insert or replace into snippets
+        (id, workspace_id, name, command, description, tags, created_by, synced_at)
+      values
+        (@id, @workspace_id, @name, @command, @description, @tags, @created_by, @synced_at)
+    `).run(snippet);
+  },
+  delete: (id: string): void => {
+    const db = getDb();
+    db.prepare('delete from snippets where id = ?').run(id);
   },
 };

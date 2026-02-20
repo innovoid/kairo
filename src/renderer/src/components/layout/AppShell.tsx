@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
 import { MainArea } from './MainArea';
@@ -6,8 +7,11 @@ import { StatusBar } from './StatusBar';
 import { HostForm } from '@/features/hosts/HostForm';
 import { HostsGrid } from '@/features/hosts/HostsGrid';
 import { KeysPage } from '@/features/keys/KeysPage';
+import { TeamPage } from '@/features/team/TeamPage';
 import { SettingsPage, type SettingsTab } from '@/features/settings/SettingsPage';
+import { ProfilePage } from '@/features/profile/ProfilePage';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
+import { useCommandPalette } from '@/features/command-palette/useCommandPalette';
 import { useTransferStore } from '@/stores/transfer-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSessionStore } from '@/stores/session-store';
@@ -15,17 +19,24 @@ import type { Host } from '@shared/types/hosts';
 import type { Workspace } from '@shared/types/workspace';
 import { Toaster } from '@/components/ui/sonner';
 
+type ActivePanel = 'host-form' | 'import-key' | null;
+
 export function AppShell() {
+  const location = useLocation();
   const [workspaceId, setWorkspaceId] = useState<string>('');
-  const [showHostForm, setShowHostForm] = useState(false);
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [editingHost, setEditingHost] = useState<Host | null>(null);
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } = useCommandPalette();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
   const openTab = useSessionStore((s) => s.openTab);
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
+
+  // Track if we're on the profile page via URL
+  const isOnProfile = location.pathname === '/profile';
 
   useEffect(() => {
     window.workspaceApi.getActiveContext().then((ctx) => {
@@ -43,6 +54,12 @@ export function AppShell() {
     localStorage.setItem('archterm-theme', theme);
   }, [settings?.theme]);
 
+  // Close panels when switching tabs
+  useEffect(() => {
+    setActivePanel(null);
+    setEditingHost(null);
+  }, [activeTabId]);
+
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
 
   function handleGoHome() {
@@ -53,22 +70,50 @@ export function AppShell() {
     openTab({ tabId: 'keys', tabType: 'keys', label: 'SSH Keys' });
   }
 
+  function handleGoWorkspace() {
+    openTab({ tabId: 'workspace', tabType: 'workspace', label: 'Workspace' });
+  }
+
   function handleGoSettings() {
     openTab({ tabId: 'settings', tabType: 'settings', label: 'Settings', settingsTab: 'terminal' });
   }
 
+  function handleGoProfile() {
+    openTab({ tabId: 'profile', tabType: 'profile', label: 'Profile' });
+  }
+
+  function handleOpenSnippets() {
+    openTab({ tabId: 'snippets', tabType: 'snippets', label: 'Snippets' });
+  }
+
+  function handleOpenLocalTerminal() {
+    const sessionId = `local-${Date.now()}`;
+    openTab({
+      tabId: sessionId,
+      tabType: 'terminal',
+      label: 'Local Terminal',
+      sessionId,
+      status: 'connecting',
+    });
+    window.sshApi.connect(sessionId, { type: 'local' });
+  }
+
   function handleAddHost() {
     setEditingHost(null);
-    setShowHostForm(true);
+    setActivePanel('host-form');
   }
 
   function handleEditHost(host: Host) {
     setEditingHost(host);
-    setShowHostForm(true);
+    setActivePanel('host-form');
   }
 
-  function handleCloseHostForm() {
-    setShowHostForm(false);
+  function handleOpenImportKey() {
+    setActivePanel('import-key');
+  }
+
+  function handleClosePanel() {
+    setActivePanel(null);
     setEditingHost(null);
   }
 
@@ -84,7 +129,13 @@ export function AppShell() {
     );
   }
 
-  const sidebarView = activeTab?.tabType === 'settings' ? 'settings' : activeTab?.tabType === 'keys' ? 'keys' : 'hosts';
+  const sidebarView =
+    activeTab?.tabType === 'settings' ? 'settings' :
+    activeTab?.tabType === 'keys' ? 'keys' :
+    activeTab?.tabType === 'workspace' ? 'workspace' :
+    activeTab?.tabType === 'profile' ? 'profile' :
+    activeTab?.tabType === 'snippets' ? 'snippets' :
+    'hosts';
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
@@ -94,6 +145,10 @@ export function AppShell() {
           onOpenSettings={handleGoSettings}
           onGoHome={handleGoHome}
           onGoKeys={handleGoKeys}
+          onGoWorkspace={handleGoWorkspace}
+          onOpenProfile={handleGoProfile}
+          onOpenLocalTerminal={handleOpenLocalTerminal}
+          onOpenSnippets={handleOpenSnippets}
           activeView={sidebarView}
         />
 
@@ -109,7 +164,15 @@ export function AppShell() {
                 onWorkspaceChange={handleWorkspaceChange}
               />
             )}
-            {activeTab?.tabType === 'keys' && <KeysPage workspaceId={workspaceId} />}
+            {activeTab?.tabType === 'keys' && (
+              <KeysPage
+                workspaceId={workspaceId}
+                showImportPanel={activePanel === 'import-key'}
+                onOpenImport={handleOpenImportKey}
+                onCloseImport={handleClosePanel}
+              />
+            )}
+            {activeTab?.tabType === 'workspace' && <TeamPage workspaceId={workspaceId} />}
             {activeTab?.tabType === 'settings' && (
               <SettingsPage
                 activeTab={activeTab.settingsTab ?? 'terminal'}
@@ -117,14 +180,15 @@ export function AppShell() {
                 workspaceId={workspaceId}
               />
             )}
+            {activeTab?.tabType === 'profile' && <ProfilePage />}
             {(activeTab?.tabType === 'terminal' || activeTab?.tabType === 'sftp') && <MainArea />}
 
-            {/* Host form right panel */}
-            {showHostForm && (
+            {/* Right panels - only one visible at a time */}
+            {activePanel === 'host-form' && (
               <HostForm
                 host={editingHost}
                 workspaceId={workspaceId}
-                onClose={handleCloseHostForm}
+                onClose={handleClosePanel}
               />
             )}
           </div>
@@ -134,6 +198,8 @@ export function AppShell() {
       <StatusBar />
 
       <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
         onOpenSettings={handleGoSettings}
         onOpenKeys={handleGoKeys}
       />

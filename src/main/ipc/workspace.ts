@@ -1,5 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../lib/logger';
 import type {
   ActiveWorkspaceContext,
   CreateWorkspaceInput,
@@ -212,7 +213,7 @@ export const workspaceIpcHandlers = {
     const activateCall = await supabase.rpc('set_active_workspace', { target_workspace_id: row.id });
     if (activateCall.error && !isMissingRpcError(activateCall.error, 'set_active_workspace')) {
       // Ignore activation errors — it may not be set up yet
-      console.warn('set_active_workspace failed (non-fatal):', activateCall.error.message);
+      logger.warn('set_active_workspace failed (non-fatal):', activateCall.error.message);
     }
 
     return toWorkspace(row);
@@ -279,46 +280,95 @@ export const workspaceIpcHandlers = {
     if (error) throw error;
   },
 
+  async updateWorkspace(event: IpcMainInvokeEvent, workspaceId: string, updates: { name: string }): Promise<Workspace> {
+    const supabase = await getAuthedClient(event);
+    const { data, error } = await supabase
+      .from('workspaces')
+      .update(updates)
+      .eq('id', workspaceId)
+      .select('id,name,created_by,created_at,updated_at')
+      .single();
+
+    if (error) throw error;
+    return toWorkspace(data as WorkspaceRow);
+  },
+
+  async deleteWorkspace(event: IpcMainInvokeEvent, workspaceId: string): Promise<void> {
+    const supabase = await getAuthedClient(event);
+
+    // Verify user is owner before allowing deletion
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('created_by')
+      .eq('id', workspaceId)
+      .single();
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (workspace?.created_by !== user!.id) {
+      throw new Error('Only workspace owner can delete workspace');
+    }
+
+    const { error } = await supabase
+      .from('workspaces')
+      .delete()
+      .eq('id', workspaceId);
+
+    if (error) throw error;
+  },
+
+  async leaveWorkspace(event: IpcMainInvokeEvent, workspaceId: string): Promise<void> {
+    const supabase = await getAuthedClient(event);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Check if user is the last owner
+    const { data: owners } = await supabase
+      .from('workspace_members')
+      .select('user_id')
+      .eq('workspace_id', workspaceId)
+      .eq('role', 'owner');
+
+    if (owners && owners.length === 1 && owners[0].user_id === user!.id) {
+      throw new Error('Cannot leave workspace as the last owner. Delete the workspace instead.');
+    }
+
+    const { error } = await supabase
+      .from('workspace_members')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', user!.id);
+
+    if (error) throw error;
+  },
+
   members: {
     async list(event: IpcMainInvokeEvent, workspaceId: string): Promise<WorkspaceMember[]> {
       const supabase = await getAuthedClient(event);
 
-      // Fetch workspace members
+      // Fetch workspace members with user info from public.users
       const { data: members, error: membersError } = await supabase
         .from('workspace_members')
-        .select('workspace_id,user_id,role,created_at')
+        .select(`
+          workspace_id,
+          user_id,
+          role,
+          created_at,
+          users!workspace_members_user_id_fkey (
+            email,
+            name
+          )
+        `)
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: true });
 
       if (membersError) throw membersError;
       if (!members || members.length === 0) return [];
 
-      // Fetch user emails from auth (using the admin client would be better, but for now we'll try direct RPC)
-      // Note: This requires a Supabase RPC function or accessing auth.users with service role
-      const userIds = members.map(m => m.user_id);
-
-      // Try to get emails via Supabase admin API
-      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
-
-      if (usersError) {
-        // If we can't fetch emails, return with userId as email fallback
-        console.warn('Could not fetch user emails:', usersError);
-        return members.map((row) => ({
-          workspaceId: row.workspace_id,
-          userId: row.user_id,
-          email: row.user_id, // Fallback to showing userId
-          role: row.role,
-          createdAt: row.created_at,
-        }));
-      }
-
-      // Map user IDs to emails
-      const userEmailMap = new Map(users.map(u => [u.id, u.email || u.id]));
-
-      return members.map((row) => ({
+      return members.map((row: any) => ({
         workspaceId: row.workspace_id,
         userId: row.user_id,
-        email: userEmailMap.get(row.user_id) || row.user_id,
+        email: row.users?.email || row.user_id,
+        name: row.users?.name || row.users?.email || 'Unknown User',
         role: row.role,
         createdAt: row.created_at,
       }));

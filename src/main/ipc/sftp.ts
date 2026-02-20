@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
+import { dialog } from 'electron';
 import { sftpManager } from '../services/sftp-manager';
 
 export const sftpIpcHandlers = {
@@ -40,5 +41,14 @@ export const sftpIpcHandlers = {
 
   async chmod(event: IpcMainInvokeEvent, sessionId: string, remotePath: string, mode: number) {
     await sftpManager.chmod(sessionId, remotePath, mode);
+  },
+
+  async pickUploadFiles(event: IpcMainInvokeEvent): Promise<string[] | null> {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      title: 'Select files to upload',
+    });
+
+    return result.canceled ? null : result.filePaths;
   },
 };

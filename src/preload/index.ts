@@ -6,3 +6,6 @@ import './sftp-api';
 import './keys-api';
 import './ai-api';
 import './settings-api';
+import './api-keys-api';
+import './snippets-api';
+import './recording-api';

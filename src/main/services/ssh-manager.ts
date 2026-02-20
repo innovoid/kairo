@@ -3,6 +3,7 @@ import type { WebContents } from 'electron';
 import type { SshSessionConfig } from '../../shared/types/ssh';
 import { privateKeyQueries } from '../db';
 import { keyManager } from './key-manager';
+import { recordingManager } from './recording-manager';
 
 const { Client } = ssh2;
 type ConnectConfig = ssh2.ConnectConfig;
@@ -60,14 +61,22 @@ export const sshManager = {
         if (session) session.shell = stream;
 
         stream.on('data', (data: Buffer) => {
+          const dataStr = data.toString('utf8');
           if (!sender.isDestroyed()) {
-            sender.send('ssh:data', sessionId, data.toString('utf8'));
+            sender.send('ssh:data', sessionId, dataStr);
+          }
+          if (recordingManager.isRecording(sessionId)) {
+            recordingManager.appendData(sessionId, dataStr);
           }
         });
 
         stream.stderr.on('data', (data: Buffer) => {
+          const dataStr = data.toString('utf8');
           if (!sender.isDestroyed()) {
-            sender.send('ssh:data', sessionId, data.toString('utf8'));
+            sender.send('ssh:data', sessionId, dataStr);
+          }
+          if (recordingManager.isRecording(sessionId)) {
+            recordingManager.appendData(sessionId, dataStr);
           }
         });
 
@@ -85,7 +94,19 @@ export const sshManager = {
     client.on('error', (err) => {
       sessions.delete(sessionId);
       if (!sender.isDestroyed()) {
-        sender.send('ssh:error', sessionId, err.message);
+        let userMessage = err.message;
+        if (err.message.includes('All configured authentication methods failed')) {
+          userMessage = 'Authentication failed. Check your username, password, or SSH key.';
+        } else if (err.message.includes('ECONNREFUSED')) {
+          userMessage = `Connection refused by ${config.host}:${config.port}. Is the SSH server running?`;
+        } else if (err.message.includes('ETIMEDOUT') || err.message.includes('Timed out')) {
+          userMessage = `Connection timed out to ${config.host}:${config.port}. Check the hostname and your network.`;
+        } else if (err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo')) {
+          userMessage = `Host not found: ${config.host}. Check the hostname or DNS.`;
+        } else if (err.message.includes('EHOSTUNREACH')) {
+          userMessage = `Host unreachable: ${config.host}. Check your network connection.`;
+        }
+        sender.send('ssh:error', sessionId, userMessage);
       }
     });
 

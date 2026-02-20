@@ -31,6 +31,16 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   useEffect(() => {
     fetchSettings();
+    // Load API keys from local encrypted storage
+    Promise.all([
+      window.apiKeysApi.get('openai'),
+      window.apiKeysApi.get('anthropic'),
+      window.apiKeysApi.get('gemini'),
+    ]).then(([oai, anth, gem]) => {
+      setOpenaiKey(oai || '');
+      setAnthropicKey(anth || '');
+      setGeminiKey(gem || '');
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -50,10 +60,25 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         terminalFontSize: parseInt(terminalFontSize),
         theme,
         aiProvider,
-        openaiApiKey: openaiKey || undefined,
-        anthropicApiKey: anthropicKey || undefined,
-        geminiApiKey: geminiKey || undefined,
       });
+
+      // Save API keys to local encrypted storage
+      if (openaiKey) {
+        await window.apiKeysApi.set('openai', openaiKey);
+      } else {
+        await window.apiKeysApi.delete('openai');
+      }
+      if (anthropicKey) {
+        await window.apiKeysApi.set('anthropic', anthropicKey);
+      } else {
+        await window.apiKeysApi.delete('anthropic');
+      }
+      if (geminiKey) {
+        await window.apiKeysApi.set('gemini', geminiKey);
+      } else {
+        await window.apiKeysApi.delete('gemini');
+      }
+
       onClose();
     } finally {
       setSaving(false);

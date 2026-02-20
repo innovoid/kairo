@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Host, HostFolder, CreateHostInput, UpdateHostInput, CreateFolderInput } from '@shared/types/hosts';
+import { useWorkspaceStore } from './workspace-store';
 
 interface HostState {
   hosts: Host[];
@@ -36,16 +37,56 @@ export const useHostStore = create<HostState>((set) => ({
   },
 
   createHost: async (input) => {
+    // Optimistic update: add placeholder host immediately
+    const tempId = `temp-${Date.now()}`;
+    const placeholderHost: Host = {
+      id: tempId,
+      workspaceId: input.workspaceId,
+      folderId: input.folderId ?? null,
+      label: input.label,
+      hostname: input.hostname,
+      port: input.port ?? 22,
+      username: input.username,
+      authType: input.authType,
+      password: null,
+      keyId: input.keyId ?? null,
+      tags: input.tags ?? [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set((state) => ({ hosts: [...state.hosts, placeholderHost] }));
+
+    // Create in backend and replace placeholder
     const host = await window.hostsApi.create(input);
-    set((state) => ({ hosts: [...state.hosts, host] }));
+    set((state) => ({
+      hosts: state.hosts.map((h) => (h.id === tempId ? host : h)),
+    }));
     return host;
   },
 
   updateHost: async (id, input) => {
-    const updated = await window.hostsApi.update(id, input);
+    // Optimistic update: apply changes immediately
     set((state) => ({
-      hosts: state.hosts.map((h) => (h.id === id ? updated : h)),
+      hosts: state.hosts.map((h) =>
+        h.id === id ? { ...h, ...input, updatedAt: new Date().toISOString() } : h
+      ),
     }));
+
+    try {
+      // Update backend and sync full data
+      const updated = await window.hostsApi.update(id, input);
+      set((state) => ({
+        hosts: state.hosts.map((h) => (h.id === id ? updated : h)),
+      }));
+    } catch (error) {
+      // Refetch to restore correct state
+      const workspaceId = useWorkspaceStore.getState().activeWorkspace?.id;
+      if (workspaceId) {
+        const hosts = await window.hostsApi.list(workspaceId);
+        set({ hosts });
+      }
+      throw error;
+    }
   },
 
   deleteHost: async (id) => {
@@ -54,15 +95,48 @@ export const useHostStore = create<HostState>((set) => ({
   },
 
   moveToFolder: async (id, folderId) => {
-    const updated = await window.hostsApi.moveToFolder(id, folderId);
+    // Optimistic update: update UI immediately before API call
     set((state) => ({
-      hosts: state.hosts.map((h) => (h.id === id ? updated : h)),
+      hosts: state.hosts.map((h) =>
+        h.id === id ? { ...h, folderId } : h
+      ),
     }));
+
+    // Then update backend (local-first, so it's fast)
+    try {
+      const updated = await window.hostsApi.moveToFolder(id, folderId);
+      // Update with full data from backend (in case there are other changes)
+      set((state) => ({
+        hosts: state.hosts.map((h) => (h.id === id ? updated : h)),
+      }));
+    } catch (error) {
+      // On error, refetch to get correct state
+      const workspaceId = useWorkspaceStore.getState().activeWorkspace?.id;
+      if (workspaceId) {
+        const hosts = await window.hostsApi.list(workspaceId);
+        set({ hosts });
+      }
+    }
   },
 
   createFolder: async (input) => {
+    // Optimistic update: add placeholder folder immediately
+    const tempId = `temp-${Date.now()}`;
+    const placeholderFolder: HostFolder = {
+      id: tempId,
+      workspaceId: input.workspaceId,
+      parentId: input.parentId ?? null,
+      name: input.name,
+      position: input.position ?? 0,
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({ folders: [...state.folders, placeholderFolder] }));
+
+    // Create in backend and replace placeholder
     const folder = await window.foldersApi.create(input);
-    set((state) => ({ folders: [...state.folders, folder] }));
+    set((state) => ({
+      folders: state.folders.map((f) => (f.id === tempId ? folder : f)),
+    }));
     return folder;
   },
 

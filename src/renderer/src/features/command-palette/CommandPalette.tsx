@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useHostStore } from '@/stores/host-store';
 import { useSessionStore } from '@/stores/session-store';
 import {
@@ -10,31 +9,25 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
-import { Terminal, Settings, Key, X } from 'lucide-react';
+import { useCommandPalette } from './useCommandPalette';
+import { getHostActions, getNavigationActions } from './command-actions';
 
 interface CommandPaletteProps {
   onOpenSettings: () => void;
   onOpenKeys: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CommandPalette({ onOpenSettings, onOpenKeys }: CommandPaletteProps) {
-  const [open, setOpen] = useState(false);
+export function CommandPalette({ onOpenSettings, onOpenKeys, open: externalOpen, onOpenChange }: CommandPaletteProps) {
+  const internal = useCommandPalette();
+  const open = externalOpen !== undefined ? externalOpen : internal.open;
+  const setOpen = onOpenChange !== undefined ? onOpenChange : internal.setOpen;
   const { hosts } = useHostStore();
   const tabs = useSessionStore((s) => s.tabs);
   const openTab = useSessionStore((s) => s.openTab);
   const closeTab = useSessionStore((s) => s.closeTab);
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setOpen((prev) => !prev);
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   function connectHost(hostId: string) {
     const host = hosts.find((h) => h.id === hostId);
@@ -81,6 +74,22 @@ export function CommandPalette({ onOpenSettings, onOpenKeys }: CommandPalettePro
   }
 
   const terminalTabs = [...tabs.values()].filter(t => t.tabType === 'terminal' || t.tabType === 'sftp');
+  const hasActiveSessions = terminalTabs.length > 0;
+
+  // Get actions using the helper functions
+  const hostActions = getHostActions({ hosts, onConnectHost: connectHost });
+  const navigationActions = getNavigationActions({
+    onOpenSettings: () => {
+      onOpenSettings();
+      setOpen(false);
+    },
+    onOpenKeys: () => {
+      onOpenKeys();
+      setOpen(false);
+    },
+    hasActiveSessions,
+    onDisconnectAll: disconnectAll,
+  });
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -88,38 +97,45 @@ export function CommandPalette({ onOpenSettings, onOpenKeys }: CommandPalettePro
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        {hosts.length > 0 && (
+        {hostActions.length > 0 && (
           <CommandGroup heading="Hosts">
-            {hosts.map((host) => (
-              <CommandItem
-                key={host.id}
-                onSelect={() => connectHost(host.id)}
-              >
-                <Terminal className="h-4 w-4 mr-2" />
-                <span>Connect to {host.label}</span>
-                <span className="ml-2 text-xs text-muted-foreground">{host.hostname}</span>
-              </CommandItem>
-            ))}
+            {hostActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <CommandItem
+                  key={action.id}
+                  onSelect={action.onSelect}
+                  keywords={action.keywords}
+                >
+                  <Icon className="h-4 w-4 mr-2" />
+                  <span>{action.label}</span>
+                  {action.description && (
+                    <span className="ml-2 text-xs text-muted-foreground">{action.description}</span>
+                  )}
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         )}
 
         <CommandSeparator />
 
         <CommandGroup heading="Actions">
-          <CommandItem onSelect={() => { onOpenSettings(); setOpen(false); }}>
-            <Settings className="h-4 w-4 mr-2" />
-            Open Settings
-          </CommandItem>
-          <CommandItem onSelect={() => { onOpenKeys(); setOpen(false); }}>
-            <Key className="h-4 w-4 mr-2" />
-            Manage SSH Keys
-          </CommandItem>
-          {terminalTabs.length > 0 && (
-            <CommandItem onSelect={disconnectAll} className="text-destructive">
-              <X className="h-4 w-4 mr-2" />
-              Disconnect All
-            </CommandItem>
-          )}
+          {navigationActions.map((action) => {
+            const Icon = action.icon;
+            const isDestructive = action.id === 'disconnect-all';
+            return (
+              <CommandItem
+                key={action.id}
+                onSelect={action.onSelect}
+                keywords={action.keywords}
+                className={isDestructive ? 'text-destructive' : undefined}
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {action.label}
+              </CommandItem>
+            );
+          })}
         </CommandGroup>
       </CommandList>
     </CommandDialog>

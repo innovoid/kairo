@@ -1,106 +1,86 @@
-import { useEffect, useState } from 'react';
-import type { Workspace, ActiveWorkspaceContext } from '@shared/types/workspace';
+import { useState, useEffect } from 'react';
+import { useWorkspaceStore } from '../../stores/workspace-store';
+import { AvatarInitials } from '../../components/ui/avatar-initials';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Plus, ChevronsUpDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../components/ui/popover';
+import { Button } from '../../components/ui/button';
+import { Check, Plus } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 
-interface WorkspaceSwitcherProps {
-  onWorkspaceChange?: (workspace: Workspace) => void;
-}
-
-export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps) {
-  const [context, setContext] = useState<ActiveWorkspaceContext | null>(null);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+export function WorkspaceSwitcher() {
+  const { workspaces, activeWorkspace, setActiveWorkspace, fetchWorkspaces } = useWorkspaceStore();
+  const [open, setOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   useEffect(() => {
-    loadWorkspaces();
-  }, []);
+    fetchWorkspaces();
+  }, [fetchWorkspaces]);
 
-  async function loadWorkspaces(): Promise<Workspace[]> {
-    try {
-      const [ctx, wsList] = await Promise.all([
-        window.workspaceApi.getActiveContext() as Promise<ActiveWorkspaceContext | null>,
-        window.workspaceApi.listMine() as Promise<Workspace[]>,
-      ]);
-      setContext(ctx);
-      setWorkspaces(wsList ?? []);
-      return wsList ?? [];
-    } catch (e) {
-      console.error('Failed to load workspaces:', e);
-      return [];
-    }
-  }
+  const handleSwitchWorkspace = async (workspaceId: string) => {
+    await setActiveWorkspace(workspaceId);
+    setOpen(false);
+    // Reload the page to refresh all workspace-dependent data
+    window.location.reload();
+  };
 
-  async function switchWorkspace(id: string) {
-    try {
-      await window.workspaceApi.switchActive(id);
-      const fresh = await loadWorkspaces();
-      const ws = fresh.find((w) => w.id === id);
-      if (ws) onWorkspaceChange?.(ws);
-    } catch (e) {
-      console.error('Failed to switch workspace:', e);
-    }
-  }
+  const handleCreateWorkspace = () => {
+    setOpen(false);
+    setCreateDialogOpen(true);
+  };
 
-  async function createWorkspace() {
-    const name = window.prompt('New workspace name:');
-    if (!name?.trim()) return;
-    try {
-      await window.workspaceApi.create({ name: name.trim() });
-      await loadWorkspaces();
-    } catch (e) {
-      console.error('Failed to create workspace:', e);
-    }
-  }
+  const workspaceName = activeWorkspace?.name || 'Workspace';
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(
-          'flex w-full items-center justify-between px-2 h-8 rounded-md text-sm',
-          'hover:bg-accent transition-colors outline-none',
-        )}
-      >
-        <span className="truncate font-medium">
-          {context?.workspace.name ?? 'Select workspace'}
-        </span>
-        <ChevronsUpDown className="h-3 w-3 text-muted-foreground shrink-0 ml-1" />
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent className="w-52" side="bottom" align="start">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {workspaces.length === 0 ? (
-            <DropdownMenuItem disabled>No workspaces found</DropdownMenuItem>
-          ) : (
-            workspaces.map((ws) => (
-              <DropdownMenuItem key={ws.id} onClick={() => switchWorkspace(ws.id)}>
-                <Check
-                  className={cn(
-                    'h-3.5 w-3.5 mr-2 shrink-0',
-                    context?.workspace.id === ws.id ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
-                <span className="truncate">{ws.name}</span>
-              </DropdownMenuItem>
-            ))
-          )}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={createWorkspace}>
-          <Plus className="h-4 w-4 mr-2" />
-          New workspace
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger render={(props) => (
+          <button {...props} className="flex items-center justify-center h-10 w-10 rounded-md transition-colors hover:bg-accent">
+            <AvatarInitials name={workspaceName} size="sm" />
+          </button>
+        )} />
+        <PopoverContent className="w-64 p-2" side="right" align="start" sideOffset={8}>
+          <div className="space-y-1">
+            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+              Workspaces
+            </div>
+            {workspaces.map((workspace) => (
+              <button
+                key={workspace.id}
+                onClick={() => handleSwitchWorkspace(workspace.id)}
+                className={cn(
+                  'w-full flex items-center gap-3 px-2 py-2 rounded-md text-sm transition-colors',
+                  'hover:bg-accent hover:text-accent-foreground',
+                  workspace.id === activeWorkspace?.id && 'bg-accent'
+                )}
+              >
+                <AvatarInitials name={workspace.name} size="sm" />
+                <span className="flex-1 text-left truncate">{workspace.name}</span>
+                {workspace.id === activeWorkspace?.id && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </button>
+            ))}
+            <div className="border-t my-1" />
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm"
+              onClick={handleCreateWorkspace}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Workspace
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+      <CreateWorkspaceDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreated={fetchWorkspaces}
+      />
+    </>
   );
 }

@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FolderOpen, File, RefreshCw, FolderPlus, Upload, ChevronLeft } from 'lucide-react';
+import { FolderOpen, File, RefreshCw, FolderPlus, Upload as UploadIcon, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FilePaneProps {
@@ -30,6 +30,7 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
   const [entries, setEntries] = useState<SftpEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const { addTransfer, updateProgress } = useTransferStore();
 
   useEffect(() => {
@@ -78,6 +79,92 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
     await loadDirectory(currentPath);
   }
 
+  async function handleUpload() {
+    const files = await window.sftpApi.pickUploadFiles();
+    if (!files || files.length === 0) return;
+
+    for (const localPath of files) {
+      const filename = localPath.split('/').pop()!;
+      const remotePath = `${currentPath}/${filename}`.replace('//', '/');
+
+      const transferId = crypto.randomUUID();
+      addTransfer({
+        transferId,
+        filename,
+        bytesTransferred: 0,
+        totalBytes: 0,
+        speed: 0,
+        direction: 'upload',
+      });
+
+      try {
+        await window.sftpApi.upload(sessionId, localPath, remotePath);
+        await loadDirectory(currentPath);
+      } catch (e) {
+        console.error('Upload failed:', e);
+      }
+    }
+  }
+
+  async function handleDownload(entry: SftpEntry) {
+    if (entry.type === 'directory') return;
+
+    const transferId = crypto.randomUUID();
+    addTransfer({
+      transferId,
+      filename: entry.name,
+      bytesTransferred: 0,
+      totalBytes: entry.size,
+      speed: 0,
+      direction: 'download',
+    });
+
+    try {
+      await window.sftpApi.download(sessionId, entry.path);
+    } catch (e) {
+      console.error('Download failed:', e);
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      const remotePath = `${currentPath}/${file.name}`.replace('//', '/');
+      const transferId = crypto.randomUUID();
+
+      addTransfer({
+        transferId,
+        filename: file.name,
+        bytesTransferred: 0,
+        totalBytes: file.size,
+        speed: 0,
+        direction: 'upload',
+      });
+
+      try {
+        await window.sftpApi.upload(sessionId, file.path, remotePath);
+        await loadDirectory(currentPath);
+      } catch (e) {
+        console.error('Upload failed:', e);
+      }
+    }
+  }
+
   const pathParts = currentPath.split('/').filter(Boolean);
 
   return (
@@ -109,10 +196,33 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleMkdir} title="New folder">
           <FolderPlus className="h-3 w-3" />
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleUpload}
+          title="Upload files"
+        >
+          <UploadIcon className="h-3 w-3" />
+        </Button>
       </div>
 
       {/* File list */}
-      <div className="flex-1 overflow-auto">
+      <div
+        className="flex-1 overflow-auto relative"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 bg-primary/10 border-2 border-primary border-dashed flex items-center justify-center z-10">
+            <div className="text-center">
+              <UploadIcon className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <p className="text-sm font-medium">Drop files to upload</p>
+            </div>
+          </div>
+        )}
+
         {error ? (
           <div className="p-4 text-sm text-destructive">{error}</div>
         ) : loading ? (
@@ -136,7 +246,13 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
                     'cursor-pointer text-xs',
                     entry.type === 'directory' && 'hover:bg-accent/40'
                   )}
-                  onDoubleClick={() => navigate(entry)}
+                  onDoubleClick={() => {
+                    if (entry.type === 'directory') {
+                      navigate(entry);
+                    } else {
+                      handleDownload(entry);
+                    }
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     handleDelete(entry);

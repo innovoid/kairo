@@ -9,12 +9,19 @@ import type { Workspace } from '@shared/types/workspace';
 
 interface KeysPageProps {
   workspaceId: string;
+  showImportPanel?: boolean;
+  onOpenImport?: () => void;
+  onCloseImport?: () => void;
   onWorkspaceChange?: (ws: Workspace) => void;
 }
 
-export function KeysPage({ workspaceId }: KeysPageProps) {
+export function KeysPage({
+  workspaceId,
+  showImportPanel = false,
+  onOpenImport,
+  onCloseImport,
+}: KeysPageProps) {
   const { keys, fetchKeys, importKey, deleteKey } = useKeyStore();
-  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     fetchKeys(workspaceId);
@@ -36,7 +43,7 @@ export function KeysPage({ workspaceId }: KeysPageProps) {
               <h1 className="text-lg font-semibold">SSH Keys</h1>
               <p className="text-sm text-muted-foreground">Import and manage SSH keys for authentication</p>
             </div>
-            <Button size="sm" onClick={() => setShowImport(true)}>
+            <Button size="sm" onClick={onOpenImport}>
               <Plus className="h-4 w-4 mr-1.5" />
               Import Key
             </Button>
@@ -50,7 +57,7 @@ export function KeysPage({ workspaceId }: KeysPageProps) {
               <p className="text-xs text-muted-foreground mt-1 mb-4">
                 Import your private keys to authenticate with hosts
               </p>
-              <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
+              <Button variant="outline" size="sm" onClick={onOpenImport}>
                 <Plus className="h-4 w-4 mr-1.5" />
                 Import your first key
               </Button>
@@ -83,7 +90,7 @@ export function KeysPage({ workspaceId }: KeysPageProps) {
       </div>
 
       {/* Import Panel */}
-      {showImport && <ImportKeyPanel workspaceId={workspaceId} onClose={() => setShowImport(false)} />}
+      {showImportPanel && <ImportKeyPanel workspaceId={workspaceId} onClose={onCloseImport!} />}
     </div>
   );
 }

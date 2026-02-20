@@ -1,6 +1,6 @@
 import { useSessionStore } from '@/stores/session-store';
 import { Button } from '@/components/ui/button';
-import { X, Terminal, FolderOpen, Server, KeyRound, Settings } from 'lucide-react';
+import { X, Terminal, FolderOpen, Server, KeyRound, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function TabBar() {
@@ -23,6 +23,7 @@ export function TabBar() {
     switch (tabType) {
       case 'hosts': return <Server className="h-3.5 w-3.5 shrink-0" />;
       case 'keys': return <KeyRound className="h-3.5 w-3.5 shrink-0" />;
+      case 'team': return <Users className="h-3.5 w-3.5 shrink-0" />;
       case 'settings': return <Settings className="h-3.5 w-3.5 shrink-0" />;
       case 'sftp': return <FolderOpen className="h-3.5 w-3.5 shrink-0" />;
       case 'terminal': return <Terminal className="h-3.5 w-3.5 shrink-0" />;
