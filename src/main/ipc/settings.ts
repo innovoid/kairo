@@ -107,6 +107,7 @@ export const settingsIpcHandlers = {
       cursorStyle: data.cursor_style ?? 'bar',
       bellStyle: data.bell_style ?? 'none',
       lineHeight: data.line_height ?? 1.2,
+      copyOnSelect: data.copy_on_select ?? false,
       aiProvider: data.ai_provider ?? 'openai',
       updatedAt: data.updated_at,
     };
