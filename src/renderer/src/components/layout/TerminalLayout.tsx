@@ -21,20 +21,15 @@ export function TerminalLayout({
   return (
     <div
       className={cn(
-        "relative h-screen w-screen overflow-hidden bg-background",
+        "flex flex-col h-screen w-screen overflow-hidden bg-background",
         "selection:bg-primary/20 selection:text-primary-foreground",
         className
       )}
     >
-      {/* Z-0: Terminal Layer - Full viewport */}
-      <div className="absolute inset-0 z-0">
-        {children}
-      </div>
-
-      {/* Z-10: Floating UI Layer */}
+      {/* Tab Bar - Natural height */}
       {tabBar && (
         <div
-          className="absolute top-0 left-0 right-0 z-10"
+          className="relative z-10"
           style={{
             animation: 'slideDownFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards'
           }}
@@ -42,6 +37,11 @@ export function TerminalLayout({
           {tabBar}
         </div>
       )}
+
+      {/* Terminal Layer - Fills remaining space */}
+      <div className="flex-1 relative z-0 overflow-hidden">
+        {children}
+      </div>
 
       {/* Z-1000: Overlay Layer */}
       {overlays && (
