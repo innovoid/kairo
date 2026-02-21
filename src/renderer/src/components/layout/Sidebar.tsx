@@ -40,7 +40,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
   }, []);
 
   return (
-    <div className="flex flex-col w-[280px] border-r border-border bg-background shrink-0 py-10 px-7 gap-10 justify-between">
+    <div className="flex flex-col w-[260px] border-r border-border bg-[var(--surface-1)] shrink-0 py-6 px-6 gap-10 justify-between">
       {/* Top Section */}
       <div className="flex flex-col gap-10">
         {/* Logo */}
@@ -60,7 +60,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
 
       {/* Bottom Section */}
       <div className="flex flex-col gap-6">
-        <div className="h-px w-full bg-border" />
+        <div className="h-px w-full bg-[var(--border-subtle)]" />
         <NavButton icon={Settings} label="Settings" active={activeView === 'settings'} onClick={onOpenSettings} />
       </div>
     </div>
@@ -81,10 +81,10 @@ function NavButton({
   return (
     <button
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded transition-colors w-full text-left',
+        'flex items-center gap-3 px-3 py-2 rounded transition-all duration-300 ease-out w-full text-left',
         active
-          ? 'bg-[#1A1A1A] text-[#C9A962]'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+          ? 'bg-[var(--surface-2)] text-[var(--primary)] border-l-[3px] border-[var(--primary)] pl-[9px]'
+          : 'text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-1)] border-l-[3px] border-transparent',
       )}
       onClick={onClick}
     >
