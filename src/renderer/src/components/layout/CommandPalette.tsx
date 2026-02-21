@@ -88,12 +88,23 @@ export function CommandPalette({
       setSearch('');
       setSelectedIndex(0);
 
-      // Use requestAnimationFrame to ensure DOM is ready, then focus
+      // Multiple focus attempts to ensure it works
+      const focusInput = () => {
+        inputRef.current?.focus();
+      };
+
+      // Try immediately
+      focusInput();
+
+      // Try after animation frame
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 100);
+        focusInput();
       });
+
+      // Try after short delay
+      const timer = setTimeout(focusInput, 150);
+
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -196,6 +207,7 @@ export function CommandPalette({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={placeholder}
+                  autoFocus
                   className={cn(
                     'flex-1 !bg-transparent border-0 px-0 h-auto',
                     'text-lg font-normal tracking-tight text-foreground',
