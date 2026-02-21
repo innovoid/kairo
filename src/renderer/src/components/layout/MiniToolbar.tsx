@@ -30,6 +30,7 @@ interface MiniToolbarProps {
   position: ToolbarPosition;
   orientation: ToolbarOrientation;
   onPositionChange: (position: ToolbarPosition) => void;
+  onOrientationChange: (orientation: ToolbarOrientation) => void;
   onBrowseHosts?: () => void;
   onBrowseFiles?: () => void;
   onSnippets?: () => void;
@@ -43,6 +44,7 @@ export function MiniToolbar({
   position,
   orientation,
   onPositionChange,
+  onOrientationChange,
   onBrowseHosts,
   onBrowseFiles,
   onSnippets,
@@ -127,6 +129,10 @@ export function MiniToolbar({
     setIsDragging(false);
   };
 
+  const handleToggleOrientation = () => {
+    onOrientationChange(orientation === 'horizontal' ? 'vertical' : 'horizontal');
+  };
+
   // Add/remove drag listeners
   useEffect(() => {
     if (isDragging) {
@@ -177,16 +183,28 @@ export function MiniToolbar({
           }}
         />
 
-        {/* Drag Handle */}
-        <div
-          onMouseDown={handleDragStart}
-          className={cn(
-            'flex-shrink-0 flex items-center justify-center cursor-grab hover:bg-[var(--surface-3)] rounded-lg transition-colors',
-            isHorizontal ? 'h-9 w-5' : 'w-10 h-5'
-          )}
-        >
-          <GripVertical className={cn('h-4 w-4 text-text-tertiary', !isHorizontal && 'rotate-90')} />
-        </div>
+        {/* Drag Handle - drag to move, double-click to toggle orientation */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              onMouseDown={handleDragStart}
+              onDoubleClick={handleToggleOrientation}
+              className={cn(
+                'flex-shrink-0 flex items-center justify-center cursor-grab hover:bg-[var(--surface-3)] rounded-lg transition-colors',
+                isHorizontal ? 'h-9 w-5' : 'w-10 h-5',
+                isDragging && 'cursor-grabbing'
+              )}
+            >
+              <GripVertical className={cn('h-4 w-4 text-text-tertiary', !isHorizontal && 'rotate-90')} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side={isHorizontal ? 'top' : 'left'} sideOffset={8}>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">Drag to move</span>
+              <span className="text-xs text-text-tertiary">Double-click to rotate</span>
+            </div>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Primary actions */}
         <div className={cn('flex gap-0.5', isHorizontal ? 'flex-row items-center' : 'flex-col')}>

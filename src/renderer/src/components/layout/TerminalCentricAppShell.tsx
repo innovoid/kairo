@@ -40,7 +40,7 @@ export function TerminalCentricAppShell() {
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
   const { hosts } = useHostStore();
-  const { position: toolbarPosition, orientation: toolbarOrientation, setPosition: setToolbarPosition } = useToolbarState();
+  const { position: toolbarPosition, orientation: toolbarOrientation, setPosition: setToolbarPosition, setOrientation: setToolbarOrientation } = useToolbarState();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
@@ -354,6 +354,7 @@ export function TerminalCentricAppShell() {
           position={toolbarPosition}
           orientation={toolbarOrientation}
           onPositionChange={setToolbarPosition}
+          onOrientationChange={setToolbarOrientation}
           onBrowseHosts={() => setHostBrowserOpen(true)}
           onBrowseFiles={() => {
             // TODO: Open SFTP browser
