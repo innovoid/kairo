@@ -6,7 +6,6 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useTerminal } from './useTerminal';
-import { TerminalToolbar } from './TerminalToolbar';
 import { TerminalSearchBar } from './TerminalSearchBar';
 import { SnippetPickerOverlay } from '@/features/snippets/SnippetPickerOverlay';
 import { cn } from '@/lib/utils';
@@ -95,10 +94,9 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   }, []);
 
   return (
-    <div className={cn('flex flex-col h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>
-      <TerminalToolbar tab={tab} terminal={terminal} onSplit={isPane ? onSplit : undefined} onClosePane={isPane ? onClosePane : undefined} />
+    <div className={cn('h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>
       <div
-        className="relative flex-1 overflow-hidden p-3"
+        className="relative w-full h-full overflow-hidden p-3"
         style={{ backgroundColor: terminalBg }}
       >
         <div ref={containerRef} className="w-full h-full" />

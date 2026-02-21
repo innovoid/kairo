@@ -1,4 +1,4 @@
-import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings } from 'lucide-react';
+import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +8,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+} from '@/components/ui/context-menu';
 import {
   Tooltip,
   TooltipContent,
@@ -21,6 +28,8 @@ interface Tab {
   hostname?: string;
   status: 'connected' | 'connecting' | 'disconnected';
   isActive: boolean;
+  sessionId?: string;
+  isRecording?: boolean;
 }
 
 interface FloatingTabBarProps {
@@ -37,6 +46,12 @@ interface FloatingTabBarProps {
   onKeys?: () => void;
   onCommandPalette?: () => void;
   onSettings?: () => void;
+  onOpenSftp?: (tabId: string) => void;
+  onStartRecording?: (tabId: string) => void;
+  onStopRecording?: (tabId: string) => void;
+  onSplitHorizontal?: (tabId: string) => void;
+  onSplitVertical?: (tabId: string) => void;
+  onToggleBroadcast?: (tabId: string) => void;
   className?: string;
 }
 
@@ -60,6 +75,12 @@ export function FloatingTabBar({
   onKeys,
   onCommandPalette,
   onSettings,
+  onOpenSftp,
+  onStartRecording,
+  onStopRecording,
+  onSplitHorizontal,
+  onSplitVertical,
+  onToggleBroadcast,
   className,
 }: FloatingTabBarProps) {
   return (
@@ -95,6 +116,12 @@ export function FloatingTabBar({
               index={index}
               onClick={() => onTabClick?.(tab.id)}
               onClose={() => onTabClose?.(tab.id)}
+              onOpenSftp={() => onOpenSftp?.(tab.id)}
+              onStartRecording={() => onStartRecording?.(tab.id)}
+              onStopRecording={() => onStopRecording?.(tab.id)}
+              onSplitHorizontal={() => onSplitHorizontal?.(tab.id)}
+              onSplitVertical={() => onSplitVertical?.(tab.id)}
+              onToggleBroadcast={() => onToggleBroadcast?.(tab.id)}
             />
           ))}
         </div>
@@ -195,18 +222,26 @@ interface TabProps {
   index: number;
   onClick: () => void;
   onClose: () => void;
+  onOpenSftp?: () => void;
+  onStartRecording?: () => void;
+  onStopRecording?: () => void;
+  onSplitHorizontal?: () => void;
+  onSplitVertical?: () => void;
+  onToggleBroadcast?: () => void;
 }
 
-function Tab({ tab, index, onClick, onClose }: TabProps) {
+function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onStopRecording, onSplitHorizontal, onSplitVertical, onToggleBroadcast }: TabProps) {
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClose();
   };
 
   return (
-    <div
-      onClick={onClick}
-      className={cn(
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          onClick={onClick}
+          className={cn(
         // Base styles
         'relative group flex items-center gap-2 h-9 px-3 rounded-lg',
         'cursor-pointer select-none',
@@ -300,6 +335,62 @@ function Tab({ tab, index, onClick, onClose }: TabProps) {
         }
       `}</style>
     </div>
+      </ContextMenuTrigger>
+
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem onClick={onOpenSftp} className="gap-2">
+          <FolderOpen className="h-4 w-4" />
+          <span>Open SFTP</span>
+          <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+F</span>
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+
+        {tab.isRecording ? (
+          <ContextMenuItem onClick={onStopRecording} className="gap-2">
+            <Circle className="h-4 w-4 fill-red-500 text-red-500" />
+            <span>Stop Recording</span>
+            <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+R</span>
+          </ContextMenuItem>
+        ) : (
+          <ContextMenuItem onClick={onStartRecording} className="gap-2">
+            <Circle className="h-4 w-4" />
+            <span>Start Recording</span>
+            <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+R</span>
+          </ContextMenuItem>
+        )}
+
+        <ContextMenuSeparator />
+
+        <ContextMenuItem onClick={onSplitHorizontal} className="gap-2">
+          <SplitSquareHorizontal className="h-4 w-4" />
+          <span>Split Horizontal</span>
+          <span className="ml-auto text-xs text-muted-foreground">Cmd+D</span>
+        </ContextMenuItem>
+
+        <ContextMenuItem onClick={onSplitVertical} className="gap-2">
+          <SplitSquareVertical className="h-4 w-4" />
+          <span>Split Vertical</span>
+          <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+D</span>
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+
+        <ContextMenuItem onClick={onToggleBroadcast} className="gap-2">
+          <Radio className="h-4 w-4" />
+          <span>Toggle Broadcast</span>
+          <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+B</span>
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+
+        <ContextMenuItem onClick={onClose} className="gap-2 text-destructive focus:text-destructive">
+          <X className="h-4 w-4" />
+          <span>Close Tab</span>
+          <span className="ml-auto text-xs text-muted-foreground">Cmd+W</span>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
