@@ -95,7 +95,7 @@ export function AppShell() {
       sessionId,
       status: 'connecting',
     });
-    window.sshApi.connect(sessionId, { type: 'local' });
+    window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
   }
 
   function handleAddHost() {

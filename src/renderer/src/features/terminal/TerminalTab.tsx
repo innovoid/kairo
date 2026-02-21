@@ -4,6 +4,7 @@ import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
+import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useTerminal } from './useTerminal';
 import { TerminalToolbar } from './TerminalToolbar';
 import { TerminalSearchBar } from './TerminalSearchBar';
@@ -35,6 +36,10 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     settings,
     isVisible,
   });
+
+  // Get terminal theme background color
+  const themeName = settings?.terminalTheme ?? 'dracula';
+  const terminalBg = TERMINAL_THEMES[themeName]?.theme?.background ?? TERMINAL_THEMES['dracula'].theme.background;
 
   useEffect(() => {
     // Listen for SSH events for this session
@@ -92,8 +97,11 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   return (
     <div className={cn('flex flex-col h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>
       <TerminalToolbar tab={tab} terminal={terminal} onSplit={isPane ? onSplit : undefined} onClosePane={isPane ? onClosePane : undefined} />
-      <div className="relative flex-1 overflow-hidden">
-        <div ref={containerRef} className="absolute inset-0 px-3 py-2" />
+      <div
+        className="relative flex-1 overflow-hidden p-3"
+        style={{ backgroundColor: terminalBg }}
+      >
+        <div ref={containerRef} className="w-full h-full" />
         {showSearch && (
           <TerminalSearchBar
             searchAddon={searchAddon.current}

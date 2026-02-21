@@ -13,4 +13,5 @@ export interface SessionConnectConfig {
   // Local-specific
   shell?: string;
   cwd?: string;
+  promptStyle?: string;
 }

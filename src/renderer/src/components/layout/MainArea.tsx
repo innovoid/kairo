@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSessionStore } from '@/stores/session-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import { TerminalTab } from '@/features/terminal/TerminalTab';
 import { SplitPaneLayout } from '@/features/terminal/SplitPaneLayout';
 import { SftpTab } from '@/features/sftp/SftpTab';
@@ -11,6 +12,7 @@ export function MainArea() {
   const activeTabId = useSessionStore((s) => s.activeTabId);
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
   const { splitPane, closePane } = useSessionStore();
+  const { settings } = useSettingsStore();
   const [focusedPaneSessionId, setFocusedPaneSessionId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export function MainArea() {
         e.preventDefault();
         const newSessionId = `local-${Date.now()}`;
         splitPane(activeTab.tabId, 'horizontal', newSessionId);
-        window.sshApi.connect(newSessionId, { type: 'local' });
+        window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
         setFocusedPaneSessionId(newSessionId);
         return;
       }
@@ -33,7 +35,7 @@ export function MainArea() {
         e.preventDefault();
         const newSessionId = `local-${Date.now()}`;
         splitPane(activeTab.tabId, 'vertical', newSessionId);
-        window.sshApi.connect(newSessionId, { type: 'local' });
+        window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
         setFocusedPaneSessionId(newSessionId);
         return;
       }
@@ -87,7 +89,7 @@ export function MainArea() {
                     onSplit={(sessionId, direction) => {
                       const newSessionId = `local-${Date.now()}`;
                       splitPane(tab.tabId, direction, newSessionId);
-                      window.sshApi.connect(newSessionId, { type: 'local' });
+                      window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
                       setFocusedPaneSessionId(newSessionId);
                     }}
                     onClosePane={(sessionId) => {

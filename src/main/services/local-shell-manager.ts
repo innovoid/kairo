@@ -47,7 +47,7 @@ function detectShell(): string {
   return '/bin/sh';
 }
 
-function getShellEnvironment(): Record<string, string> {
+function getShellEnvironment(promptStyle?: string): Record<string, string> {
   // Filter out undefined and null values from process.env
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
@@ -99,13 +99,37 @@ function getShellEnvironment(): Record<string, string> {
       env.LANG = 'en_US.UTF-8';
       env.LC_ALL = 'en_US.UTF-8';
     }
+
+    // Set custom prompt based on user preference
+    if (promptStyle) {
+      const shell = env.SHELL || detectShell();
+      const isZsh = shell.includes('zsh');
+      const isBash = shell.includes('bash');
+
+      if (promptStyle === 'minimal') {
+        // Just $ or %
+        if (isZsh) {
+          env.PROMPT = '$ ';
+        } else if (isBash) {
+          env.PS1 = '$ ';
+        }
+      } else if (promptStyle === 'directory') {
+        // Current directory + $ or %
+        if (isZsh) {
+          env.PROMPT = '%1~ $ ';
+        } else if (isBash) {
+          env.PS1 = '\\W $ ';
+        }
+      }
+      // 'default' means don't override - use shell's default
+    }
   }
 
   return env;
 }
 
 export const localShellManager = {
-  connect(sessionId: string, sender: WebContents, options?: { shell?: string; cwd?: string }): void {
+  connect(sessionId: string, sender: WebContents, options?: { shell?: string; cwd?: string; promptStyle?: string }): void {
     localShellManager.disconnect(sessionId);
 
     const defaultShell = platform() === 'win32' ? 'powershell.exe' : detectShell();
@@ -136,8 +160,8 @@ export const localShellManager = {
 
     let ptyProcess: pty.IPty;
     try {
-      const env = getShellEnvironment();
-      logger.debug(`Environment keys: ${Object.keys(env).length}, PATH: ${env.PATH?.substring(0, 100)}, HOME: ${env.HOME}`);
+      const env = getShellEnvironment(options?.promptStyle);
+      logger.debug(`Environment keys: ${Object.keys(env).length}, PATH: ${env.PATH?.substring(0, 100)}, HOME: ${env.HOME}, PROMPT: ${env.PROMPT || env.PS1 || 'default'}`);
 
       ptyProcess = pty.spawn(shell, [], {
         name: 'xterm-256color',

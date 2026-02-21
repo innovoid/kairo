@@ -73,6 +73,7 @@ function TerminalTab() {
   const [terminalFont, setTerminalFont] = useState('JetBrains Mono');
   const [terminalFontSize, setTerminalFontSize] = useState('13');
   const [terminalTheme, setTerminalTheme] = useState<TerminalTheme>('dracula');
+  const [promptStyle, setPromptStyle] = useState<'default' | 'minimal' | 'directory'>('default');
   const [scrollback, setScrollback] = useState('1000');
   const [cursorStyle, setCursorStyle] = useState<CursorStyle>('bar');
   const [bellStyle, setBellStyle] = useState<BellStyle>('none');
@@ -89,6 +90,7 @@ function TerminalTab() {
       setTerminalFont(settings.terminalFont);
       setTerminalFontSize(String(settings.terminalFontSize));
       setTerminalTheme(settings.terminalTheme ?? 'dracula');
+      setPromptStyle(settings.promptStyle ?? 'default');
       setScrollback(String(settings.scrollbackLines ?? 1000));
       setCursorStyle(settings.cursorStyle ?? 'bar');
       setBellStyle(settings.bellStyle ?? 'none');
@@ -104,6 +106,7 @@ function TerminalTab() {
         terminalFont,
         terminalFontSize: parseInt(terminalFontSize),
         terminalTheme,
+        promptStyle,
         scrollbackLines: parseInt(scrollback),
         cursorStyle,
         bellStyle,
@@ -261,6 +264,31 @@ function TerminalTab() {
                   {style === 'bar' && '|'}
                 </div>
                 <span className="text-xs capitalize">{style}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Prompt Style</Label>
+          <div className="flex gap-2">
+            {([
+              { value: 'default', label: 'Default', example: 'user@host ~ %' },
+              { value: 'minimal', label: 'Minimal', example: '$' },
+              { value: 'directory', label: 'Directory', example: '~ $' }
+            ] as const).map(({ value, label, example }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setPromptStyle(value)}
+                className={cn(
+                  'flex-1 h-20 rounded-md border-2 flex flex-col items-center justify-center gap-1.5 transition-colors',
+                  promptStyle === value
+                    ? 'border-primary bg-primary/10'
+                    : 'border-muted hover:border-muted-foreground/50'
+                )}
+              >
+                <div className="font-mono text-xs text-muted-foreground">{example}</div>
+                <span className="text-xs">{label}</span>
               </button>
             ))}
           </div>
