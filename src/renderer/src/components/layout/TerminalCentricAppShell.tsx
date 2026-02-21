@@ -103,11 +103,17 @@ export function TerminalCentricAppShell() {
         e.preventDefault();
         setHostBrowserOpen(true);
       }
+
+      // Cmd+L - Local Terminal
+      if (isMod && e.key === 'l') {
+        e.preventDefault();
+        handleOpenLocalTerminal();
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [settings?.promptStyle]);
 
   // Convert tabs to FloatingTabBar format
   const floatingTabs = Array.from(tabs.values())
@@ -211,6 +217,15 @@ export function TerminalCentricAppShell() {
       onExecute: () => setHostBrowserOpen(true),
     },
     {
+      id: 'local-terminal',
+      title: 'Local Terminal',
+      description: 'Open local terminal on this machine',
+      category: 'terminal',
+      shortcut: 'Cmd+L',
+      keywords: ['local', 'terminal', 'shell', 'bash', 'zsh'],
+      onExecute: handleOpenLocalTerminal,
+    },
+    {
       id: 'split-horizontal',
       title: 'Split Horizontal',
       description: 'Split terminal horizontally',
@@ -271,6 +286,18 @@ export function TerminalCentricAppShell() {
 
   const handleNewTab = () => {
     setHostBrowserOpen(true);
+  };
+
+  const handleOpenLocalTerminal = () => {
+    const sessionId = `local-${Date.now()}`;
+    openTab({
+      tabId: sessionId,
+      tabType: 'terminal',
+      label: 'Local Terminal',
+      sessionId,
+      status: 'connecting',
+    });
+    window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
   };
 
   const handleTabClick = (tabId: string) => {

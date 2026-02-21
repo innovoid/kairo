@@ -182,9 +182,9 @@ export function CommandPalette({
 
           <div className="relative">
             {/* Search Input */}
-            <div className="px-6 py-5 border-b border-[var(--border-subtle)]">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30">
+            <div className="px-6 py-6 border-b border-[var(--border-subtle)]">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-primary/20 to-cyan-400/20 border border-primary/30">
                   <Search className="h-5 w-5 text-primary" />
                 </div>
                 <Input
@@ -197,7 +197,8 @@ export function CommandPalette({
                     'text-lg font-normal tracking-tight text-foreground',
                     'placeholder:text-text-disabled placeholder:font-normal',
                     'focus-visible:ring-0 focus-visible:ring-offset-0',
-                    'focus-visible:border-0'
+                    'focus-visible:border-0',
+                    'py-2'
                   )}
                 />
                 <kbd className="flex-shrink-0 px-2.5 py-1.5 text-[10px] font-mono font-semibold bg-[var(--surface-2)] rounded-lg border border-[var(--border)] text-text-secondary tracking-wide">
