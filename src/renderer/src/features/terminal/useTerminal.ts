@@ -6,9 +6,29 @@ import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { ImageAddon } from '@xterm/addon-image';
+import { WebglAddon } from '@xterm/addon-webgl';
 import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useBroadcastStore } from '@/stores/broadcast-store';
+
+// Nerd Fonts first for shell theme compatibility (Oh My Posh, Powerlevel10k, etc.)
+const DEFAULT_FONT_FAMILY = [
+  'MesloLGM Nerd Font',
+  'MesloLGM NF',
+  'MesloLGS NF',
+  'MesloLGS Nerd Font',
+  'Hack Nerd Font',
+  'FiraCode Nerd Font',
+  'JetBrainsMono Nerd Font',
+  'CaskaydiaCove Nerd Font',
+  'JetBrains Mono',
+  'Menlo',
+  'Monaco',
+  'Courier New',
+  'SF Mono',
+  'SF Pro',
+  'monospace',
+].join(', ');
 
 interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -77,21 +97,17 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES['dracula'].theme;
 
       terminal = new Terminal({
-        fontFamily: settings?.terminalFont ?? 'JetBrains Mono, Menlo, monospace',
+        fontFamily: settings?.terminalFont ?? DEFAULT_FONT_FAMILY,
         fontSize: settings?.terminalFontSize ?? 14,
         theme: selectedTheme,
         cursorBlink: true,
-        cursorStyle: settings?.cursorStyle ?? 'bar',
+        cursorStyle: settings?.cursorStyle ?? 'block',
+        cursorInactiveStyle: 'outline',
         scrollback: settings?.scrollbackLines ?? 10000,
-        lineHeight: settings?.lineHeight ?? 1.2,
         allowTransparency: false,
         allowProposedApi: true,
-        letterSpacing: 0,
-        fontWeight: 'normal',
-        fontWeightBold: 'bold',
-        rendererType: 'canvas',
-        drawBoldTextInBrightColors: true,
         macOptionIsMeta: false,
+        drawBoldTextInBrightColors: true,
       });
 
       fitAddon = new FitAddon();
@@ -113,7 +129,22 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       terminal.open(containerRef.current);
       terminal.focus();
 
+      // Load WebGL renderer with fallback to DOM (like Superset)
+      // Defer to requestAnimationFrame after xterm.open() to avoid race conditions
       requestAnimationFrame(() => {
+        try {
+          const webglAddon = new WebglAddon();
+          webglAddon.onContextLoss(() => {
+            console.warn('WebGL context lost, falling back to DOM renderer');
+            webglAddon.dispose();
+            terminal.refresh(0, terminal.rows - 1);
+          });
+          terminal.loadAddon(webglAddon);
+        } catch (e) {
+          console.warn('WebGL could not be loaded, using DOM renderer', e);
+        }
+
+        // Fit terminal after renderer is loaded
         if (containerRef.current && containerRef.current.offsetWidth > 0) {
           fitAddon.fit();
           const { cols, rows } = terminal;

@@ -10,7 +10,7 @@ import { createDecipheriv, createHash, randomBytes, createCipheriv, pbkdf2Sync }
 import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync as mkdirSync$1 } from "fs";
 import { join as join$1 } from "path";
 import * as pty from "node-pty";
-import { platform } from "os";
+import { platform, userInfo } from "os";
 import { stat } from "node:fs/promises";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
@@ -1279,19 +1279,117 @@ const sshManager = {
   }
 };
 const sessions = /* @__PURE__ */ new Map();
+function detectShell() {
+  if (process.env.SHELL && existsSync(process.env.SHELL)) {
+    return process.env.SHELL;
+  }
+  try {
+    const info = userInfo();
+    if (info.shell && existsSync(info.shell)) {
+      return info.shell;
+    }
+  } catch {
+  }
+  const commonShells = [
+    "/bin/zsh",
+    "/usr/bin/zsh",
+    "/bin/bash",
+    "/usr/bin/bash",
+    "/usr/local/bin/zsh",
+    "/usr/local/bin/bash"
+  ];
+  for (const shellPath of commonShells) {
+    if (existsSync(shellPath)) {
+      return shellPath;
+    }
+  }
+  return "/bin/sh";
+}
+function getShellEnvironment() {
+  const env = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== void 0 && value !== null) {
+      env[key] = value;
+    }
+  }
+  if (platform() !== "win32") {
+    const paths = [
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      "/usr/sbin",
+      "/sbin"
+    ];
+    if (env.PATH) {
+      const existingPaths = env.PATH.split(":");
+      for (const p of paths) {
+        if (!existingPaths.includes(p)) {
+          existingPaths.unshift(p);
+        }
+      }
+      env.PATH = existingPaths.join(":");
+    } else {
+      env.PATH = paths.join(":");
+    }
+    if (!env.HOME) {
+      try {
+        env.HOME = userInfo().homedir;
+      } catch {
+        env.HOME = "/tmp";
+      }
+    }
+    if (!env.TERM) {
+      env.TERM = "xterm-256color";
+    }
+    if (!env.LANG && !env.LC_ALL) {
+      env.LANG = "en_US.UTF-8";
+      env.LC_ALL = "en_US.UTF-8";
+    }
+  }
+  return env;
+}
 const localShellManager = {
   connect(sessionId, sender, options) {
     localShellManager.disconnect(sessionId);
-    const defaultShell = platform() === "win32" ? "powershell.exe" : process.env.SHELL || "/bin/zsh";
+    const defaultShell = platform() === "win32" ? "powershell.exe" : detectShell();
     const shell = options?.shell || defaultShell;
-    const cwd = options?.cwd || process.env.HOME || "/";
-    const ptyProcess = pty.spawn(shell, [], {
-      name: "xterm-256color",
-      cols: 80,
-      rows: 24,
-      cwd,
-      env: process.env
-    });
+    const cwd = options?.cwd || process.env.HOME || process.env.USERPROFILE || "/";
+    if (platform() !== "win32" && !existsSync(shell)) {
+      const errorMsg = `Shell not found: ${shell}`;
+      logger.error(errorMsg);
+      if (!sender.isDestroyed()) {
+        sender.send("ssh:error", sessionId, errorMsg);
+      }
+      return;
+    }
+    if (!existsSync(cwd)) {
+      const errorMsg = `Working directory not found: ${cwd}`;
+      logger.error(errorMsg);
+      if (!sender.isDestroyed()) {
+        sender.send("ssh:error", sessionId, errorMsg);
+      }
+      return;
+    }
+    logger.debug(`Spawning local shell: ${shell} in ${cwd}`);
+    let ptyProcess;
+    try {
+      const env = getShellEnvironment();
+      logger.debug(`Environment keys: ${Object.keys(env).length}, PATH: ${env.PATH?.substring(0, 100)}, HOME: ${env.HOME}`);
+      ptyProcess = pty.spawn(shell, [], {
+        name: "xterm-256color",
+        cols: 80,
+        rows: 24,
+        cwd,
+        env
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to spawn local shell: ${errorMsg}`);
+      if (!sender.isDestroyed()) {
+        sender.send("ssh:error", sessionId, `Failed to start local shell: ${errorMsg}`);
+      }
+      return;
+    }
     sessions.set(sessionId, { pty: ptyProcess });
     ptyProcess.onData((data) => {
       if (!sender.isDestroyed()) {
@@ -1921,13 +2019,14 @@ function getClient$1(event) {
 }
 const DEFAULT_SETTINGS = {
   theme: "dark",
-  terminalFont: "JetBrains Mono",
+  terminalFont: "MesloLGM Nerd Font, JetBrains Mono, Menlo, monospace",
   terminalFontSize: 14,
   terminalTheme: "dracula",
-  scrollbackLines: 1e3,
-  cursorStyle: "bar",
+  scrollbackLines: 1e4,
+  cursorStyle: "block",
   bellStyle: "none",
-  lineHeight: 1.2,
+  lineHeight: 1,
+  copyOnSelect: false,
   aiProvider: "openai"
 };
 const settingsIpcHandlers = {
@@ -1945,13 +2044,14 @@ const settingsIpcHandlers = {
         id: data.id,
         userId: data.user_id,
         theme: data.theme ?? "dark",
-        terminalFont: data.terminal_font ?? "JetBrains Mono",
+        terminalFont: data.terminal_font ?? "MesloLGM Nerd Font, JetBrains Mono, Menlo, monospace",
         terminalFontSize: data.terminal_font_size ?? 14,
         terminalTheme: data.terminal_theme ?? "dracula",
-        scrollbackLines: data.scrollback_lines ?? 1e3,
-        cursorStyle: data.cursor_style ?? "bar",
+        scrollbackLines: data.scrollback_lines ?? 1e4,
+        cursorStyle: data.cursor_style ?? "block",
         bellStyle: data.bell_style ?? "none",
-        lineHeight: data.line_height ?? 1.2,
+        lineHeight: data.line_height ?? 1,
+        copyOnSelect: data.copy_on_select ?? false,
         aiProvider: data.ai_provider ?? "openai",
         updatedAt: data.updated_at
       };
@@ -1979,6 +2079,7 @@ const settingsIpcHandlers = {
     if (input.cursorStyle !== void 0) updates.cursor_style = input.cursorStyle;
     if (input.bellStyle !== void 0) updates.bell_style = input.bellStyle;
     if (input.lineHeight !== void 0) updates.line_height = input.lineHeight;
+    if (input.copyOnSelect !== void 0) updates.copy_on_select = input.copyOnSelect;
     if (input.aiProvider !== void 0) updates.ai_provider = input.aiProvider;
     const { data, error } = await supabase.from("settings").upsert({ user_id: user.id, ...updates }, { onConflict: "user_id" }).select("*").single();
     if (error) throw error;
@@ -1986,13 +2087,14 @@ const settingsIpcHandlers = {
       id: data.id,
       userId: data.user_id,
       theme: data.theme ?? "dark",
-      terminalFont: data.terminal_font ?? "JetBrains Mono",
+      terminalFont: data.terminal_font ?? "MesloLGM Nerd Font, JetBrains Mono, Menlo, monospace",
       terminalFontSize: data.terminal_font_size ?? 14,
       terminalTheme: data.terminal_theme ?? "dracula",
-      scrollbackLines: data.scrollback_lines ?? 1e3,
-      cursorStyle: data.cursor_style ?? "bar",
+      scrollbackLines: data.scrollback_lines ?? 1e4,
+      cursorStyle: data.cursor_style ?? "block",
       bellStyle: data.bell_style ?? "none",
-      lineHeight: data.line_height ?? 1.2,
+      lineHeight: data.line_height ?? 1,
+      copyOnSelect: data.copy_on_select ?? false,
       aiProvider: data.ai_provider ?? "openai",
       updatedAt: data.updated_at
     };
