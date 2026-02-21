@@ -25,6 +25,7 @@ import { useHostStore } from '@/stores/host-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTransferStore } from '@/stores/transfer-store';
 import { Toaster } from '@/components/ui/sonner';
+import { ArchTermLogoIcon } from '@/components/ui/logo';
 import type { Workspace } from '@shared/types/workspace';
 
 export function TerminalCentricAppShell() {
@@ -287,11 +288,14 @@ export function TerminalCentricAppShell() {
   if (!workspaceId) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-cyan-400 shadow-[0_0_40px_rgba(59,130,246,0.4)] mb-4">
-            <span className="text-2xl font-bold text-white">AT</span>
+        <div className="text-center">
+          <div
+            className="inline-block animate-pulse mb-4"
+            style={{ filter: 'drop-shadow(0 0 40px rgba(59, 130, 246, 0.4))' }}
+          >
+            <ArchTermLogoIcon size={64} />
           </div>
-          <p className="text-sm text-text-secondary text-center">Loading workspace...</p>
+          <p className="text-sm text-text-secondary">Loading workspace...</p>
         </div>
       </div>
     );
@@ -354,12 +358,13 @@ export function TerminalCentricAppShell() {
         <div className="relative h-full w-full bg-background flex items-center justify-center">
           <div className="text-center space-y-6 p-8 max-w-md">
             <div
-              className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-cyan-400 shadow-[0_0_40px_rgba(59,130,246,0.4)]"
+              className="inline-block"
               style={{
                 animation: 'scaleInElastic 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                filter: 'drop-shadow(0 0 40px rgba(59, 130, 246, 0.4))',
               }}
             >
-              <span className="text-3xl font-bold text-white">AT</span>
+              <ArchTermLogoIcon size={80} />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">

@@ -191,19 +191,7 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
           <Icon className="h-4 w-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent
-        side="bottom"
-        className={cn(
-          'bg-[var(--surface-4)] backdrop-blur-xl',
-          'text-foreground',
-          'border border-[var(--border)]',
-          'shadow-[0_8px_32px_-8px_rgba(0,0,0,0.8)]',
-          'px-3 py-1.5',
-          'animate-in fade-in slide-in-from-top-1 duration-200',
-          '[&>[data-slot="tooltip-arrow"]]:fill-[var(--surface-4)]',
-          '[&>[data-slot="tooltip-arrow"]]:bg-[var(--surface-4)]'
-        )}
-      >
+      <TooltipContent side="bottom">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-foreground">{action.label}</span>
           {action.shortcut && (

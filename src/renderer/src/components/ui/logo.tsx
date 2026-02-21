@@ -1,8 +1,17 @@
+/**
+ * ArchTerm Logo Components
+ * Refined Brutalist Design - Blue + Cyan Theme
+ */
+
 interface LogoProps {
   className?: string;
   size?: number;
 }
 
+/**
+ * Full ArchTerm Logo with animated elements
+ * Use for splash screens, about pages, large displays
+ */
 export function ArchTermLogo({ className = '', size = 32 }: LogoProps) {
   return (
     <svg
@@ -13,61 +22,126 @@ export function ArchTermLogo({ className = '', size = 32 }: LogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Outer architectural frame */}
+      {/* Gradient Definitions */}
+      <defs>
+        <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#06B6D4" />
+        </linearGradient>
+        <filter id="logo-glow">
+          <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Outer frame - refined brutalist corners */}
+      <path
+        d="M 15 15 L 15 30 M 15 15 L 30 15"
+        stroke="url(#logo-gradient)"
+        strokeWidth="3"
+        strokeLinecap="square"
+      />
+      <path
+        d="M 85 15 L 85 30 M 85 15 L 70 15"
+        stroke="url(#logo-gradient)"
+        strokeWidth="3"
+        strokeLinecap="square"
+      />
+      <path
+        d="M 15 85 L 15 70 M 15 85 L 30 85"
+        stroke="url(#logo-gradient)"
+        strokeWidth="3"
+        strokeLinecap="square"
+      />
+      <path
+        d="M 85 85 L 85 70 M 85 85 L 70 85"
+        stroke="url(#logo-gradient)"
+        strokeWidth="3"
+        strokeLinecap="square"
+      />
+
+      {/* Terminal window container */}
       <rect
-        x="10"
-        y="10"
-        width="80"
-        height="80"
-        stroke="#C9A962"
+        x="25"
+        y="30"
+        width="50"
+        height="45"
+        rx="2"
+        stroke="#3B82F6"
         strokeWidth="2"
         fill="none"
+        opacity="0.6"
       />
 
-      {/* Inner terminal window */}
+      {/* Stylized "AT" monogram */}
+      <text
+        x="50"
+        y="62"
+        fontFamily="monospace"
+        fontSize="28"
+        fontWeight="700"
+        fill="url(#logo-gradient)"
+        textAnchor="middle"
+        filter="url(#logo-glow)"
+      >
+        AT
+      </text>
+
+      {/* Animated cursor */}
       <rect
-        x="20"
-        y="25"
-        width="60"
-        height="50"
-        stroke="#C9A962"
-        strokeWidth="1.5"
-        fill="none"
-      />
-
-      {/* Stylized "A" as terminal prompt */}
-      <path
-        d="M 35 55 L 45 40 L 55 55 M 40 48 L 50 48"
-        stroke="#C9A962"
-        strokeWidth="2.5"
-        strokeLinecap="square"
-        fill="none"
-      />
-
-      {/* Terminal cursor */}
-      <rect
-        x="58"
-        y="45"
-        width="2"
-        height="10"
-        fill="#C9A962"
+        x="64"
+        y="48"
+        width="2.5"
+        height="14"
+        fill="#06B6D4"
+        rx="1"
       >
         <animate
           attributeName="opacity"
           values="1;0;1"
-          dur="1.5s"
+          dur="1.2s"
           repeatCount="indefinite"
         />
       </rect>
 
-      {/* Connection dots */}
-      <circle cx="25" cy="18" r="1.5" fill="#C9A962" />
-      <circle cx="30" cy="18" r="1.5" fill="#C9A962" opacity="0.6" />
-      <circle cx="35" cy="18" r="1.5" fill="#C9A962" opacity="0.3" />
+      {/* Connection indicator dots */}
+      <circle cx="30" cy="25" r="1.5" fill="#3B82F6">
+        <animate
+          attributeName="opacity"
+          values="0.3;1;0.3"
+          dur="2s"
+          repeatCount="indefinite"
+        />
+      </circle>
+      <circle cx="36" cy="25" r="1.5" fill="#3B82F6">
+        <animate
+          attributeName="opacity"
+          values="0.3;1;0.3"
+          dur="2s"
+          begin="0.3s"
+          repeatCount="indefinite"
+        />
+      </circle>
+      <circle cx="42" cy="25" r="1.5" fill="#06B6D4">
+        <animate
+          attributeName="opacity"
+          values="0.3;1;0.3"
+          dur="2s"
+          begin="0.6s"
+          repeatCount="indefinite"
+        />
+      </circle>
     </svg>
   );
 }
 
+/**
+ * Simple ArchTerm Logo - Clean geometric design
+ * Use for navigation, headers, compact spaces
+ */
 export function ArchTermLogoSimple({ className = '', size = 32 }: LogoProps) {
   return (
     <svg
@@ -78,45 +152,59 @@ export function ArchTermLogoSimple({ className = '', size = 32 }: LogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Minimalist A with terminal aesthetic */}
+      {/* Gradient Definition */}
+      <defs>
+        <linearGradient id="simple-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#06B6D4" />
+        </linearGradient>
+      </defs>
+
+      {/* Modern geometric "A" shape */}
       <path
-        d="M 30 80 L 50 25 L 70 80 M 38 58 L 62 58"
-        stroke="#C9A962"
-        strokeWidth="4"
+        d="M 35 75 L 50 30 L 65 75 M 42 57 L 58 57"
+        stroke="url(#simple-gradient)"
+        strokeWidth="5"
         strokeLinecap="square"
         strokeLinejoin="miter"
         fill="none"
       />
 
-      {/* Architectural corner brackets */}
+      {/* Terminal bracket accent - left */}
       <path
-        d="M 20 20 L 20 35 M 20 20 L 35 20"
-        stroke="#C9A962"
-        strokeWidth="2"
+        d="M 22 40 L 28 46 L 22 52"
+        stroke="#3B82F6"
+        strokeWidth="3"
         strokeLinecap="square"
+        strokeLinejoin="miter"
+        fill="none"
+        opacity="0.7"
       />
+
+      {/* Terminal bracket accent - right */}
       <path
-        d="M 80 20 L 80 35 M 80 20 L 65 20"
-        stroke="#C9A962"
-        strokeWidth="2"
+        d="M 78 40 L 72 46 L 78 52"
+        stroke="#06B6D4"
+        strokeWidth="3"
         strokeLinecap="square"
+        strokeLinejoin="miter"
+        fill="none"
+        opacity="0.7"
       />
-      <path
-        d="M 20 80 L 20 65 M 20 80 L 35 80"
-        stroke="#C9A962"
-        strokeWidth="2"
-        strokeLinecap="square"
-      />
-      <path
-        d="M 80 80 L 80 65 M 80 80 L 65 80"
-        stroke="#C9A962"
-        strokeWidth="2"
-        strokeLinecap="square"
-      />
+
+      {/* Corner accents - minimal refined brutalist style */}
+      <rect x="20" y="20" width="2" height="8" fill="#3B82F6" opacity="0.5" />
+      <rect x="20" y="20" width="8" height="2" fill="#3B82F6" opacity="0.5" />
+      <rect x="78" y="20" width="2" height="8" fill="#06B6D4" opacity="0.5" />
+      <rect x="72" y="20" width="8" height="2" fill="#06B6D4" opacity="0.5" />
     </svg>
   );
 }
 
+/**
+ * Icon Logo - Compact terminal window design
+ * Use for favicons, app icons, small UI elements
+ */
 export function ArchTermLogoIcon({ className = '', size = 32 }: LogoProps) {
   return (
     <svg
@@ -127,16 +215,38 @@ export function ArchTermLogoIcon({ className = '', size = 32 }: LogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Terminal window shape */}
+      {/* Gradient Definition */}
+      <defs>
+        <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#06B6D4" />
+        </linearGradient>
+        <linearGradient id="glow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.1" />
+        </linearGradient>
+      </defs>
+
+      {/* Terminal window with gradient fill */}
       <rect
         x="15"
         y="25"
         width="70"
         height="55"
-        rx="2"
-        stroke="#C9A962"
+        rx="3"
+        fill="#0F172A"
+        stroke="url(#icon-gradient)"
         strokeWidth="2.5"
-        fill="#0A0A0A"
+      />
+
+      {/* Glow effect inside */}
+      <rect
+        x="18"
+        y="28"
+        width="64"
+        height="49"
+        rx="2"
+        fill="url(#glow-gradient)"
       />
 
       {/* Terminal header bar */}
@@ -144,47 +254,122 @@ export function ArchTermLogoIcon({ className = '', size = 32 }: LogoProps) {
         x="15"
         y="25"
         width="70"
-        height="10"
-        fill="#C9A962"
+        height="12"
+        fill="url(#icon-gradient)"
         opacity="0.15"
       />
 
       {/* Window control dots */}
-      <circle cx="23" cy="30" r="1.5" fill="#C9A962" opacity="0.6" />
-      <circle cx="29" cy="30" r="1.5" fill="#C9A962" opacity="0.6" />
-      <circle cx="35" cy="30" r="1.5" fill="#C9A962" opacity="0.6" />
+      <circle cx="23" cy="31" r="2" fill="#3B82F6" />
+      <circle cx="31" cy="31" r="2" fill="#06B6D4" />
+      <circle cx="39" cy="31" r="2" fill="#3B82F6" opacity="0.5" />
 
-      {/* Command prompt symbol */}
+      {/* Stylized "AT" monogram */}
+      <text
+        x="50"
+        y="62"
+        fontFamily="monospace"
+        fontSize="24"
+        fontWeight="700"
+        fill="url(#icon-gradient)"
+        textAnchor="middle"
+      >
+        AT
+      </text>
+
+      {/* Terminal prompt chevron */}
       <path
-        d="M 25 45 L 32 52 L 25 59"
-        stroke="#C9A962"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-
-      {/* Cursor line */}
-      <line
-        x1="38"
-        y1="52"
-        x2="52"
-        y2="52"
-        stroke="#C9A962"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-
-      {/* SSH connection indicator */}
-      <path
-        d="M 65 45 L 65 59 M 60 50 L 65 45 L 70 50"
-        stroke="#C9A962"
+        d="M 28 68 L 33 73 L 28 78"
+        stroke="#3B82F6"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
         opacity="0.6"
       />
+
+      {/* Cursor indicator */}
+      <rect
+        x="70"
+        y="68"
+        width="2"
+        height="10"
+        fill="#06B6D4"
+        rx="1"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Wordmark Logo - Full brand with text
+ * Use for marketing, documentation, large headers
+ */
+export function ArchTermWordmark({ className = '', size = 120 }: LogoProps) {
+  return (
+    <svg
+      width={size}
+      height={size * 0.35}
+      viewBox="0 0 200 70"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      {/* Gradient Definition */}
+      <defs>
+        <linearGradient id="wordmark-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#06B6D4" />
+        </linearGradient>
+      </defs>
+
+      {/* Icon part */}
+      <rect
+        x="5"
+        y="12"
+        width="30"
+        height="22"
+        rx="2"
+        fill="#0F172A"
+        stroke="url(#wordmark-gradient)"
+        strokeWidth="2"
+      />
+      <text
+        x="20"
+        y="29"
+        fontFamily="monospace"
+        fontSize="12"
+        fontWeight="700"
+        fill="url(#wordmark-gradient)"
+        textAnchor="middle"
+      >
+        AT
+      </text>
+
+      {/* "ArchTerm" text */}
+      <text
+        x="45"
+        y="35"
+        fontFamily="system-ui, -apple-system, sans-serif"
+        fontSize="28"
+        fontWeight="600"
+        fill="url(#wordmark-gradient)"
+        letterSpacing="-0.5"
+      >
+        ArchTerm
+      </text>
+
+      {/* Tagline */}
+      <text
+        x="45"
+        y="50"
+        fontFamily="monospace"
+        fontSize="10"
+        fill="#A1A1AA"
+        letterSpacing="1"
+      >
+        REFINED SSH CLIENT
+      </text>
     </svg>
   );
 }

@@ -17,6 +17,7 @@ import { FloatingTabBar } from '@/components/layout/FloatingTabBar';
 import { MiniToolbar } from '@/components/layout/MiniToolbar';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import { HostBrowserOverlay } from '@/features/hosts/HostBrowserOverlay';
+import { ArchTermLogoIcon } from '@/components/ui/logo';
 
 // Example data
 const exampleTabs = [
@@ -227,8 +228,11 @@ export function TerminalCentricLayoutDemo() {
         {/* Demo terminal content */}
         <div className="flex items-center justify-center h-full">
           <div className="text-center space-y-4 p-8">
-            <div className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-cyan-400 shadow-[0_0_40px_rgba(59,130,246,0.4)]">
-              <span className="text-3xl font-bold text-white">AT</span>
+            <div
+              className="inline-block"
+              style={{ filter: 'drop-shadow(0 0 40px rgba(59, 130, 246, 0.4))' }}
+            >
+              <ArchTermLogoIcon size={80} />
             </div>
             <h1 className="text-3xl font-bold text-foreground tracking-tight">
               ArchTerm
