@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 interface TerminalLayoutProps {
   children: ReactNode;
   tabBar?: ReactNode;
-  toolbar?: ReactNode;
   overlays?: ReactNode;
   className?: string;
 }
@@ -16,7 +15,6 @@ interface TerminalLayoutProps {
 export function TerminalLayout({
   children,
   tabBar,
-  toolbar,
   overlays,
   className
 }: TerminalLayoutProps) {
@@ -42,13 +40,6 @@ export function TerminalLayout({
           }}
         >
           {tabBar}
-        </div>
-      )}
-
-      {/* Toolbar with z-20 - positioned by toolbar itself */}
-      {toolbar && (
-        <div className="z-20 relative">
-          {toolbar}
         </div>
       )}
 
