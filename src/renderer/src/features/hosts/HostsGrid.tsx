@@ -102,26 +102,38 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="p-6">
+      <div className="py-10 px-14">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold">Hosts</h1>
-            <p className="text-sm text-muted-foreground">Manage and connect to your servers</p>
+        <div className="mb-8">
+          <div className="mb-3">
+            <h1 className="text-5xl font-semibold mb-3" style={{ fontFamily: 'Cormorant Garamond, serif' }}>Hosts</h1>
+            <p className="text-sm text-muted-foreground">Manage your SSH connections</p>
+          </div>
+        </div>
+
+        {/* Search and Add */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2 h-9 px-3 border border-border rounded w-[200px]">
+            <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search hosts..."
+              className="flex-1 bg-transparent text-sm outline-none text-muted-foreground placeholder:text-muted-foreground/50"
+            />
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger className={cn(
-              "h-7 gap-1 rounded-lg px-2.5 text-[0.8rem]",
-              "inline-flex items-center justify-center",
-              "bg-primary text-primary-foreground",
-              "hover:bg-primary/80 transition-all",
-              "border border-transparent",
-              "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:border-ring",
+              "h-9 px-5 text-sm font-medium",
+              "inline-flex items-center justify-center gap-2",
+              "bg-[#C9A962] text-[#0A0A0A]",
+              "hover:bg-[#B89851] transition-all",
               "outline-none select-none"
             )}>
-              <Plus className="h-4 w-4 mr-1.5" />
+              <Plus className="h-4 w-4" />
               Add Host
-              <ChevronDown className="h-4 w-4 ml-1.5" />
+              <ChevronDown className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onAddHost}>
@@ -154,7 +166,7 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
           {/* Root hosts (no folder) */}
           {rootHosts.length > 0 && (
             <DroppableRootArea>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-3">
                 {rootHosts.map((host) => (
                   <DraggableHostCard
                     key={host.id}
@@ -316,7 +328,7 @@ function FolderSection({
           Empty folder - drag hosts here
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-3 mb-3">
           {folderHosts.map((host) => (
             <DraggableHostCard
               key={host.id}
@@ -460,24 +472,51 @@ function HostGridCard({
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="flex flex-col gap-2 p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+          className="flex flex-col gap-4 p-6 border border-border bg-card hover:border-[#C9A962]/50 cursor-pointer transition-all"
           onClick={handleSingleClick}
           onDoubleClick={handleDoubleClick}
         >
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'w-2 h-2 rounded-full shrink-0',
-                isConnected ? 'bg-green-500' : 'bg-muted-foreground/30',
-              )}
-            />
-            <span className="font-medium text-sm truncate">{host.label}</span>
+          {/* Icon and Title */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <Server className={cn(
+                'h-6 w-6',
+                isConnected ? 'text-[#C9A962]' : 'text-muted-foreground'
+              )} />
+              <div>
+                <h3 className="text-xl font-medium mb-1" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
+                  {host.label}
+                </h3>
+                <p className="text-xs font-mono text-muted-foreground">
+                  {host.username}@{host.hostname}:{host.port}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <p className="font-mono truncate">
-              {host.username}@{host.hostname}:{host.port}
-            </p>
-            <p className="capitalize">{host.authType} auth</p>
+
+          {/* Auth Type */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>SSH • {host.authType === 'key' ? 'Private Key' : 'Password'}</span>
+          </div>
+
+          {/* Tags/Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isConnected && (
+                <span className="px-2 py-1 text-xs bg-[#C9A962]/20 text-[#C9A962] border border-[#C9A962]/30">
+                  Connected
+                </span>
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                connect();
+              }}
+              className="text-sm text-[#C9A962] hover:text-[#B89851] transition-colors"
+            >
+              Connect →
+            </button>
           </div>
         </div>
       </ContextMenuTrigger>

@@ -1305,7 +1305,7 @@ function detectShell() {
   }
   return "/bin/sh";
 }
-function getShellEnvironment() {
+function getShellEnvironment(promptStyle) {
   const env = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== void 0 && value !== null) {
@@ -1345,6 +1345,24 @@ function getShellEnvironment() {
       env.LANG = "en_US.UTF-8";
       env.LC_ALL = "en_US.UTF-8";
     }
+    if (promptStyle) {
+      const shell = env.SHELL || detectShell();
+      const isZsh = shell.includes("zsh");
+      const isBash = shell.includes("bash");
+      if (promptStyle === "minimal") {
+        if (isZsh) {
+          env.PROMPT = "$ ";
+        } else if (isBash) {
+          env.PS1 = "$ ";
+        }
+      } else if (promptStyle === "directory") {
+        if (isZsh) {
+          env.PROMPT = "%1~ $ ";
+        } else if (isBash) {
+          env.PS1 = "\\W $ ";
+        }
+      }
+    }
   }
   return env;
 }
@@ -1373,8 +1391,8 @@ const localShellManager = {
     logger.debug(`Spawning local shell: ${shell} in ${cwd}`);
     let ptyProcess;
     try {
-      const env = getShellEnvironment();
-      logger.debug(`Environment keys: ${Object.keys(env).length}, PATH: ${env.PATH?.substring(0, 100)}, HOME: ${env.HOME}`);
+      const env = getShellEnvironment(options?.promptStyle);
+      logger.debug(`Environment keys: ${Object.keys(env).length}, PATH: ${env.PATH?.substring(0, 100)}, HOME: ${env.HOME}, PROMPT: ${env.PROMPT || env.PS1 || "default"}`);
       ptyProcess = pty.spawn(shell, [], {
         name: "xterm-256color",
         cols: 80,
@@ -2022,6 +2040,7 @@ const DEFAULT_SETTINGS = {
   terminalFont: "JetBrains Mono",
   terminalFontSize: 13,
   terminalTheme: "dracula",
+  promptStyle: "default",
   scrollbackLines: 1e4,
   cursorStyle: "block",
   bellStyle: "none",
@@ -2047,6 +2066,7 @@ const settingsIpcHandlers = {
         terminalFont: data.terminal_font ?? "JetBrains Mono",
         terminalFontSize: data.terminal_font_size ?? 13,
         terminalTheme: data.terminal_theme ?? "dracula",
+        promptStyle: data.prompt_style ?? "default",
         scrollbackLines: data.scrollback_lines ?? 1e4,
         cursorStyle: data.cursor_style ?? "block",
         bellStyle: data.bell_style ?? "none",
@@ -2075,6 +2095,7 @@ const settingsIpcHandlers = {
     if (input.terminalFont !== void 0) updates.terminal_font = input.terminalFont;
     if (input.terminalFontSize !== void 0) updates.terminal_font_size = input.terminalFontSize;
     if (input.terminalTheme !== void 0) updates.terminal_theme = input.terminalTheme;
+    if (input.promptStyle !== void 0) updates.prompt_style = input.promptStyle;
     if (input.scrollbackLines !== void 0) updates.scrollback_lines = input.scrollbackLines;
     if (input.cursorStyle !== void 0) updates.cursor_style = input.cursorStyle;
     if (input.bellStyle !== void 0) updates.bell_style = input.bellStyle;
@@ -2090,6 +2111,7 @@ const settingsIpcHandlers = {
       terminalFont: data.terminal_font ?? "JetBrains Mono",
       terminalFontSize: data.terminal_font_size ?? 13,
       terminalTheme: data.terminal_theme ?? "dracula",
+      promptStyle: data.prompt_style ?? "default",
       scrollbackLines: data.scrollback_lines ?? 1e4,
       cursorStyle: data.cursor_style ?? "block",
       bellStyle: data.bell_style ?? "none",

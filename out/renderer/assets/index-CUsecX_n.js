@@ -58657,6 +58657,8 @@ function TerminalTab$1({ tab, onSplit, onClosePane, isPane, isVisible = true }) 
     settings,
     isVisible
   });
+  const themeName = settings?.terminalTheme ?? "dracula";
+  const terminalBg = TERMINAL_THEMES[themeName]?.theme?.background ?? TERMINAL_THEMES["dracula"].theme.background;
   reactExports.useEffect(() => {
     const offData = window.sshApi.onData((sessionId, data) => {
       if (sessionId === tab.sessionId && terminal.current) {
@@ -58706,26 +58708,33 @@ function TerminalTab$1({ tab, onSplit, onClosePane, isPane, isVisible = true }) 
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: cn$3("flex flex-col h-full", isBroadcastTarget && "border-l-2 border-blue-500"), children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(TerminalToolbar, { tab, terminal, onSplit: isPane ? onSplit : void 0, onClosePane: isPane ? onClosePane : void 0 }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex-1 overflow-hidden", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: containerRef, className: "absolute inset-0 px-3 py-2" }),
-      showSearch && /* @__PURE__ */ jsxRuntimeExports.jsx(
-        TerminalSearchBar,
-        {
-          searchAddon: searchAddon.current,
-          onClose: () => setShowSearch(false)
-        }
-      ),
-      showSnippetPicker && /* @__PURE__ */ jsxRuntimeExports.jsx(
-        SnippetPickerOverlay,
-        {
-          onSelect: (cmd) => {
-            window.sshApi.send(tab.sessionId, cmd);
-            setShowSnippetPicker(false);
-          },
-          onClose: () => setShowSnippetPicker(false)
-        }
-      )
-    ] })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "relative flex-1 overflow-hidden p-3",
+        style: { backgroundColor: terminalBg },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: containerRef, className: "w-full h-full" }),
+          showSearch && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            TerminalSearchBar,
+            {
+              searchAddon: searchAddon.current,
+              onClose: () => setShowSearch(false)
+            }
+          ),
+          showSnippetPicker && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            SnippetPickerOverlay,
+            {
+              onSelect: (cmd) => {
+                window.sshApi.send(tab.sessionId, cmd);
+                setShowSnippetPicker(false);
+              },
+              onClose: () => setShowSnippetPicker(false)
+            }
+          )
+        ]
+      }
+    )
   ] });
 }
 function st(e, t) {
@@ -61578,6 +61587,7 @@ function MainArea() {
   const activeTabId = useSessionStore((s15) => s15.activeTabId);
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
   const { splitPane, closePane } = useSessionStore();
+  const { settings } = useSettingsStore();
   const [focusedPaneSessionId, setFocusedPaneSessionId] = reactExports.useState(null);
   reactExports.useEffect(() => {
     function handleKeyDown(e) {
@@ -61587,7 +61597,7 @@ function MainArea() {
         e.preventDefault();
         const newSessionId = `local-${Date.now()}`;
         splitPane(activeTab.tabId, "horizontal", newSessionId);
-        window.sshApi.connect(newSessionId, { type: "local" });
+        window.sshApi.connect(newSessionId, { type: "local", promptStyle: settings?.promptStyle });
         setFocusedPaneSessionId(newSessionId);
         return;
       }
@@ -61595,7 +61605,7 @@ function MainArea() {
         e.preventDefault();
         const newSessionId = `local-${Date.now()}`;
         splitPane(activeTab.tabId, "vertical", newSessionId);
-        window.sshApi.connect(newSessionId, { type: "local" });
+        window.sshApi.connect(newSessionId, { type: "local", promptStyle: settings?.promptStyle });
         setFocusedPaneSessionId(newSessionId);
         return;
       }
@@ -61633,7 +61643,7 @@ function MainArea() {
             onSplit: (sessionId, direction) => {
               const newSessionId = `local-${Date.now()}`;
               splitPane(tab.tabId, direction, newSessionId);
-              window.sshApi.connect(newSessionId, { type: "local" });
+              window.sshApi.connect(newSessionId, { type: "local", promptStyle: settings?.promptStyle });
               setFocusedPaneSessionId(newSessionId);
             },
             onClosePane: (sessionId) => {
@@ -71353,6 +71363,7 @@ function TerminalTab() {
   const [terminalFont, setTerminalFont] = reactExports.useState("JetBrains Mono");
   const [terminalFontSize, setTerminalFontSize] = reactExports.useState("13");
   const [terminalTheme, setTerminalTheme] = reactExports.useState("dracula");
+  const [promptStyle, setPromptStyle] = reactExports.useState("default");
   const [scrollback, setScrollback] = reactExports.useState("1000");
   const [cursorStyle, setCursorStyle] = reactExports.useState("bar");
   const [bellStyle, setBellStyle] = reactExports.useState("none");
@@ -71367,6 +71378,7 @@ function TerminalTab() {
       setTerminalFont(settings.terminalFont);
       setTerminalFontSize(String(settings.terminalFontSize));
       setTerminalTheme(settings.terminalTheme ?? "dracula");
+      setPromptStyle(settings.promptStyle ?? "default");
       setScrollback(String(settings.scrollbackLines ?? 1e3));
       setCursorStyle(settings.cursorStyle ?? "bar");
       setBellStyle(settings.bellStyle ?? "none");
@@ -71381,6 +71393,7 @@ function TerminalTab() {
         terminalFont,
         terminalFontSize: parseInt(terminalFontSize),
         terminalTheme,
+        promptStyle,
         scrollbackLines: parseInt(scrollback),
         cursorStyle,
         bellStyle,
@@ -71529,6 +71542,29 @@ function TerminalTab() {
             ]
           },
           style
+        )) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: "Prompt Style" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2", children: [
+          { value: "default", label: "Default", example: "user@host ~ %" },
+          { value: "minimal", label: "Minimal", example: "$" },
+          { value: "directory", label: "Directory", example: "~ $" }
+        ].map(({ value, label, example }) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: () => setPromptStyle(value),
+            className: cn$3(
+              "flex-1 h-20 rounded-md border-2 flex flex-col items-center justify-center gap-1.5 transition-colors",
+              promptStyle === value ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/50"
+            ),
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-mono text-xs text-muted-foreground", children: example }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs", children: label })
+            ]
+          },
+          value
         )) })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
@@ -72466,7 +72502,7 @@ function AppShell() {
       sessionId,
       status: "connecting"
     });
-    window.sshApi.connect(sessionId, { type: "local" });
+    window.sshApi.connect(sessionId, { type: "local", promptStyle: settings?.promptStyle });
   }
   function handleAddHost() {
     setEditingHost(null);
