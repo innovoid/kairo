@@ -11,8 +11,22 @@ import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useBroadcastStore } from '@/stores/broadcast-store';
 
-// Use bundled JetBrains Mono font (always available)
-const DEFAULT_FONT_FAMILY = '"JetBrains Mono", monospace';
+// Map font names to proper CSS font families with fallbacks
+function getFontFamily(fontName: string | undefined): string {
+  const fontMap: Record<string, string> = {
+    'JetBrains Mono': '"JetBrains Mono", monospace',
+    'Fira Code': '"Fira Code", monospace',
+    'Cascadia Code': '"Cascadia Code", monospace',
+    'Source Code Pro': '"Source Code Pro", monospace',
+    'Menlo': 'Menlo, monospace',
+    'Monaco': 'Monaco, monospace',
+    'SF Mono': '"SF Mono", monospace',
+    'Consolas': 'Consolas, monospace',
+    'Courier New': '"Courier New", monospace',
+  };
+
+  return fontMap[fontName || ''] || '"JetBrains Mono", monospace';
+}
 
 interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -81,7 +95,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES['dracula'].theme;
 
       terminal = new Terminal({
-        fontFamily: settings?.terminalFont ?? DEFAULT_FONT_FAMILY,
+        fontFamily: getFontFamily(settings?.terminalFont),
         fontSize: settings?.terminalFontSize ?? 13,
         theme: selectedTheme,
         cursorBlink: true,

@@ -71,7 +71,7 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
 function TerminalTab() {
   const { settings, fetchSettings, updateSettings } = useSettingsStore();
   const [terminalFont, setTerminalFont] = useState('JetBrains Mono');
-  const [terminalFontSize, setTerminalFontSize] = useState('14');
+  const [terminalFontSize, setTerminalFontSize] = useState('13');
   const [terminalTheme, setTerminalTheme] = useState<TerminalTheme>('dracula');
   const [scrollback, setScrollback] = useState('1000');
   const [cursorStyle, setCursorStyle] = useState<CursorStyle>('bar');
@@ -125,19 +125,39 @@ function TerminalTab() {
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Font Family</Label>
+          <p className="text-xs text-muted-foreground mb-2">Bundled fonts work without installation</p>
           <Select value={terminalFont} onValueChange={(v) => { if (v) setTerminalFont(v); }}>
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="w-64">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="JetBrains Mono">JetBrains Mono</SelectItem>
-              <SelectItem value="Fira Code">Fira Code</SelectItem>
-              <SelectItem value="Cascadia Code">Cascadia Code</SelectItem>
-              <SelectItem value="Source Code Pro">Source Code Pro</SelectItem>
-              <SelectItem value="Menlo">Menlo</SelectItem>
-              <SelectItem value="Monaco">Monaco</SelectItem>
-              <SelectItem value="Consolas">Consolas</SelectItem>
-              <SelectItem value="Courier New">Courier New</SelectItem>
+              <SelectItem value="JetBrains Mono">
+                <div className="flex items-center gap-2">
+                  <span>JetBrains Mono</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="Fira Code">
+                <div className="flex items-center gap-2">
+                  <span>Fira Code</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="Cascadia Code">
+                <div className="flex items-center gap-2">
+                  <span>Cascadia Code</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="Source Code Pro">
+                <div className="flex items-center gap-2">
+                  <span>Source Code Pro</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="Menlo">Menlo (System)</SelectItem>
+              <SelectItem value="Monaco">Monaco (System)</SelectItem>
+              <SelectItem value="SF Mono">SF Mono (System)</SelectItem>
             </SelectContent>
           </Select>
         </div>

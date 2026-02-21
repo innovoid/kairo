@@ -53097,6 +53097,202 @@ const TERMINAL_THEMES = {
       brightCyan: "#56d4dd",
       brightWhite: "#f0f6fc"
     }
+  },
+  "solarized-dark": {
+    name: "Solarized Dark",
+    description: "Precision colors for machines and people",
+    theme: {
+      background: "#002b36",
+      foreground: "#839496",
+      cursor: "#839496",
+      cursorAccent: "#002b36",
+      selectionBackground: "#073642",
+      selectionForeground: "#839496",
+      black: "#073642",
+      red: "#dc322f",
+      green: "#859900",
+      yellow: "#b58900",
+      blue: "#268bd2",
+      magenta: "#d33682",
+      cyan: "#2aa198",
+      white: "#eee8d5",
+      brightBlack: "#002b36",
+      brightRed: "#cb4b16",
+      brightGreen: "#586e75",
+      brightYellow: "#657b83",
+      brightBlue: "#839496",
+      brightMagenta: "#6c71c4",
+      brightCyan: "#93a1a1",
+      brightWhite: "#fdf6e3"
+    }
+  },
+  "solarized-light": {
+    name: "Solarized Light",
+    description: "Precision colors for machines and people - Light",
+    theme: {
+      background: "#fdf6e3",
+      foreground: "#657b83",
+      cursor: "#657b83",
+      cursorAccent: "#fdf6e3",
+      selectionBackground: "#eee8d5",
+      selectionForeground: "#657b83",
+      black: "#073642",
+      red: "#dc322f",
+      green: "#859900",
+      yellow: "#b58900",
+      blue: "#268bd2",
+      magenta: "#d33682",
+      cyan: "#2aa198",
+      white: "#eee8d5",
+      brightBlack: "#002b36",
+      brightRed: "#cb4b16",
+      brightGreen: "#586e75",
+      brightYellow: "#657b83",
+      brightBlue: "#839496",
+      brightMagenta: "#6c71c4",
+      brightCyan: "#93a1a1",
+      brightWhite: "#fdf6e3"
+    }
+  },
+  "night-owl": {
+    name: "Night Owl",
+    description: "Fine-tuned for night owls",
+    theme: {
+      background: "#011627",
+      foreground: "#d6deeb",
+      cursor: "#80a4c2",
+      cursorAccent: "#011627",
+      selectionBackground: "#1d3b53",
+      selectionForeground: "#d6deeb",
+      black: "#011627",
+      red: "#ef5350",
+      green: "#22da6e",
+      yellow: "#addb67",
+      blue: "#82aaff",
+      magenta: "#c792ea",
+      cyan: "#21c7a8",
+      white: "#ffffff",
+      brightBlack: "#575656",
+      brightRed: "#ef5350",
+      brightGreen: "#22da6e",
+      brightYellow: "#ffeb95",
+      brightBlue: "#82aaff",
+      brightMagenta: "#c792ea",
+      brightCyan: "#7fdbca",
+      brightWhite: "#ffffff"
+    }
+  },
+  "palenight": {
+    name: "Palenight",
+    description: "Elegant purple theme",
+    theme: {
+      background: "#292d3e",
+      foreground: "#a6accd",
+      cursor: "#ffcc00",
+      cursorAccent: "#292d3e",
+      selectionBackground: "#717cb4",
+      selectionForeground: "#a6accd",
+      black: "#292d3e",
+      red: "#f07178",
+      green: "#c3e88d",
+      yellow: "#ffcb6b",
+      blue: "#82aaff",
+      magenta: "#c792ea",
+      cyan: "#89ddff",
+      white: "#d0d0d0",
+      brightBlack: "#434758",
+      brightRed: "#ff8b92",
+      brightGreen: "#ddffa7",
+      brightYellow: "#ffe585",
+      brightBlue: "#9cc4ff",
+      brightMagenta: "#e1acff",
+      brightCyan: "#a3f7ff",
+      brightWhite: "#ffffff"
+    }
+  },
+  "cobalt2": {
+    name: "Cobalt2",
+    description: "Blue-based theme from Wes Bos",
+    theme: {
+      background: "#193549",
+      foreground: "#ffffff",
+      cursor: "#f0cc09",
+      cursorAccent: "#193549",
+      selectionBackground: "#0d3a58",
+      selectionForeground: "#ffffff",
+      black: "#000000",
+      red: "#ff0000",
+      green: "#38de21",
+      yellow: "#ffe50a",
+      blue: "#1460d2",
+      magenta: "#ff005d",
+      cyan: "#00bbbb",
+      white: "#bbbbbb",
+      brightBlack: "#555555",
+      brightRed: "#f40e17",
+      brightGreen: "#3bd01d",
+      brightYellow: "#edc809",
+      brightBlue: "#5555ff",
+      brightMagenta: "#ff55ff",
+      brightCyan: "#6ae3fa",
+      brightWhite: "#ffffff"
+    }
+  },
+  "atom-one-light": {
+    name: "Atom One Light",
+    description: "Atom editor light theme",
+    theme: {
+      background: "#fafafa",
+      foreground: "#383a42",
+      cursor: "#526eff",
+      cursorAccent: "#fafafa",
+      selectionBackground: "#e5e5e6",
+      selectionForeground: "#383a42",
+      black: "#000000",
+      red: "#e45649",
+      green: "#50a14f",
+      yellow: "#c18401",
+      blue: "#4078f2",
+      magenta: "#a626a4",
+      cyan: "#0184bc",
+      white: "#a0a1a7",
+      brightBlack: "#5c6370",
+      brightRed: "#e06c75",
+      brightGreen: "#98c379",
+      brightYellow: "#d19a66",
+      brightBlue: "#61afef",
+      brightMagenta: "#c678dd",
+      brightCyan: "#56b6c2",
+      brightWhite: "#ffffff"
+    }
+  },
+  "oceanic-next": {
+    name: "Oceanic Next",
+    description: "Ocean-inspired color scheme",
+    theme: {
+      background: "#1b2b34",
+      foreground: "#d8dee9",
+      cursor: "#ffcc00",
+      cursorAccent: "#1b2b34",
+      selectionBackground: "#4f5b66",
+      selectionForeground: "#d8dee9",
+      black: "#29414f",
+      red: "#ec5f67",
+      green: "#99c794",
+      yellow: "#fac863",
+      blue: "#6699cc",
+      magenta: "#c594c5",
+      cyan: "#5fb3b3",
+      white: "#65737e",
+      brightBlack: "#405860",
+      brightRed: "#ec5f67",
+      brightGreen: "#99c794",
+      brightYellow: "#fac863",
+      brightBlue: "#6699cc",
+      brightMagenta: "#c594c5",
+      brightCyan: "#5fb3b3",
+      brightWhite: "#d8dee9"
+    }
   }
 };
 const TERMINAL_THEME_NAMES = Object.keys(TERMINAL_THEMES);
@@ -53108,7 +53304,20 @@ const useBroadcastStore = create((set) => ({
   addTarget: (id) => set((s15) => ({ targetSessionIds: [.../* @__PURE__ */ new Set([...s15.targetSessionIds, id])] })),
   removeTarget: (id) => set((s15) => ({ targetSessionIds: s15.targetSessionIds.filter((t) => t !== id) }))
 }));
-const DEFAULT_FONT_FAMILY = '"JetBrains Mono", monospace';
+function getFontFamily(fontName) {
+  const fontMap = {
+    "JetBrains Mono": '"JetBrains Mono", monospace',
+    "Fira Code": '"Fira Code", monospace',
+    "Cascadia Code": '"Cascadia Code", monospace',
+    "Source Code Pro": '"Source Code Pro", monospace',
+    "Menlo": "Menlo, monospace",
+    "Monaco": "Monaco, monospace",
+    "SF Mono": '"SF Mono", monospace',
+    "Consolas": "Consolas, monospace",
+    "Courier New": '"Courier New", monospace'
+  };
+  return fontMap[fontName || ""] || '"JetBrains Mono", monospace';
+}
 const terminalCache = /* @__PURE__ */ new Map();
 function disposeTerminalSession(sessionId) {
   const cached = terminalCache.get(sessionId);
@@ -53149,7 +53358,7 @@ function useTerminal({ containerRef, sessionId, settings, isVisible = true }) {
       const themeName = settings?.terminalTheme ?? "dracula";
       const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES["dracula"].theme;
       terminal = new Dl({
-        fontFamily: settings?.terminalFont ?? DEFAULT_FONT_FAMILY,
+        fontFamily: getFontFamily(settings?.terminalFont),
         fontSize: settings?.terminalFontSize ?? 13,
         theme: selectedTheme,
         cursorBlink: true,
@@ -58497,8 +58706,8 @@ function TerminalTab$1({ tab, onSplit, onClosePane, isPane, isVisible = true }) 
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: cn$3("flex flex-col h-full", isBroadcastTarget && "border-l-2 border-blue-500"), children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(TerminalToolbar, { tab, terminal, onSplit: isPane ? onSplit : void 0, onClosePane: isPane ? onClosePane : void 0 }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex-1 overflow-hidden bg-background", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: containerRef, className: "absolute inset-0" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex-1 overflow-hidden", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: containerRef, className: "absolute inset-0 px-3 py-2" }),
       showSearch && /* @__PURE__ */ jsxRuntimeExports.jsx(
         TerminalSearchBar,
         {
@@ -71142,7 +71351,7 @@ function SettingsPage({ activeTab, onTabChange, workspaceId }) {
 function TerminalTab() {
   const { settings, fetchSettings, updateSettings } = useSettingsStore();
   const [terminalFont, setTerminalFont] = reactExports.useState("JetBrains Mono");
-  const [terminalFontSize, setTerminalFontSize] = reactExports.useState("14");
+  const [terminalFontSize, setTerminalFontSize] = reactExports.useState("13");
   const [terminalTheme, setTerminalTheme] = reactExports.useState("dracula");
   const [scrollback, setScrollback] = reactExports.useState("1000");
   const [cursorStyle, setCursorStyle] = reactExports.useState("bar");
@@ -71191,19 +71400,31 @@ function TerminalTab() {
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: "Font Family" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground mb-2", children: "Bundled fonts work without installation" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs(Select, { value: terminalFont, onValueChange: (v4) => {
           if (v4) setTerminalFont(v4);
         }, children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(SelectTrigger, { className: "w-56", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SelectValue, {}) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(SelectTrigger, { className: "w-64", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SelectValue, {}) }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs(SelectContent, { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "JetBrains Mono", children: "JetBrains Mono" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Fira Code", children: "Fira Code" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Cascadia Code", children: "Cascadia Code" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Source Code Pro", children: "Source Code Pro" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Menlo", children: "Menlo" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Monaco", children: "Monaco" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Consolas", children: "Consolas" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Courier New", children: "Courier New" })
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "JetBrains Mono", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "JetBrains Mono" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "secondary", className: "text-[10px] px-1.5 py-0", children: "Bundled" })
+            ] }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Fira Code", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Fira Code" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "secondary", className: "text-[10px] px-1.5 py-0", children: "Bundled" })
+            ] }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Cascadia Code", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Cascadia Code" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "secondary", className: "text-[10px] px-1.5 py-0", children: "Bundled" })
+            ] }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Source Code Pro", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Source Code Pro" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "secondary", className: "text-[10px] px-1.5 py-0", children: "Bundled" })
+            ] }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Menlo", children: "Menlo (System)" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "Monaco", children: "Monaco (System)" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SelectItem, { value: "SF Mono", children: "SF Mono (System)" })
           ] })
         ] })
       ] }),
