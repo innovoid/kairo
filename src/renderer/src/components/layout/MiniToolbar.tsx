@@ -87,31 +87,31 @@ export function MiniToolbar({
     <TooltipProvider delayDuration={200}>
       <div
         className={cn(
-          // Glass pill shape
-          'relative flex items-center gap-0.5 p-1.5 h-12 rounded-full',
+          // Vertical stack layout for bottom-right
+          'relative flex flex-col gap-0.5 p-1.5 w-14 rounded-2xl',
           // Glass morphism with dramatic blur
           'bg-[var(--surface-1)]/90 backdrop-blur-2xl',
           // Borders with subtle glow
           'border border-[var(--border)]',
           'shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(59,130,246,0.05)]',
-          // Entrance animation
-          'animate-in fade-in slide-in-from-right-4 duration-500',
+          // Entrance animation from bottom-right
+          'animate-in fade-in slide-in-from-bottom-4 duration-500',
           className
         )}
         style={{
-          animation: 'floatIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both',
+          animation: 'floatInFromBottom 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both',
         }}
       >
         {/* Noise texture overlay */}
         <div
-          className="absolute inset-0 rounded-full pointer-events-none opacity-[0.03]"
+          className="absolute inset-0 rounded-2xl pointer-events-none opacity-[0.03]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='4' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
           }}
         />
 
         {/* Primary actions */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex flex-col gap-0.5">
           {actions.map((action, index) => (
             <ToolbarButton
               key={action.label}
@@ -122,10 +122,10 @@ export function MiniToolbar({
         </div>
 
         {/* Divider */}
-        <div className="h-6 w-px bg-[var(--border)] mx-1" />
+        <div className="h-px w-full bg-[var(--border)] my-1" />
 
         {/* Secondary actions */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex flex-col gap-0.5">
           {secondaryActions.map((action, index) => (
             <ToolbarButton
               key={action.label}
@@ -136,14 +136,16 @@ export function MiniToolbar({
         </div>
 
         <style jsx>{`
-          @keyframes floatIn {
+          @keyframes floatInFromBottom {
             from {
               opacity: 0;
-              transform: translateX(16px) scale(0.95);
+              transform: translateY(24px) translateX(12px) scale(0.92);
+              filter: blur(4px);
             }
             to {
               opacity: 1;
-              transform: translateX(0) scale(1);
+              transform: translateY(0) translateX(0) scale(1);
+              filter: blur(0);
             }
           }
         `}</style>
@@ -169,8 +171,8 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
           onClick={action.onClick}
           disabled={action.disabled}
           className={cn(
-            // Size and shape
-            'h-9 w-9 p-0 rounded-full',
+            // Size and shape - more square for vertical layout
+            'h-10 w-10 p-0 rounded-xl',
             // Colors
             'text-text-secondary hover:text-foreground',
             'hover:bg-[var(--surface-3)]',
@@ -185,17 +187,17 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
             'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background'
           )}
           style={{
-            animation: `buttonEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + index * 0.05}s both`,
+            animation: `buttonEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${0.4 + index * 0.06}s both`,
           }}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-4.5 w-4.5" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <div className="flex items-center gap-2">
+      <TooltipContent side="left" sideOffset={8}>
+        <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-foreground">{action.label}</span>
           {action.shortcut && (
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary self-start">
               {action.shortcut}
             </kbd>
           )}
@@ -206,11 +208,11 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
         @keyframes buttonEnter {
           from {
             opacity: 0;
-            transform: scale(0.8) rotate(-5deg);
+            transform: translateY(12px) scale(0.85);
           }
           to {
             opacity: 1;
-            transform: scale(1) rotate(0deg);
+            transform: translateY(0) scale(1);
           }
         }
       `}</style>

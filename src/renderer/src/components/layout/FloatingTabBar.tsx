@@ -65,7 +65,7 @@ export function FloatingTabBar({
         }}
       />
 
-      <div className="relative flex items-center h-full pl-3 pr-[220px] gap-1">
+      <div className="relative flex items-center h-full px-3 gap-1">
         {/* Tabs Container */}
         <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar">
           {tabs.map((tab, index) => (
