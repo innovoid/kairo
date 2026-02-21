@@ -24,6 +24,7 @@ import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTransferStore } from '@/stores/transfer-store';
+import { useToolbarState } from '@/hooks/useToolbarState';
 import { Toaster } from '@/components/ui/sonner';
 import { ArchTermLogoIcon } from '@/components/ui/logo';
 import type { Workspace } from '@shared/types/workspace';
@@ -39,6 +40,7 @@ export function TerminalCentricAppShell() {
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
   const { hosts } = useHostStore();
+  const { position: toolbarPosition, orientation: toolbarOrientation, setPosition: setToolbarPosition } = useToolbarState();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
@@ -349,6 +351,9 @@ export function TerminalCentricAppShell() {
       }
       toolbar={
         <MiniToolbar
+          position={toolbarPosition}
+          orientation={toolbarOrientation}
+          onPositionChange={setToolbarPosition}
           onBrowseHosts={() => setHostBrowserOpen(true)}
           onBrowseFiles={() => {
             // TODO: Open SFTP browser

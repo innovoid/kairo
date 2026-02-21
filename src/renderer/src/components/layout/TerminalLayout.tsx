@@ -45,13 +45,9 @@ export function TerminalLayout({
         </div>
       )}
 
+      {/* Toolbar with z-20 - positioned by toolbar itself */}
       {toolbar && (
-        <div
-          className="absolute bottom-6 right-6 z-20"
-          style={{
-            animation: 'scaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both'
-          }}
-        >
+        <div className="z-20 relative">
           {toolbar}
         </div>
       )}
