@@ -108,7 +108,7 @@ export function HostBrowserOverlay({
         onClose={() => onOpenChange(false)}
       />
 
-      <OverlayContent className="pt-4">
+      <OverlayContent className="pt-2">
         {/* Search Bar */}
         <div className="mb-4">
           <div className="relative">
