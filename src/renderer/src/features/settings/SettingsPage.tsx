@@ -32,21 +32,22 @@ interface SettingsPageProps {
 export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPageProps) {
   return (
     <div className="flex flex-col flex-1 h-full bg-background overflow-hidden">
-      <div className="flex flex-col flex-1 overflow-hidden py-10 px-14">
+      <div className="py-6 px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl font-semibold mb-3" style={{ fontFamily: 'Cormorant Garamond, serif' }}>Settings</h1>
-          <p className="text-sm text-muted-foreground">Configure your terminal preferences</p>
+          <h1 className="text-display mb-2">Settings</h1>
+          <p className="text-body text-[var(--text-secondary)]">Configure your terminal preferences</p>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={onTabChange} className="flex flex-col flex-1 overflow-hidden">
-          <TabsList className="w-fit bg-transparent p-0 gap-1 mb-8 h-auto">
+          <TabsList className="w-fit bg-transparent p-0 gap-1 mb-8 h-auto border-b border-[var(--border-subtle)]">
             <TabsTrigger
               value="terminal"
               className={cn(
-                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
-                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
+                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
+                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
               )}
             >
               Terminal
@@ -54,8 +55,9 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             <TabsTrigger
               value="appearance"
               className={cn(
-                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
-                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
+                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
+                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
               )}
             >
               Theme
@@ -63,8 +65,9 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             <TabsTrigger
               value="ai"
               className={cn(
-                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
-                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
+                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
+                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
               )}
             >
               AI
@@ -72,8 +75,9 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             <TabsTrigger
               value="account"
               className={cn(
-                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
-                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
+                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
+                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
               )}
             >
               Account
@@ -156,10 +160,12 @@ function TerminalTab() {
   return (
     <div className="max-w-3xl space-y-6">
       <Separator />
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Font Family</Label>
-          <p className="text-xs text-muted-foreground mb-2">Bundled fonts work without installation</p>
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Font Family</Label>
+            <p className="text-small text-[var(--text-secondary)] mt-1">Bundled fonts work without installation</p>
+          </div>
           <Select value={terminalFont} onValueChange={(v) => { if (v) setTerminalFont(v); }}>
             <SelectTrigger className="w-64">
               <SelectValue />
@@ -195,13 +201,17 @@ function TerminalTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label>Font Size</Label>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Font Size</Label>
+          </div>
           <Input type="number" value={terminalFontSize} onChange={(e) => setTerminalFontSize(e.target.value)} min={8} max={32} className="w-24" />
         </div>
-        <div className="space-y-2">
-          <Label>Color Theme</Label>
-          <p className="text-xs text-muted-foreground mb-3">Choose a color scheme for your terminal</p>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Color Theme</Label>
+            <p className="text-small text-[var(--text-secondary)] mt-1">Choose a color scheme for your terminal</p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {TERMINAL_THEME_NAMES.map((name) => {
               const themeConfig = TERMINAL_THEMES[name];
@@ -212,20 +222,20 @@ function TerminalTab() {
                   type="button"
                   onClick={() => setTerminalTheme(name)}
                   className={cn(
-                    'relative rounded-lg border-2 p-3 text-left transition-all hover:scale-[1.02]',
+                    'relative rounded-lg border-2 p-3 text-left transition-all duration-300 hover:scale-[1.02]',
                     terminalTheme === name
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-muted-foreground/50'
+                      ? 'border-[var(--primary)] bg-[var(--surface-2)]'
+                      : 'border-[var(--border)] hover:border-[var(--border-hover)]'
                   )}
                 >
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{themeConfig.name}</span>
                       {terminalTheme === name && (
-                        <Badge variant="default" className="h-4 px-1.5 text-[10px]">Active</Badge>
+                        <Badge variant="default" className="h-4 px-1.5 text-[10px] bg-[var(--primary)] text-white">Active</Badge>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1">{themeConfig.description}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1">{themeConfig.description}</p>
                     {/* Color preview */}
                     <div
                       className="h-16 rounded border overflow-hidden font-mono text-[10px] p-2 leading-tight"
@@ -244,8 +254,10 @@ function TerminalTab() {
             })}
           </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="line-height">Line Height</Label>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="line-height" className="text-sm font-medium">Line Height</Label>
+          </div>
           <div className="flex items-center gap-2">
             <input
               id="line-height"
@@ -257,13 +269,15 @@ function TerminalTab() {
               onChange={(e) => setLineHeight(e.target.value)}
               className="flex-1"
             />
-            <span className="text-sm text-muted-foreground w-12 text-right">
+            <span className="text-sm text-[var(--text-secondary)] w-12 text-right">
               {lineHeight}
             </span>
           </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="scrollback">Scrollback Lines</Label>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="scrollback" className="text-sm font-medium">Scrollback Lines</Label>
+          </div>
           <Input
             id="scrollback"
             type="number"
@@ -274,8 +288,10 @@ function TerminalTab() {
             className="w-32"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Cursor Style</Label>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Cursor Style</Label>
+          </div>
           <div className="flex gap-2">
             {(['block', 'underline', 'bar'] as const).map((style) => (
               <button
@@ -283,10 +299,10 @@ function TerminalTab() {
                 type="button"
                 onClick={() => setCursorStyle(style)}
                 className={cn(
-                  'flex-1 h-20 rounded-md border-2 flex flex-col items-center justify-center gap-2 transition-colors',
+                  'flex-1 h-20 rounded-md border-2 flex flex-col items-center justify-center gap-2 transition-all duration-300',
                   cursorStyle === style
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted hover:border-muted-foreground/50'
+                    ? 'border-[var(--primary)] bg-[var(--surface-2)] text-[var(--primary)]'
+                    : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-foreground'
                 )}
               >
                 <div className="font-mono text-2xl">
@@ -315,10 +331,10 @@ function TerminalTab() {
                 type="button"
                 onClick={() => setPromptStyle(value)}
                 className={cn(
-                  'px-5 py-3 border transition-colors',
+                  'px-5 py-3 border rounded-md transition-all duration-300',
                   promptStyle === value
-                    ? 'border-[#C9A962] bg-[#1A1A1A] text-[#C9A962]'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    ? 'border-[var(--primary)] bg-[var(--surface-2)] text-[var(--primary)]'
+                    : 'border-[var(--border)] text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-1)]'
                 )}
               >
                 <span className="text-sm">{label}</span>
@@ -326,8 +342,10 @@ function TerminalTab() {
             ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="bell-style">Bell</Label>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="bell-style" className="text-sm font-medium">Bell</Label>
+          </div>
           <Select value={bellStyle} onValueChange={(v) => setBellStyle(v as BellStyle)}>
             <SelectTrigger id="bell-style" className="w-56">
               <SelectValue>
@@ -341,11 +359,11 @@ function TerminalTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="copy-on-select">Copy on select</Label>
-              <p className="text-sm text-muted-foreground">Automatically copy selected text to clipboard</p>
+              <Label htmlFor="copy-on-select" className="text-sm font-medium">Copy on select</Label>
+              <p className="text-small text-[var(--text-secondary)]">Automatically copy selected text to clipboard</p>
             </div>
             <Switch
               id="copy-on-select"
@@ -379,12 +397,14 @@ function AppearanceTab() {
     <div className="max-w-lg space-y-6">
       <div>
         <h2 className="text-base font-semibold mb-1">Appearance</h2>
-        <p className="text-sm text-muted-foreground">Color theme and visual preferences.</p>
+        <p className="text-small text-[var(--text-secondary)]">Color theme and visual preferences.</p>
       </div>
       <Separator />
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Theme</Label>
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Theme</Label>
+          </div>
           <Select value={theme} onValueChange={(v) => { if (v) setTheme(v as 'dark' | 'light'); }}>
             <SelectTrigger className="w-40">
               <SelectValue>
@@ -476,13 +496,16 @@ function AiTab() {
     <div className="max-w-lg space-y-6">
       <div>
         <h2 className="text-base font-semibold mb-1">AI Providers</h2>
-        <p className="text-sm text-muted-foreground">Configure API keys for AI assistants.</p>
+        <p className="text-small text-[var(--text-secondary)]">Configure API keys for AI assistants.</p>
       </div>
       <Separator />
 
       {/* Active provider selector */}
-      <div className="space-y-2">
-        <Label>Active AI Provider</Label>
+      <div className="space-y-3">
+        <div>
+          <Label className="text-sm font-medium">Active AI Provider</Label>
+          <p className="text-small text-[var(--text-secondary)] mt-1">The AI provider used in the AI assistant.</p>
+        </div>
         <Select value={aiProvider} onValueChange={(v) => setAiProvider(v as AiProvider)}>
           <SelectTrigger className="w-56">
             <SelectValue />
@@ -493,25 +516,24 @@ function AiTab() {
             <SelectItem value="gemini">Google Gemini</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-sm text-muted-foreground">The AI provider used in the AI assistant.</p>
       </div>
 
       {/* OpenAI Section */}
-      <div className="border rounded-lg">
+      <div className="border border-[var(--border)] rounded-lg transition-all duration-300 hover:border-[var(--border-hover)]">
         <button
           type="button"
-          className="w-full p-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-[var(--surface-1)] transition-all duration-300 rounded-t-lg"
           onClick={() => setExpandedProvider(expandedProvider === 'openai' ? null : 'openai')}
         >
           <span className="font-medium text-sm">OpenAI</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-[var(--text-secondary)]">
             {expandedProvider === 'openai' ? '▼' : '▶'}
           </span>
         </button>
         {expandedProvider === 'openai' && (
-          <div className="p-3 border-t space-y-3">
+          <div className="p-3 border-t border-[var(--border)] space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="openai-key">API Key</Label>
+              <Label htmlFor="openai-key" className="text-sm font-medium">API Key</Label>
               <div className="flex gap-2">
                 <Input
                   id="openai-key"
@@ -537,21 +559,21 @@ function AiTab() {
       </div>
 
       {/* Anthropic Section */}
-      <div className="border rounded-lg">
+      <div className="border border-[var(--border)] rounded-lg transition-all duration-300 hover:border-[var(--border-hover)]">
         <button
           type="button"
-          className="w-full p-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-[var(--surface-1)] transition-all duration-300 rounded-t-lg"
           onClick={() => setExpandedProvider(expandedProvider === 'anthropic' ? null : 'anthropic')}
         >
           <span className="font-medium text-sm">Anthropic</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-[var(--text-secondary)]">
             {expandedProvider === 'anthropic' ? '▼' : '▶'}
           </span>
         </button>
         {expandedProvider === 'anthropic' && (
-          <div className="p-3 border-t space-y-3">
+          <div className="p-3 border-t border-[var(--border)] space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="anthropic-key">API Key</Label>
+              <Label htmlFor="anthropic-key" className="text-sm font-medium">API Key</Label>
               <div className="flex gap-2">
                 <Input
                   id="anthropic-key"
@@ -577,21 +599,21 @@ function AiTab() {
       </div>
 
       {/* Gemini Section */}
-      <div className="border rounded-lg">
+      <div className="border border-[var(--border)] rounded-lg transition-all duration-300 hover:border-[var(--border-hover)]">
         <button
           type="button"
-          className="w-full p-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-[var(--surface-1)] transition-all duration-300 rounded-t-lg"
           onClick={() => setExpandedProvider(expandedProvider === 'gemini' ? null : 'gemini')}
         >
           <span className="font-medium text-sm">Google Gemini</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-[var(--text-secondary)]">
             {expandedProvider === 'gemini' ? '▼' : '▶'}
           </span>
         </button>
         {expandedProvider === 'gemini' && (
-          <div className="p-3 border-t space-y-3">
+          <div className="p-3 border-t border-[var(--border)] space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="gemini-key">API Key</Label>
+              <Label htmlFor="gemini-key" className="text-sm font-medium">API Key</Label>
               <div className="flex gap-2">
                 <Input
                   id="gemini-key"
