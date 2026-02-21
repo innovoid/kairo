@@ -1,9 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { WorkspaceGate } from '@/features/workspaces/WorkspaceGate';
-import { AppShell } from '@/components/layout/AppShell';
-import { ProfilePage } from '@/features/profile/ProfilePage';
-import { TerminalCentricPreview } from '@/pages/TerminalCentricPreview';
+import { TerminalCentricAppShell } from '@/components/layout/TerminalCentricAppShell';
 import { TerminalCentricLayoutDemo } from '@/examples/TerminalCentricLayoutDemo';
 
 export function App() {
@@ -15,27 +13,7 @@ export function App() {
           element={
             <AuthGate>
               <WorkspaceGate>
-                <AppShell />
-              </WorkspaceGate>
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <AuthGate>
-              <WorkspaceGate>
-                <ProfilePage />
-              </WorkspaceGate>
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/preview"
-          element={
-            <AuthGate>
-              <WorkspaceGate>
-                <TerminalCentricPreview />
+                <TerminalCentricAppShell />
               </WorkspaceGate>
             </AuthGate>
           }

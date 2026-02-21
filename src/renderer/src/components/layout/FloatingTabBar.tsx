@@ -214,7 +214,7 @@ function Tab({ tab, index, onClick, onClose }: TabProps) {
         className={cn(
           'text-xs font-mono tracking-tight truncate max-w-[120px]',
           'transition-colors duration-200',
-          tab.isActive ? 'text-primary font-medium' : 'text-text-secondary'
+          tab.isActive ? 'text-primary font-medium' : 'text-foreground'
         )}
       >
         {tab.hostname || tab.title}

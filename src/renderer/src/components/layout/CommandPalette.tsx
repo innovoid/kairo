@@ -175,13 +175,14 @@ export function CommandPalette({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={placeholder}
                 className={cn(
-                  'flex-1 bg-transparent border-0 p-0 h-auto',
-                  'text-base font-mono tracking-tight',
+                  'flex-1 !bg-transparent border-0 p-0 h-auto',
+                  'text-base font-mono tracking-tight text-foreground',
                   'placeholder:text-text-disabled',
-                  'focus-visible:ring-0 focus-visible:ring-offset-0'
+                  'focus-visible:ring-0 focus-visible:ring-offset-0',
+                  'focus-visible:border-0'
                 )}
               />
-              <kbd className="px-2 py-1 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-tertiary">
+              <kbd className="px-2 py-1 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">
                 ESC
               </kbd>
             </div>
@@ -197,7 +198,7 @@ export function CommandPalette({
                 Object.entries(groupedCommands).map(([category, categoryCommands], groupIndex) => (
                   <div key={category}>
                     <div
-                      className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary bg-[var(--surface-1)]/50"
+                      className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-text-secondary bg-[var(--surface-1)]/50"
                       style={{
                         animation: `categoryEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${0.1 + groupIndex * 0.05}s both`,
                       }}
@@ -365,7 +366,7 @@ function CommandItem({ command, icon: Icon, isSelected, index, onClick }: Comman
             ] : [
               'bg-[var(--surface-2)]',
               'border-[var(--border)]',
-              'text-text-tertiary',
+              'text-text-secondary',
             ]
           )}
         >

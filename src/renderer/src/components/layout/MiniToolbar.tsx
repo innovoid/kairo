@@ -194,17 +194,20 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
       <TooltipContent
         side="bottom"
         className={cn(
-          'bg-[var(--surface-4)]/95 backdrop-blur-xl',
-          'border-[var(--border)]',
-          'shadow-2xl',
+          'bg-[var(--surface-4)] backdrop-blur-xl',
+          'text-foreground',
+          'border border-[var(--border)]',
+          'shadow-[0_8px_32px_-8px_rgba(0,0,0,0.8)]',
           'px-3 py-1.5',
-          'animate-in fade-in slide-in-from-top-1 duration-200'
+          'animate-in fade-in slide-in-from-top-1 duration-200',
+          '[&>[data-slot="tooltip-arrow"]]:fill-[var(--surface-4)]',
+          '[&>[data-slot="tooltip-arrow"]]:bg-[var(--surface-4)]'
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium">{action.label}</span>
+          <span className="text-xs font-medium text-foreground">{action.label}</span>
           {action.shortcut && (
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-tertiary">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">
               {action.shortcut}
             </kbd>
           )}

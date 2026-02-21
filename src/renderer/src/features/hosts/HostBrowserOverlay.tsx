@@ -110,7 +110,7 @@ export function HostBrowserOverlay({
 
       <OverlayContent>
         {/* Search Bar */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
             <Input
@@ -118,8 +118,9 @@ export function HostBrowserOverlay({
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search hosts by name, address, or tags..."
               className={cn(
-                'pl-10 h-11 bg-[var(--surface-1)] border-[var(--border)]',
-                'font-mono text-sm tracking-tight',
+                'pl-10 h-11 !bg-[var(--surface-1)] border-[var(--border)]',
+                'font-mono text-sm tracking-tight text-foreground',
+                'placeholder:text-text-tertiary',
                 'focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary',
                 'transition-all duration-200'
               )}
@@ -220,11 +221,11 @@ function FolderSection({ folder, index, onToggle, onHostClick }: FolderSectionPr
             folder.expanded && 'rotate-90'
           )}
         />
-        <FolderOpen className="h-4 w-4 text-text-secondary" />
+        <FolderOpen className="h-4 w-4 text-primary" />
         <span className="flex-1 text-left text-sm font-mono font-medium text-foreground">
           {folder.name}
         </span>
-        <span className="text-xs font-mono text-text-tertiary">
+        <span className="text-xs font-mono text-text-secondary">
           {folder.hosts.length}
         </span>
       </button>
@@ -330,7 +331,7 @@ function HostItem({ host, index, onClick }: HostItemProps) {
           {host.username}@{host.address}
         </p>
         {host.description && (
-          <p className="text-xs text-text-tertiary truncate mt-1">
+          <p className="text-xs text-text-secondary truncate mt-1">
             {host.description}
           </p>
         )}
@@ -339,13 +340,13 @@ function HostItem({ host, index, onClick }: HostItemProps) {
             {host.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="px-2 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded-md text-text-tertiary"
+                className="px-2 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] border border-[var(--border)] rounded-md text-text-secondary"
               >
                 {tag}
               </span>
             ))}
             {host.tags.length > 3 && (
-              <span className="text-[10px] text-text-disabled">
+              <span className="text-[10px] text-text-tertiary">
                 +{host.tags.length - 3}
               </span>
             )}
