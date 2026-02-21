@@ -92,8 +92,8 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   return (
     <div className={cn('flex flex-col h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>
       <TerminalToolbar tab={tab} terminal={terminal} onSplit={isPane ? onSplit : undefined} onClosePane={isPane ? onClosePane : undefined} />
-      <div className="relative flex-1 overflow-hidden">
-        <div ref={containerRef} className="absolute inset-0 bg-[#09090b] p-1" />
+      <div className="relative flex-1 overflow-hidden bg-background">
+        <div ref={containerRef} className="absolute inset-0" />
         {showSearch && (
           <TerminalSearchBar
             searchAddon={searchAddon.current}

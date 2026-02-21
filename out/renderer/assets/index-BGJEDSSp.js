@@ -53108,23 +53108,7 @@ const useBroadcastStore = create((set) => ({
   addTarget: (id) => set((s15) => ({ targetSessionIds: [.../* @__PURE__ */ new Set([...s15.targetSessionIds, id])] })),
   removeTarget: (id) => set((s15) => ({ targetSessionIds: s15.targetSessionIds.filter((t) => t !== id) }))
 }));
-const DEFAULT_FONT_FAMILY = [
-  "MesloLGM Nerd Font",
-  "MesloLGM NF",
-  "MesloLGS NF",
-  "MesloLGS Nerd Font",
-  "Hack Nerd Font",
-  "FiraCode Nerd Font",
-  "JetBrainsMono Nerd Font",
-  "CaskaydiaCove Nerd Font",
-  "JetBrains Mono",
-  "Menlo",
-  "Monaco",
-  "Courier New",
-  "SF Mono",
-  "SF Pro",
-  "monospace"
-].join(", ");
+const DEFAULT_FONT_FAMILY = '"JetBrains Mono", monospace';
 const terminalCache = /* @__PURE__ */ new Map();
 function disposeTerminalSession(sessionId) {
   const cached = terminalCache.get(sessionId);
@@ -53166,16 +53150,20 @@ function useTerminal({ containerRef, sessionId, settings, isVisible = true }) {
       const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES["dracula"].theme;
       terminal = new Dl({
         fontFamily: settings?.terminalFont ?? DEFAULT_FONT_FAMILY,
-        fontSize: settings?.terminalFontSize ?? 14,
+        fontSize: settings?.terminalFontSize ?? 13,
         theme: selectedTheme,
         cursorBlink: true,
         cursorStyle: settings?.cursorStyle ?? "block",
         cursorInactiveStyle: "outline",
         scrollback: settings?.scrollbackLines ?? 1e4,
-        allowTransparency: false,
+        allowTransparency: true,
         allowProposedApi: true,
         macOptionIsMeta: false,
-        drawBoldTextInBrightColors: true
+        drawBoldTextInBrightColors: true,
+        smoothScrollDuration: 0,
+        fastScrollModifier: "shift",
+        fastScrollSensitivity: 5,
+        scrollSensitivity: 3
       });
       fitAddon = new o();
       const webLinksAddon = new L$1();
@@ -58509,8 +58497,8 @@ function TerminalTab$1({ tab, onSplit, onClosePane, isPane, isVisible = true }) 
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: cn$3("flex flex-col h-full", isBroadcastTarget && "border-l-2 border-blue-500"), children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(TerminalToolbar, { tab, terminal, onSplit: isPane ? onSplit : void 0, onClosePane: isPane ? onClosePane : void 0 }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex-1 overflow-hidden", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: containerRef, className: "absolute inset-0 bg-[#09090b] p-1" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex-1 overflow-hidden bg-background", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: containerRef, className: "absolute inset-0" }),
       showSearch && /* @__PURE__ */ jsxRuntimeExports.jsx(
         TerminalSearchBar,
         {

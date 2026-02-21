@@ -11,24 +11,8 @@ import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useBroadcastStore } from '@/stores/broadcast-store';
 
-// Nerd Fonts first for shell theme compatibility (Oh My Posh, Powerlevel10k, etc.)
-const DEFAULT_FONT_FAMILY = [
-  'MesloLGM Nerd Font',
-  'MesloLGM NF',
-  'MesloLGS NF',
-  'MesloLGS Nerd Font',
-  'Hack Nerd Font',
-  'FiraCode Nerd Font',
-  'JetBrainsMono Nerd Font',
-  'CaskaydiaCove Nerd Font',
-  'JetBrains Mono',
-  'Menlo',
-  'Monaco',
-  'Courier New',
-  'SF Mono',
-  'SF Pro',
-  'monospace',
-].join(', ');
+// Use bundled JetBrains Mono font (always available)
+const DEFAULT_FONT_FAMILY = '"JetBrains Mono", monospace';
 
 interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -98,16 +82,20 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
 
       terminal = new Terminal({
         fontFamily: settings?.terminalFont ?? DEFAULT_FONT_FAMILY,
-        fontSize: settings?.terminalFontSize ?? 14,
+        fontSize: settings?.terminalFontSize ?? 13,
         theme: selectedTheme,
         cursorBlink: true,
         cursorStyle: settings?.cursorStyle ?? 'block',
         cursorInactiveStyle: 'outline',
         scrollback: settings?.scrollbackLines ?? 10000,
-        allowTransparency: false,
+        allowTransparency: true,
         allowProposedApi: true,
         macOptionIsMeta: false,
         drawBoldTextInBrightColors: true,
+        smoothScrollDuration: 0,
+        fastScrollModifier: 'shift',
+        fastScrollSensitivity: 5,
+        scrollSensitivity: 3,
       });
 
       fitAddon = new FitAddon();
