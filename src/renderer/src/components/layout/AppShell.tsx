@@ -18,6 +18,7 @@ import { useSessionStore } from '@/stores/session-store';
 import type { Host } from '@shared/types/hosts';
 import type { Workspace } from '@shared/types/workspace';
 import { Toaster } from '@/components/ui/sonner';
+import { PreviewBanner } from '@/components/ui/preview-banner';
 
 type ActivePanel = 'host-form' | 'import-key' | null;
 
@@ -205,6 +206,7 @@ export function AppShell() {
       />
 
       <Toaster />
+      <PreviewBanner />
     </div>
   );
 }

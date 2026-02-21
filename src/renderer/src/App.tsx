@@ -3,6 +3,8 @@ import { AuthGate } from '@/features/auth/AuthGate';
 import { WorkspaceGate } from '@/features/workspaces/WorkspaceGate';
 import { AppShell } from '@/components/layout/AppShell';
 import { ProfilePage } from '@/features/profile/ProfilePage';
+import { TerminalCentricPreview } from '@/pages/TerminalCentricPreview';
+import { TerminalCentricLayoutDemo } from '@/examples/TerminalCentricLayoutDemo';
 
 export function App() {
   return (
@@ -27,6 +29,20 @@ export function App() {
               </WorkspaceGate>
             </AuthGate>
           }
+        />
+        <Route
+          path="/preview"
+          element={
+            <AuthGate>
+              <WorkspaceGate>
+                <TerminalCentricPreview />
+              </WorkspaceGate>
+            </AuthGate>
+          }
+        />
+        <Route
+          path="/demo"
+          element={<TerminalCentricLayoutDemo />}
         />
       </Routes>
     </Router>
