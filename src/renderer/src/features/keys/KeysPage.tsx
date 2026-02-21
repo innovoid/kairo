@@ -36,15 +36,27 @@ export function KeysPage({
     <div className="flex flex-1 h-full overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
+        <div className="py-10 px-14">
           {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1">
-              <h1 className="text-lg font-semibold">SSH Keys</h1>
-              <p className="text-sm text-muted-foreground">Import and manage SSH keys for authentication</p>
+          <div className="mb-8">
+            <h1 className="text-5xl font-semibold mb-3" style={{ fontFamily: 'Cormorant Garamond, serif' }}>SSH Keys</h1>
+            <p className="text-sm text-muted-foreground">Manage your SSH private and public keys</p>
+          </div>
+
+          {/* Search and Add */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-2 h-9 px-3 border border-border rounded w-[200px]">
+              <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search keys..."
+                className="flex-1 bg-transparent text-sm outline-none text-muted-foreground placeholder:text-muted-foreground/50"
+              />
             </div>
-            <Button size="sm" onClick={onOpenImport}>
-              <Plus className="h-4 w-4 mr-1.5" />
+            <Button onClick={onOpenImport} className="h-9 px-5 text-sm font-medium bg-[#C9A962] hover:bg-[#B89851] text-[#0A0A0A]">
+              <Plus className="h-4 w-4 mr-2" />
               Import Key
             </Button>
           </div>
@@ -63,24 +75,29 @@ export function KeysPage({
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {keys.map((k) => (
-                <div key={k.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                  <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{k.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono truncate">{k.fingerprint}</p>
+                <div key={k.id} className="flex items-center justify-between px-6 py-5 border border-border bg-card">
+                  <div className="flex items-center gap-5">
+                    <KeyRound className={k.keyType === 'rsa' ? 'h-6 w-6 text-[#C9A962]' : 'h-6 w-6 text-muted-foreground'} />
+                    <div className="flex flex-col gap-1.5">
+                      <h3 className="text-base font-medium">{k.name}</h3>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="font-mono uppercase">{k.keyType}</span>
+                        <span className="font-mono">{k.fingerprint}</span>
+                        <span>Added {new Date().toLocaleDateString()}</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground uppercase px-2 py-0.5 rounded bg-muted">
-                    {k.keyType}
-                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(k.id)}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </Button>
                 </div>
               ))}

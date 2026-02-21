@@ -103,20 +103,30 @@ export function SnippetsPage() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-        <div className="flex items-center gap-2">
-          <Code2 className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-base font-semibold">Snippets</h1>
+      <div className="flex-1 overflow-y-auto py-10 px-14">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-5xl font-semibold mb-3" style={{ fontFamily: 'Cormorant Garamond, serif' }}>Snippets</h1>
+          <p className="text-sm text-muted-foreground">Save and execute frequently used commands</p>
         </div>
-        <Button size="sm" onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-1" />
-          New Snippet
-        </Button>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto px-6 py-4">
+        {/* Search and Add */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2 h-9 px-3 border border-border rounded w-[200px]">
+            <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search snippets..."
+              className="flex-1 bg-transparent text-sm outline-none text-muted-foreground placeholder:text-muted-foreground/50"
+            />
+          </div>
+          <Button onClick={openCreateDialog} className="h-9 px-5 text-sm font-medium bg-[#C9A962] hover:bg-[#B89851] text-[#0A0A0A]">
+            <Plus className="h-4 w-4 mr-2" />
+            New Snippet
+          </Button>
+        </div>
         {isLoading ? (
           <div className="text-muted-foreground text-sm">Loading snippets...</div>
         ) : snippets.length === 0 ? (
@@ -125,46 +135,45 @@ export function SnippetsPage() {
             <p className="text-sm">No snippets yet. Create one to get started.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {snippets.map((snippet) => (
               <div
                 key={snippet.id}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
+                className="flex items-center justify-between px-6 py-6 border border-border bg-card"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-sm">{snippet.name}</span>
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-base font-medium">{snippet.name}</h3>
                     {snippet.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
+                      <span key={tag} className="px-2 py-1 text-xs bg-[#C9A962]/20 text-[#C9A962] border border-[#C9A962]/30">
                         {tag}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
-                  <code className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded block truncate">
+                  <code className="text-sm text-muted-foreground font-mono block">
                     {snippet.command}
                   </code>
                   {snippet.description && (
-                    <p className="text-xs text-muted-foreground mt-1">{snippet.description}</p>
+                    <p className="text-xs text-muted-foreground">{snippet.description}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-3">
+                  <button className="px-3 py-1.5 border border-[#C9A962] text-[#C9A962] hover:bg-[#C9A962]/10 transition-colors text-xs font-medium flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    Run
+                  </button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0"
+                    className="h-8 w-8 p-0"
                     onClick={() => openEditDialog(snippet)}
                     title="Edit snippet"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(snippet.id)}
-                    title="Delete snippet"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
                   </Button>
                 </div>
               </div>
