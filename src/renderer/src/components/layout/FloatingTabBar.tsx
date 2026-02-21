@@ -1,4 +1,4 @@
-import { X, Plus, ChevronDown, Circle } from 'lucide-react';
+import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -6,7 +6,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Tab {
   id: string;
@@ -24,6 +31,12 @@ interface FloatingTabBarProps {
   onTabClose?: (tabId: string) => void;
   onNewTab?: () => void;
   onWorkspaceChange?: (workspace: string) => void;
+  onBrowseHosts?: () => void;
+  onBrowseFiles?: () => void;
+  onSnippets?: () => void;
+  onKeys?: () => void;
+  onCommandPalette?: () => void;
+  onSettings?: () => void;
   className?: string;
 }
 
@@ -41,13 +54,20 @@ export function FloatingTabBar({
   onTabClose,
   onNewTab,
   onWorkspaceChange,
+  onBrowseHosts,
+  onBrowseFiles,
+  onSnippets,
+  onKeys,
+  onCommandPalette,
+  onSettings,
   className,
 }: FloatingTabBarProps) {
   return (
-    <div
-      className={cn(
-        // Base styles
-        'relative w-full h-12',
+    <TooltipProvider delayDuration={200}>
+      <div
+        className={cn(
+          // Base styles
+          'relative w-full h-12',
         // Glass morphism with dramatic blur
         'bg-[var(--surface-1)]/80 backdrop-blur-xl',
         // Borders
@@ -99,6 +119,24 @@ export function FloatingTabBar({
           />
         </Button>
 
+        {/* Divider */}
+        <div className="h-6 w-px bg-[var(--border)] mx-1" />
+
+        {/* Action Buttons */}
+        <ActionButton icon={Folder} label="Browse Hosts" shortcut="Cmd+H" onClick={onBrowseHosts} />
+        <ActionButton icon={FileText} label="SFTP Browser" shortcut="Cmd+B" onClick={onBrowseFiles} />
+        <ActionButton icon={Sparkles} label="Snippets" shortcut="Cmd+;" onClick={onSnippets} />
+        <ActionButton icon={Key} label="SSH Keys" onClick={onKeys} />
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-[var(--border)] mx-1" />
+
+        <ActionButton icon={Search} label="Command Palette" shortcut="Cmd+K" onClick={onCommandPalette} />
+        <ActionButton icon={Settings} label="Settings" shortcut="Cmd+," onClick={onSettings} />
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-[var(--border)] mx-1" />
+
         {/* Workspace Selector */}
         {workspaces.length > 0 && (
           <DropdownMenu>
@@ -148,6 +186,7 @@ export function FloatingTabBar({
         }
       `}</style>
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -261,5 +300,47 @@ function Tab({ tab, index, onClick, onClose }: TabProps) {
         }
       `}</style>
     </div>
+  );
+}
+
+interface ActionButtonProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  shortcut?: string;
+  onClick?: () => void;
+}
+
+function ActionButton({ icon: Icon, label, shortcut, onClick }: ActionButtonProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClick}
+          className={cn(
+            'h-9 w-9 p-0 rounded-lg',
+            'text-text-secondary hover:text-foreground',
+            'hover:bg-[var(--surface-3)]',
+            'transition-all duration-200',
+            'hover:scale-105 active:scale-95'
+          )}
+          aria-label={label}
+        >
+          <Icon className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={8}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-foreground">{label}</span>
+          {shortcut && (
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">
+              {shortcut}
+            </kbd>
+          )}
+        </div>
+      </TooltipContent>
+    </Button>
+  </Tooltip>
   );
 }

@@ -16,7 +16,6 @@
 import { useEffect, useState } from 'react';
 import { TerminalLayout } from './TerminalLayout';
 import { FloatingTabBar } from './FloatingTabBar';
-import { MiniToolbar } from './MiniToolbar';
 import { CommandPalette } from './CommandPalette';
 import { HostBrowserOverlay } from '@/features/hosts/HostBrowserOverlay';
 import { MainArea } from './MainArea';
@@ -24,7 +23,6 @@ import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTransferStore } from '@/stores/transfer-store';
-import { useToolbarState } from '@/hooks/useToolbarState';
 import { Toaster } from '@/components/ui/sonner';
 import { ArchTermLogoIcon } from '@/components/ui/logo';
 import type { Workspace } from '@shared/types/workspace';
@@ -40,7 +38,6 @@ export function TerminalCentricAppShell() {
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
   const { hosts } = useHostStore();
-  const { position: toolbarPosition, orientation: toolbarOrientation, setPosition: setToolbarPosition, setOrientation: setToolbarOrientation } = useToolbarState();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
@@ -346,24 +343,16 @@ export function TerminalCentricAppShell() {
               // TODO: Implement workspace switching
               console.log('Switch workspace:', workspace);
             }}
+            onBrowseHosts={() => setHostBrowserOpen(true)}
+            onBrowseFiles={() => {
+              // TODO: Open SFTP browser
+            }}
+            onSnippets={() => setSnippetsOpen(true)}
+            onKeys={() => setKeysOpen(true)}
+            onCommandPalette={() => setCommandPaletteOpen(true)}
+            onSettings={() => setSettingsOpen(true)}
           />
         ) : undefined
-      }
-      toolbar={
-        <MiniToolbar
-          position={toolbarPosition}
-          orientation={toolbarOrientation}
-          onPositionChange={setToolbarPosition}
-          onOrientationChange={setToolbarOrientation}
-          onBrowseHosts={() => setHostBrowserOpen(true)}
-          onBrowseFiles={() => {
-            // TODO: Open SFTP browser
-          }}
-          onSnippets={() => setSnippetsOpen(true)}
-          onKeys={() => setKeysOpen(true)}
-          onCommandPalette={() => setCommandPaletteOpen(true)}
-          onSettings={() => setSettingsOpen(true)}
-        />
       }
       overlays={
         <>
