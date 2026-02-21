@@ -193,12 +193,12 @@ export function CommandPalette({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={placeholder}
                   className={cn(
-                    'flex-1 !bg-transparent border-0 p-0 h-auto',
+                    'flex-1 !bg-transparent border-0 px-0 h-auto',
                     'text-lg font-normal tracking-tight text-foreground',
                     'placeholder:text-text-disabled placeholder:font-normal',
                     'focus-visible:ring-0 focus-visible:ring-offset-0',
                     'focus-visible:border-0',
-                    'py-2'
+                    'py-3.5 leading-relaxed'
                   )}
                 />
                 <kbd className="flex-shrink-0 px-2.5 py-1.5 text-[10px] font-mono font-semibold bg-[var(--surface-2)] rounded-lg border border-[var(--border)] text-text-secondary tracking-wide">
