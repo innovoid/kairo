@@ -32,32 +32,67 @@ interface SettingsPageProps {
 export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPageProps) {
   return (
     <div className="flex flex-col flex-1 h-full bg-background overflow-hidden">
-      {/* Body */}
-      <div className="flex flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={onTabChange} orientation="vertical" className="flex flex-1 overflow-hidden">
-          {/* Nav wrapper — full height, owns the border */}
-          <div className="w-44 shrink-0 border-r bg-muted/10 flex flex-col">
-            <TabsList className="flex flex-col w-full rounded-none bg-transparent p-2 gap-0.5 justify-start">
-              <TabsTrigger value="account" className="w-full justify-start px-3 py-1.5 text-sm">Account</TabsTrigger>
-              <TabsTrigger value="terminal" className="w-full justify-start px-3 py-1.5 text-sm">Terminal</TabsTrigger>
-              <TabsTrigger value="appearance" className="w-full justify-start px-3 py-1.5 text-sm">Appearance</TabsTrigger>
-              <TabsTrigger value="ai" className="w-full justify-start px-3 py-1.5 text-sm">AI</TabsTrigger>
-            </TabsList>
-          </div>
+      <div className="flex flex-col flex-1 overflow-hidden py-10 px-14">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-5xl font-semibold mb-3" style={{ fontFamily: 'Cormorant Garamond, serif' }}>Settings</h1>
+          <p className="text-sm text-muted-foreground">Configure your terminal preferences</p>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={onTabChange} className="flex flex-col flex-1 overflow-hidden">
+          <TabsList className="w-fit bg-transparent p-0 gap-1 mb-8 h-auto">
+            <TabsTrigger
+              value="terminal"
+              className={cn(
+                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
+                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+              )}
+            >
+              Terminal
+            </TabsTrigger>
+            <TabsTrigger
+              value="appearance"
+              className={cn(
+                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
+                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+              )}
+            >
+              Theme
+            </TabsTrigger>
+            <TabsTrigger
+              value="ai"
+              className={cn(
+                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
+                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+              )}
+            >
+              AI
+            </TabsTrigger>
+            <TabsTrigger
+              value="account"
+              className={cn(
+                "px-4 py-2 text-sm data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-[#C9A962]",
+                "data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground"
+              )}
+            >
+              Account
+            </TabsTrigger>
+          </TabsList>
 
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto">
-            <TabsContent value="account" className="p-6 m-0">
-              <AccountSettingsTab />
-            </TabsContent>
-            <TabsContent value="terminal" className="p-6 m-0">
+            <TabsContent value="terminal" className="mt-0">
               <TerminalTab />
             </TabsContent>
-            <TabsContent value="appearance" className="p-6 m-0">
+            <TabsContent value="appearance" className="mt-0">
               <AppearanceTab />
             </TabsContent>
-            <TabsContent value="ai" className="p-6 m-0">
+            <TabsContent value="ai" className="mt-0">
               <AiTab />
+            </TabsContent>
+            <TabsContent value="account" className="mt-0">
+              <AccountSettingsTab />
             </TabsContent>
           </div>
         </Tabs>
@@ -119,11 +154,7 @@ function TerminalTab() {
   }
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h2 className="text-base font-semibold mb-1">Terminal</h2>
-        <p className="text-sm text-muted-foreground">Font and display settings for the terminal emulator.</p>
-      </div>
+    <div className="max-w-3xl space-y-6">
       <Separator />
       <div className="space-y-4">
         <div className="space-y-2">
@@ -268,9 +299,12 @@ function TerminalTab() {
             ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>Prompt Style</Label>
-          <div className="flex gap-2">
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Prompt Style</Label>
+            <p className="text-sm text-muted-foreground mt-1">Choose how your terminal prompt appears</p>
+          </div>
+          <div className="flex gap-3">
             {([
               { value: 'default', label: 'Default', example: 'user@host ~ %' },
               { value: 'minimal', label: 'Minimal', example: '$' },
@@ -281,14 +315,13 @@ function TerminalTab() {
                 type="button"
                 onClick={() => setPromptStyle(value)}
                 className={cn(
-                  'flex-1 h-20 rounded-md border-2 flex flex-col items-center justify-center gap-1.5 transition-colors',
+                  'px-5 py-3 border transition-colors',
                   promptStyle === value
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted hover:border-muted-foreground/50'
+                    ? 'border-[#C9A962] bg-[#1A1A1A] text-[#C9A962]'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 )}
               >
-                <div className="font-mono text-xs text-muted-foreground">{example}</div>
-                <span className="text-xs">{label}</span>
+                <span className="text-sm">{label}</span>
               </button>
             ))}
           </div>

@@ -3,6 +3,7 @@ import { Server, KeyRound, Building2, Settings, TerminalSquare, Code2 } from 'lu
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import { ArchTermLogoSimple } from '@/components/ui/logo';
 
 interface SidebarProps {
   onOpenSettings: () => void;
@@ -44,9 +45,7 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
       <div className="flex flex-col gap-10">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <span className="text-[32px] font-semibold text-[#C9A962]" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-            A
-          </span>
+          <ArchTermLogoSimple size={32} />
           <span className="text-sm font-medium text-foreground">archterm</span>
         </div>
 
