@@ -57,7 +57,7 @@ export function MainArea() {
 
   if (activeTab.tabType === 'snippets') {
     return (
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="w-full h-full overflow-hidden">
         <SnippetsPage />
       </div>
     );
@@ -72,7 +72,7 @@ export function MainArea() {
   );
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className="w-full h-full overflow-hidden relative">
       {terminalAndSftpTabs.map((tab) => {
         const isVisible = tab.tabId === activeTabId;
         return (
