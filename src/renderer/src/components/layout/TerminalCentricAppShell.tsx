@@ -63,6 +63,70 @@ export function TerminalCentricAppShell() {
     localStorage.setItem('archterm-theme', theme);
   }, [settings?.theme]);
 
+  // Handler functions (defined before use)
+  const handleOpenLocalTerminal = () => {
+    const sessionId = `local-${Date.now()}`;
+    openTab({
+      tabId: sessionId,
+      tabType: 'terminal',
+      label: 'Local Terminal',
+      sessionId,
+      status: 'connecting',
+    });
+    window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
+  };
+
+  const handleConnectHost = (hostId: string) => {
+    const host = hosts.find((h) => h.id === hostId);
+    if (!host) return;
+
+    // Check if already connected
+    const existingTab = Array.from(tabs.values()).find(
+      (t) => t.hostId === hostId && t.tabType === 'terminal'
+    );
+
+    if (existingTab) {
+      setActiveTab(existingTab.tabId);
+    } else {
+      const sessionId = crypto.randomUUID();
+      openTab({
+        tabId: sessionId,
+        tabType: 'terminal',
+        label: host.label,
+        hostId: host.id,
+        hostname: host.hostname,
+        sessionId,
+        status: 'connecting',
+      });
+      window.sshApi.connect(sessionId, {
+        type: 'ssh',
+        host: {
+          hostname: host.hostname,
+          port: host.port,
+          username: host.username,
+          privateKey: host.privateKeyId,
+        },
+        promptStyle: settings?.promptStyle,
+      });
+    }
+  };
+
+  const handleNewTab = () => {
+    setHostBrowserOpen(true);
+  };
+
+  const handleTabClick = (tabId: string) => {
+    setActiveTab(tabId);
+  };
+
+  const handleTabClose = (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (tab?.sessionId) {
+      window.sshApi.disconnect(tab.sessionId);
+    }
+    closeTab(tabId);
+  };
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -248,69 +312,6 @@ export function TerminalCentricAppShell() {
       },
     },
   ];
-
-  const handleConnectHost = (hostId: string) => {
-    const host = hosts.find((h) => h.id === hostId);
-    if (!host) return;
-
-    // Check if already connected
-    const existingTab = Array.from(tabs.values()).find(
-      (t) => t.hostId === hostId && t.tabType === 'terminal'
-    );
-
-    if (existingTab) {
-      setActiveTab(existingTab.tabId);
-    } else {
-      const sessionId = crypto.randomUUID();
-      openTab({
-        tabId: sessionId,
-        tabType: 'terminal',
-        label: host.label,
-        hostId: host.id,
-        hostname: host.hostname,
-        sessionId,
-        status: 'connecting',
-      });
-      window.sshApi.connect(sessionId, {
-        type: 'ssh',
-        host: {
-          hostname: host.hostname,
-          port: host.port,
-          username: host.username,
-          privateKey: host.privateKeyId,
-        },
-        promptStyle: settings?.promptStyle,
-      });
-    }
-  };
-
-  const handleNewTab = () => {
-    setHostBrowserOpen(true);
-  };
-
-  const handleOpenLocalTerminal = () => {
-    const sessionId = `local-${Date.now()}`;
-    openTab({
-      tabId: sessionId,
-      tabType: 'terminal',
-      label: 'Local Terminal',
-      sessionId,
-      status: 'connecting',
-    });
-    window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
-  };
-
-  const handleTabClick = (tabId: string) => {
-    setActiveTab(tabId);
-  };
-
-  const handleTabClose = (tabId: string) => {
-    const tab = tabs.get(tabId);
-    if (tab?.sessionId) {
-      window.sshApi.disconnect(tab.sessionId);
-    }
-    closeTab(tabId);
-  };
 
   if (!workspaceId) {
     return (
