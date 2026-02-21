@@ -87,8 +87,8 @@ export function MiniToolbar({
     <TooltipProvider delayDuration={200}>
       <div
         className={cn(
-          // Vertical stack layout for bottom-right
-          'relative flex flex-col gap-0.5 p-1.5 w-14 rounded-2xl',
+          // Horizontal pill layout for bottom-right
+          'relative flex items-center gap-0.5 p-1.5 h-12 rounded-full',
           // Glass morphism with dramatic blur
           'bg-[var(--surface-1)]/90 backdrop-blur-2xl',
           // Borders with subtle glow
@@ -104,14 +104,14 @@ export function MiniToolbar({
       >
         {/* Noise texture overlay */}
         <div
-          className="absolute inset-0 rounded-2xl pointer-events-none opacity-[0.03]"
+          className="absolute inset-0 rounded-full pointer-events-none opacity-[0.03]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='4' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
           }}
         />
 
         {/* Primary actions */}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-0.5">
           {actions.map((action, index) => (
             <ToolbarButton
               key={action.label}
@@ -122,10 +122,10 @@ export function MiniToolbar({
         </div>
 
         {/* Divider */}
-        <div className="h-px w-full bg-[var(--border)] my-1" />
+        <div className="h-6 w-px bg-[var(--border)] mx-1" />
 
         {/* Secondary actions */}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-0.5">
           {secondaryActions.map((action, index) => (
             <ToolbarButton
               key={action.label}
@@ -171,8 +171,8 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
           onClick={action.onClick}
           disabled={action.disabled}
           className={cn(
-            // Size and shape - more square for vertical layout
-            'h-10 w-10 p-0 rounded-xl',
+            // Size and shape - circular for horizontal layout
+            'h-9 w-9 p-0 rounded-full',
             // Colors
             'text-text-secondary hover:text-foreground',
             'hover:bg-[var(--surface-3)]',
@@ -187,17 +187,17 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
             'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background'
           )}
           style={{
-            animation: `buttonEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${0.4 + index * 0.06}s both`,
+            animation: `buttonEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${0.4 + index * 0.05}s both`,
           }}
         >
-          <Icon className="h-4.5 w-4.5" />
+          <Icon className="h-4 w-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="left" sideOffset={8}>
-        <div className="flex flex-col gap-1">
+      <TooltipContent side="top" sideOffset={8}>
+        <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-foreground">{action.label}</span>
           {action.shortcut && (
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary self-start">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">
               {action.shortcut}
             </kbd>
           )}
@@ -208,11 +208,11 @@ function ToolbarButton({ action, index }: ToolbarButtonProps) {
         @keyframes buttonEnter {
           from {
             opacity: 0;
-            transform: translateY(12px) scale(0.85);
+            transform: scale(0.8) rotate(-5deg);
           }
           to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: scale(1) rotate(0deg);
           }
         }
       `}</style>
