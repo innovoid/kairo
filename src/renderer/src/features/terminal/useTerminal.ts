@@ -58,7 +58,12 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
   const searchAddonRef = useRef<SearchAddon | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      console.error('[useTerminal] containerRef.current is null for session:', sessionId);
+      return;
+    }
+
+    console.log('[useTerminal] Initializing terminal for session:', sessionId);
 
     let terminal: Terminal;
     let fitAddon: FitAddon;
@@ -69,6 +74,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
 
     if (cached) {
       // Reuse existing terminal
+      console.log('[useTerminal] Reusing cached terminal for session:', sessionId);
       terminal = cached.terminal;
       fitAddon = cached.fitAddon;
       searchAddon = cached.searchAddon;
@@ -91,6 +97,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       }
     } else {
       // Create new terminal
+      console.log('[useTerminal] Creating new terminal for session:', sessionId);
       const themeName = settings?.terminalTheme ?? 'dracula';
       const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES['dracula'].theme;
 
@@ -129,6 +136,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       terminal.unicode.activeVersion = '11';
 
       terminal.open(containerRef.current);
+      console.log('[useTerminal] Terminal opened for session:', sessionId);
       terminal.focus();
 
       // Load WebGL renderer with fallback to DOM (like Superset)
@@ -150,9 +158,15 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         if (containerRef.current && containerRef.current.offsetWidth > 0) {
           fitAddon.fit();
           const { cols, rows } = terminal;
+          console.log('[useTerminal] Terminal fitted. Cols:', cols, 'Rows:', rows, 'Session:', sessionId);
           if (cols > 0 && rows > 0) {
             window.sshApi.resize(sessionId, cols, rows);
+            console.log('[useTerminal] Resized SSH session:', sessionId);
+          } else {
+            console.warn('[useTerminal] Terminal has invalid dimensions:', { cols, rows, sessionId });
           }
+        } else {
+          console.warn('[useTerminal] Container not ready for fitting:', sessionId);
         }
       });
 
