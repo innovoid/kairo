@@ -532,9 +532,19 @@ function HostGridCard({
           {/* Status */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {isConnected && (
-                <span className="px-2 py-1 text-tiny bg-[var(--success)]/15 text-[var(--success)] border border-[var(--success)]/30 rounded">
-                  Connected
+              {isConnected ? (
+                <>
+                  <span
+                    className="h-2 w-2 rounded-full bg-[var(--success)]"
+                    aria-hidden="true"
+                  />
+                  <span className="px-2 py-1 text-tiny bg-[var(--success)]/15 text-[var(--success)] border border-[var(--success)]/30 rounded">
+                    Connected
+                  </span>
+                </>
+              ) : (
+                <span className="text-tiny text-[var(--text-tertiary)]">
+                  Disconnected
                 </span>
               )}
             </div>
