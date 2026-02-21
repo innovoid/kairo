@@ -340,7 +340,6 @@ function ActionButton({ icon: Icon, label, shortcut, onClick }: ActionButtonProp
           )}
         </div>
       </TooltipContent>
-    </Button>
-  </Tooltip>
+    </Tooltip>
   );
 }
