@@ -47,7 +47,7 @@ export function TerminalLayout({
 
       {toolbar && (
         <div
-          className="absolute top-4 right-4 z-10"
+          className="absolute top-4 right-4 z-20"
           style={{
             animation: 'scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both'
           }}
