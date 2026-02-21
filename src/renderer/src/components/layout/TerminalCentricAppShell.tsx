@@ -14,6 +14,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useHotkeys } from '@tanstack/react-hotkeys';
+import { getHotkey } from '@/lib/hotkeys-registry';
 import { TerminalLayout } from './TerminalLayout';
 import { FloatingTabBar } from './FloatingTabBar';
 import { CommandPalette } from './CommandPalette';
@@ -215,102 +217,47 @@ export function TerminalCentricAppShell() {
     }
   };
 
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
+  // Command Palette
+  useHotkeys(getHotkey('command-palette')!.key, (e) => {
+    e.preventDefault();
+    setCommandPaletteOpen(true);
+  }, [setCommandPaletteOpen]);
 
-      // Cmd+K - Command Palette
-      if (isMod && e.key === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen(true);
-      }
+  // Browse Hosts
+  useHotkeys(getHotkey('browse-hosts')!.key, (e) => {
+    e.preventDefault();
+    setHostBrowserOpen(true);
+  }, [setHostBrowserOpen]);
 
-      // Cmd+H - Host Browser
-      if (isMod && e.key === 'h') {
-        e.preventDefault();
-        setHostBrowserOpen(true);
-      }
+  // New Connection
+  useHotkeys(getHotkey('new-tab')!.key, (e) => {
+    e.preventDefault();
+    setHostBrowserOpen(true);
+  }, [setHostBrowserOpen]);
 
-      // Cmd+B - SFTP Browser (TODO: implement)
-      if (isMod && e.key === 'b') {
-        e.preventDefault();
-        // Open SFTP browser overlay
-      }
+  // Local Terminal
+  useHotkeys(getHotkey('local-terminal')!.key, (e) => {
+    e.preventDefault();
+    handleOpenLocalTerminal();
+  }, [handleOpenLocalTerminal]);
 
-      // Cmd+; - Snippets
-      if (isMod && e.key === ';') {
-        e.preventDefault();
-        setSnippetsOpen(true);
-      }
+  // Snippets
+  useHotkeys(getHotkey('snippets')!.key, (e) => {
+    e.preventDefault();
+    setSnippetsOpen(true);
+  }, [setSnippetsOpen]);
 
-      // Cmd+, - Settings
-      if (isMod && e.key === ',') {
-        e.preventDefault();
-        setSettingsOpen(true);
-      }
-
-      // Cmd+T - New Connection
-      if (isMod && e.key === 't') {
-        e.preventDefault();
-        setHostBrowserOpen(true);
-      }
-
-      // Cmd+L - Local Terminal
-      if (isMod && e.key === 'l') {
-        e.preventDefault();
-        handleOpenLocalTerminal();
-      }
-
-      // Cmd+Shift+F - Open SFTP for active tab
-      if (isMod && e.shiftKey && e.key === 'F') {
-        e.preventDefault();
-        if (activeTabId) handleOpenSftp(activeTabId);
-      }
-
-      // Cmd+Shift+R - Toggle recording for active tab
-      if (isMod && e.shiftKey && e.key === 'R') {
-        e.preventDefault();
-        if (activeTabId) {
-          const tab = tabs.get(activeTabId);
-          if (tab?.sessionId) {
-            if (isRecording(tab.sessionId)) {
-              handleStopRecording(activeTabId);
-            } else {
-              handleStartRecording(activeTabId);
-            }
-          }
-        }
-      }
-
-      // Cmd+D - Split horizontal
-      if (isMod && !e.shiftKey && e.key === 'd') {
-        e.preventDefault();
-        if (activeTabId) handleSplitHorizontal(activeTabId);
-      }
-
-      // Cmd+Shift+D - Split vertical
-      if (isMod && e.shiftKey && e.key === 'D') {
-        e.preventDefault();
-        if (activeTabId) handleSplitVertical(activeTabId);
-      }
-
-      // Cmd+Shift+B - Toggle broadcast
-      if (isMod && e.shiftKey && e.key === 'B') {
-        e.preventDefault();
-        if (activeTabId) handleToggleBroadcast(activeTabId);
-      }
-
-      // Cmd+W - Close active tab
-      if (isMod && e.key === 'w') {
-        e.preventDefault();
-        if (activeTabId) handleTabClose(activeTabId);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [settings?.promptStyle, activeTabId, tabs, isRecording]);
+  // Settings
+  useHotkeys(getHotkey('settings')!.key, (e) => {
+    e.preventDefault();
+    openTab({
+      tabId: 'settings',
+      tabType: 'settings',
+      label: 'Settings',
+      closable: false,
+      settingsTab: 'terminal',
+    });
+  }, [openTab]);
 
   // Convert tabs to FloatingTabBar format
   const floatingTabs = Array.from(tabs.values())
