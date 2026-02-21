@@ -23,6 +23,9 @@ import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTransferStore } from '@/stores/transfer-store';
+import { useRecordingStore } from '@/stores/recording-store';
+import { useBroadcastStore } from '@/stores/broadcast-store';
+import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { ArchTermLogoIcon } from '@/components/ui/logo';
 import type { Workspace } from '@shared/types/workspace';
@@ -38,12 +41,15 @@ export function TerminalCentricAppShell() {
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
   const { hosts } = useHostStore();
+  const { isRecording, startRecording, stopRecording } = useRecordingStore();
+  const { enabled: broadcastEnabled, toggle: toggleBroadcastEnabled, addTarget, removeTarget } = useBroadcastStore();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
   const openTab = useSessionStore((s) => s.openTab);
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
   const closeTab = useSessionStore((s) => s.closeTab);
+  const splitPane = useSessionStore((s) => s.splitPane);
 
   // Initialize workspace and settings
   useEffect(() => {
@@ -133,6 +139,82 @@ export function TerminalCentricAppShell() {
     closeTab(tabId);
   };
 
+  const handleOpenSftp = (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (!tab) return;
+
+    const sftpTabId = `sftp-${tab.sessionId}`;
+    openTab({
+      tabId: sftpTabId,
+      tabType: 'sftp',
+      label: `SFTP: ${tab.label}`,
+      hostId: tab.hostId,
+      hostname: tab.hostname,
+      sessionId: tab.sessionId,
+      status: 'connected',
+    });
+  };
+
+  const handleStartRecording = async (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (!tab?.sessionId) return;
+
+    try {
+      await window.recordingApi.start(tab.sessionId, 80, 24); // Default terminal size
+      startRecording(tab.sessionId);
+      toast.success('Recording started');
+    } catch (error) {
+      toast.error('Failed to start recording');
+    }
+  };
+
+  const handleStopRecording = async (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (!tab?.sessionId) return;
+
+    try {
+      const filepath = await window.recordingApi.stop(tab.sessionId);
+      stopRecording(tab.sessionId);
+      if (filepath) {
+        toast.success(`Recording saved: ${filepath}`);
+      }
+    } catch (error) {
+      toast.error('Failed to stop recording');
+    }
+  };
+
+  const handleSplitHorizontal = (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (!tab || tab.tabType !== 'terminal') return;
+
+    const newSessionId = `local-${Date.now()}`;
+    splitPane(tab.tabId, 'horizontal', newSessionId);
+    window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+  };
+
+  const handleSplitVertical = (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (!tab || tab.tabType !== 'terminal') return;
+
+    const newSessionId = `local-${Date.now()}`;
+    splitPane(tab.tabId, 'vertical', newSessionId);
+    window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+  };
+
+  const handleToggleBroadcast = (tabId: string) => {
+    const tab = tabs.get(tabId);
+    if (!tab?.sessionId) return;
+
+    if (!broadcastEnabled) {
+      toggleBroadcastEnabled();
+      addTarget(tab.sessionId);
+      toast.success('Broadcast enabled');
+    } else {
+      toggleBroadcastEnabled();
+      toast.info('Broadcast disabled');
+    }
+  };
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -179,11 +261,56 @@ export function TerminalCentricAppShell() {
         e.preventDefault();
         handleOpenLocalTerminal();
       }
+
+      // Cmd+Shift+F - Open SFTP for active tab
+      if (isMod && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        if (activeTabId) handleOpenSftp(activeTabId);
+      }
+
+      // Cmd+Shift+R - Toggle recording for active tab
+      if (isMod && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        if (activeTabId) {
+          const tab = tabs.get(activeTabId);
+          if (tab?.sessionId) {
+            if (isRecording(tab.sessionId)) {
+              handleStopRecording(activeTabId);
+            } else {
+              handleStartRecording(activeTabId);
+            }
+          }
+        }
+      }
+
+      // Cmd+D - Split horizontal
+      if (isMod && !e.shiftKey && e.key === 'd') {
+        e.preventDefault();
+        if (activeTabId) handleSplitHorizontal(activeTabId);
+      }
+
+      // Cmd+Shift+D - Split vertical
+      if (isMod && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        if (activeTabId) handleSplitVertical(activeTabId);
+      }
+
+      // Cmd+Shift+B - Toggle broadcast
+      if (isMod && e.shiftKey && e.key === 'B') {
+        e.preventDefault();
+        if (activeTabId) handleToggleBroadcast(activeTabId);
+      }
+
+      // Cmd+W - Close active tab
+      if (isMod && e.key === 'w') {
+        e.preventDefault();
+        if (activeTabId) handleTabClose(activeTabId);
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [settings?.promptStyle]);
+  }, [settings?.promptStyle, activeTabId, tabs, isRecording]);
 
   // Convert tabs to FloatingTabBar format
   const floatingTabs = Array.from(tabs.values())
@@ -194,6 +321,8 @@ export function TerminalCentricAppShell() {
       hostname: tab.hostname,
       status: tab.status as 'connected' | 'connecting' | 'disconnected',
       isActive: tab.tabId === activeTabId,
+      sessionId: tab.sessionId,
+      isRecording: tab.sessionId ? isRecording(tab.sessionId) : false,
     }));
 
   // Convert hosts to HostBrowserOverlay format
@@ -358,6 +487,12 @@ export function TerminalCentricAppShell() {
             onKeys={() => setKeysOpen(true)}
             onCommandPalette={() => setCommandPaletteOpen(true)}
             onSettings={() => setSettingsOpen(true)}
+            onOpenSftp={handleOpenSftp}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
+            onSplitHorizontal={handleSplitHorizontal}
+            onSplitVertical={handleSplitVertical}
+            onToggleBroadcast={handleToggleBroadcast}
           />
         ) : undefined
       }
