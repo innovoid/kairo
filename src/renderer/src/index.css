@@ -296,3 +296,24 @@
 .gap-large { gap: 1.5rem; }     /* 24px */
 .gap-xl { gap: 2rem; }          /* 32px */
 .gap-xxl { gap: 3rem; }         /* 48px */
+
+/* Shimmer Animation for Loading States */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-1) 0%,
+    var(--surface-2) 50%,
+    var(--surface-1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}

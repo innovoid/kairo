@@ -32,6 +32,7 @@ import {
   useDraggable,
   useDroppable,
 } from '@dnd-kit/core';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface HostsGridProps {
   workspaceId: string;
@@ -41,7 +42,7 @@ interface HostsGridProps {
 }
 
 export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }: HostsGridProps) {
-  const { hosts, folders, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
+  const { hosts, folders, isLoading, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<HostFolder | null>(null);
 
@@ -148,6 +149,32 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
           </DropdownMenu>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-4 p-6 border border-border bg-card">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Skeleton className="h-6 w-6 rounded-md" />
+                    <div className="flex-1">
+                      <Skeleton className="h-6 w-32 mb-2" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                  </div>
+                </div>
+                <Skeleton className="h-4 w-24" />
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Content (only show when not loading) */}
+        {!isLoading && (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           {/* Folder sections */}
           {rootFolders.map((folder) => (
@@ -180,9 +207,10 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
             </DroppableRootArea>
           )}
         </DndContext>
+        )}
 
         {/* Empty state */}
-        {hosts.length === 0 && folders.length === 0 && (
+        {!isLoading && hosts.length === 0 && folders.length === 0 && (
           <div className="text-center py-20">
             <Server className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
             <p className="text-sm font-medium">No hosts yet</p>
