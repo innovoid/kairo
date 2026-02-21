@@ -155,19 +155,43 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         }
 
         // Fit terminal after renderer is loaded
-        if (containerRef.current && containerRef.current.offsetWidth > 0) {
-          fitAddon.fit();
-          const { cols, rows } = terminal;
-          console.log('[useTerminal] Terminal fitted. Cols:', cols, 'Rows:', rows, 'Session:', sessionId);
-          if (cols > 0 && rows > 0) {
-            window.sshApi.resize(sessionId, cols, rows);
-            console.log('[useTerminal] Resized SSH session:', sessionId);
+        const attemptFit = (attempt = 0) => {
+          if (!containerRef.current) return;
+
+          const containerWidth = containerRef.current.offsetWidth;
+          const containerHeight = containerRef.current.offsetHeight;
+
+          console.log('[useTerminal] Fit attempt', attempt, 'Container dimensions:', {
+            width: containerWidth,
+            height: containerHeight,
+            sessionId
+          });
+
+          if (containerWidth > 0 && containerHeight > 0) {
+            fitAddon.fit();
+            const { cols, rows } = terminal;
+            console.log('[useTerminal] Terminal fitted. Cols:', cols, 'Rows:', rows, 'Session:', sessionId);
+
+            if (cols > 0 && rows > 5) { // Ensure we have at least 5 rows
+              window.sshApi.resize(sessionId, cols, rows);
+              console.log('[useTerminal] Resized SSH session:', sessionId);
+            } else if (attempt < 5) {
+              // Retry if dimensions are still invalid
+              console.warn('[useTerminal] Invalid dimensions, retrying...', { cols, rows, attempt, sessionId });
+              setTimeout(() => attemptFit(attempt + 1), 100);
+            } else {
+              console.error('[useTerminal] Failed to get valid dimensions after', attempt, 'attempts');
+            }
+          } else if (attempt < 5) {
+            // Container not ready, retry
+            console.warn('[useTerminal] Container not ready, retrying...', { attempt, sessionId });
+            setTimeout(() => attemptFit(attempt + 1), 100);
           } else {
-            console.warn('[useTerminal] Terminal has invalid dimensions:', { cols, rows, sessionId });
+            console.error('[useTerminal] Container never became ready');
           }
-        } else {
-          console.warn('[useTerminal] Container not ready for fitting:', sessionId);
-        }
+        };
+
+        attemptFit(0);
       });
 
       // Handle keyboard input
