@@ -65,6 +65,7 @@ export function TerminalCentricAppShell() {
   // Handler functions (defined before use)
   const handleOpenLocalTerminal = () => {
     const sessionId = `local-${Date.now()}`;
+    console.log('Opening local terminal with sessionId:', sessionId);
     openTab({
       tabId: sessionId,
       tabType: 'terminal',
@@ -72,7 +73,13 @@ export function TerminalCentricAppShell() {
       sessionId,
       status: 'connecting',
     });
-    window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
+    console.log('Tab opened, connecting SSH with type: local, promptStyle:', settings?.promptStyle);
+    try {
+      window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
+      console.log('SSH connect called successfully');
+    } catch (error) {
+      console.error('Failed to call SSH connect:', error);
+    }
   };
 
   const handleConnectHost = (hostId: string) => {
