@@ -84,12 +84,16 @@ export function CommandPalette({
   // Focus input when opened
   React.useEffect(() => {
     if (open) {
-      // Use setTimeout to ensure DOM is ready and input is rendered
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
+      // Clear state immediately
       setSearch('');
       setSelectedIndex(0);
+
+      // Use requestAnimationFrame to ensure DOM is ready, then focus
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 100);
+      });
     }
   }, [open]);
 
