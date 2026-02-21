@@ -214,11 +214,28 @@
     transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 150ms ease;
   }
 
-  /* Focus visible improvements */
+  /* Focus Ring Styles */
   *:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    transition: outline-offset 150ms ease;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    border-color: var(--primary);
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    transform: translateY(-1px);
+    transition: transform 200ms ease-out;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
   }
 
   /* Disable selection on UI elements */
