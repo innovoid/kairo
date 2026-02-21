@@ -50,18 +50,48 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
         </div>
 
         {/* Navigation */}
-        <nav className="flex flex-col gap-1">
-          <NavButton icon={TerminalSquare} label="Terminals" active={activeView === 'hosts'} onClick={onGoHome} />
-          <NavButton icon={Server} label="Hosts" active={activeView === 'hosts'} onClick={onGoHome} />
-          <NavButton icon={KeyRound} label="SSH Keys" active={activeView === 'keys'} onClick={onGoKeys} />
-          <NavButton icon={Code2} label="Snippets" active={activeView === 'snippets'} onClick={onOpenSnippets} />
+        <nav aria-label="Main navigation" className="flex flex-col gap-1">
+          <NavButton
+            icon={TerminalSquare}
+            label="Terminals"
+            active={activeView === 'hosts'}
+            onClick={onGoHome}
+            ariaLabel="Navigate to Terminals page"
+          />
+          <NavButton
+            icon={Server}
+            label="Hosts"
+            active={activeView === 'hosts'}
+            onClick={onGoHome}
+            ariaLabel="Navigate to Hosts page"
+          />
+          <NavButton
+            icon={KeyRound}
+            label="SSH Keys"
+            active={activeView === 'keys'}
+            onClick={onGoKeys}
+            ariaLabel="Navigate to SSH Keys page"
+          />
+          <NavButton
+            icon={Code2}
+            label="Snippets"
+            active={activeView === 'snippets'}
+            onClick={onOpenSnippets}
+            ariaLabel="Navigate to Snippets page"
+          />
         </nav>
       </div>
 
       {/* Bottom Section */}
       <div className="flex flex-col gap-6">
         <div className="h-px w-full bg-[var(--border-subtle)]" />
-        <NavButton icon={Settings} label="Settings" active={activeView === 'settings'} onClick={onOpenSettings} />
+        <NavButton
+          icon={Settings}
+          label="Settings"
+          active={activeView === 'settings'}
+          onClick={onOpenSettings}
+          ariaLabel="Navigate to Settings page"
+        />
       </div>
     </div>
   );
@@ -72,14 +102,18 @@ function NavButton({
   label,
   active,
   onClick,
+  ariaLabel,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
   onClick: () => void;
+  ariaLabel?: string;
 }) {
   return (
     <button
+      aria-label={ariaLabel || label}
+      aria-current={active ? 'page' : undefined}
       className={cn(
         'flex items-center gap-3 px-3 py-2 rounded transition-all duration-300 ease-out w-full text-left',
         active
@@ -88,7 +122,7 @@ function NavButton({
       )}
       onClick={onClick}
     >
-      <Icon className="h-[18px] w-[18px]" />
+      <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
       <span className="text-sm">{label}</span>
     </button>
   );
