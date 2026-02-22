@@ -86,6 +86,15 @@ export function CommandHintOverlay({
       } else if (event.key === 'ArrowDown') {
         setSelectedIndex((prev) => Math.min(filteredCommands.length - 1, prev + 1));
         return false;
+      } else if (event.key === 'Tab') {
+        // Tab key: auto-complete to selected command
+        const selectedCommand = filteredCommands[selectedIndex];
+        if (selectedCommand) {
+          setInputBuffer(selectedCommand.command);
+          // Keep only the exact match in filtered commands
+          setFilteredCommands([selectedCommand]);
+        }
+        return false; // Prevent Tab from being sent
       } else if (event.key === 'Backspace') {
         const newBuffer = inputBuffer.slice(0, -1);
         if (newBuffer.length === 0 || !newBuffer.startsWith('@')) {
@@ -317,6 +326,7 @@ export function CommandHintOverlay({
         <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--surface-4)]">
           <div className="text-xs text-muted-foreground">
             <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">↑↓</kbd> Navigate{' '}
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Tab</kbd> Complete{' '}
             <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> Select{' '}
             <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Esc</kbd> Close
           </div>
