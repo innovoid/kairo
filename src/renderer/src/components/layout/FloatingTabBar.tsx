@@ -1,5 +1,6 @@
 import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getHotkey } from '@/lib/hotkeys-registry';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -341,7 +342,9 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onOpenSftp} className="gap-2">
           <FolderOpen className="h-4 w-4" />
           <span>Open SFTP</span>
-          <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+F</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {getHotkey('open-sftp')!.key.replace('mod', '⌘')}
+          </span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -350,13 +353,17 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
           <ContextMenuItem onClick={onStopRecording} className="gap-2">
             <Circle className="h-4 w-4 fill-red-500 text-red-500" />
             <span>Stop Recording</span>
-            <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+R</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {getHotkey('toggle-recording')!.key.replace('mod', '⌘')}
+            </span>
           </ContextMenuItem>
         ) : (
           <ContextMenuItem onClick={onStartRecording} className="gap-2">
             <Circle className="h-4 w-4" />
             <span>Start Recording</span>
-            <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+R</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {getHotkey('toggle-recording')!.key.replace('mod', '⌘')}
+            </span>
           </ContextMenuItem>
         )}
 
@@ -365,13 +372,17 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onSplitHorizontal} className="gap-2">
           <SplitSquareHorizontal className="h-4 w-4" />
           <span>Split Horizontal</span>
-          <span className="ml-auto text-xs text-muted-foreground">Cmd+D</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {getHotkey('split-horizontal')!.key.replace('mod', '⌘')}
+          </span>
         </ContextMenuItem>
 
         <ContextMenuItem onClick={onSplitVertical} className="gap-2">
           <SplitSquareVertical className="h-4 w-4" />
           <span>Split Vertical</span>
-          <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+D</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {getHotkey('split-vertical')!.key.replace('mod', '⌘')}
+          </span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -379,7 +390,9 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onToggleBroadcast} className="gap-2">
           <Radio className="h-4 w-4" />
           <span>Toggle Broadcast</span>
-          <span className="ml-auto text-xs text-muted-foreground">Cmd+Shift+B</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {getHotkey('toggle-broadcast')!.key.replace('mod', '⌘')}
+          </span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -387,7 +400,9 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onClose} className="gap-2 text-destructive focus:text-destructive">
           <X className="h-4 w-4" />
           <span>Close Tab</span>
-          <span className="ml-auto text-xs text-muted-foreground">Cmd+W</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {getHotkey('close-tab')!.key.replace('mod', '⌘')}
+          </span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
