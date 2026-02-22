@@ -4,6 +4,7 @@ import type {
   ApproveAgentStepInput,
   CancelAgentRunInput,
   RejectAgentStepInput,
+  RunPlaybookInput,
   SavePlaybookInput,
   StartAgentRunInput,
 } from '../../shared/types/agent';
@@ -31,6 +32,10 @@ export const agentIpcHandlers = {
 
   async listRuns(_event: IpcMainInvokeEvent, sessionId?: string) {
     return agentOrchestrator.listRuns(sessionId);
+  },
+
+  async runPlaybook(event: IpcMainInvokeEvent, input: RunPlaybookInput) {
+    return agentOrchestrator.runPlaybook(input, event.sender);
   },
 
   async savePlaybook(_event: IpcMainInvokeEvent, input: SavePlaybookInput) {

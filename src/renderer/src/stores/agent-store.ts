@@ -4,6 +4,7 @@ import type {
   AgentPlaybook,
   AgentRun,
   AgentStep,
+  RunPlaybookInput,
   StartAgentRunInput,
 } from '@shared/types/agent';
 import { useSettingsStore } from './settings-store';
@@ -19,6 +20,8 @@ interface AgentState {
   rejectStep: (runId: string, stepId: string, reason?: string) => Promise<AgentRun>;
   cancelRun: (runId: string) => Promise<AgentRun>;
   savePlaybook: (runId: string, name: string, workspaceId?: string) => Promise<AgentPlaybook>;
+  listPlaybooks: (workspaceId?: string) => Promise<AgentPlaybook[]>;
+  runPlaybook: (input: RunPlaybookInput) => Promise<AgentRun>;
   getActiveRun: (sessionId: string) => AgentRun | null;
 }
 
@@ -164,6 +167,32 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       throw new Error('Agent API is not available in this environment.');
     }
     return window.agentApi.savePlaybook({ runId, name, workspaceId });
+  },
+
+  listPlaybooks: async (workspaceId) => {
+    if (!window.agentApi) {
+      throw new Error('Agent API is not available in this environment.');
+    }
+    return window.agentApi.listPlaybooks(workspaceId);
+  },
+
+  runPlaybook: async (input) => {
+    if (!window.agentApi) {
+      throw new Error('Agent API is not available in this environment.');
+    }
+
+    const run = await window.agentApi.runPlaybook(input);
+    set((state) => ({
+      runs: {
+        ...state.runs,
+        [run.id]: run,
+      },
+      activeRunBySession: {
+        ...state.activeRunBySession,
+        [run.sessionId]: run.id,
+      },
+    }));
+    return run;
   },
 
   getActiveRun: (sessionId) => {

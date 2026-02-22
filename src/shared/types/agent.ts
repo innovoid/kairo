@@ -107,6 +107,15 @@ export interface SavePlaybookInput {
   name: string;
 }
 
+export interface RunPlaybookInput {
+  playbookId?: string;
+  playbookName?: string;
+  sessionId: string;
+  workspaceId?: string;
+  hostId?: string;
+  hostLabel?: string;
+}
+
 export interface AgentPlaybook {
   id: string;
   workspaceId?: string;

@@ -522,6 +522,23 @@ export const agentPlaybookQueries = {
       .prepare('select * from agent_playbooks where workspace_id = ? order by created_at desc')
       .all(workspaceId) as DbAgentPlaybook[];
   },
+  getById: (id: string): DbAgentPlaybook | undefined => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_playbooks where id = ?')
+      .get(id) as DbAgentPlaybook | undefined;
+  },
+  getByName: (name: string, workspaceId?: string): DbAgentPlaybook | undefined => {
+    const db = getDb();
+    if (workspaceId) {
+      return db
+        .prepare('select * from agent_playbooks where workspace_id = ? and lower(name) = lower(?) order by created_at desc limit 1')
+        .get(workspaceId, name) as DbAgentPlaybook | undefined;
+    }
+    return db
+      .prepare('select * from agent_playbooks where lower(name) = lower(?) order by created_at desc limit 1')
+      .get(name) as DbAgentPlaybook | undefined;
+  },
   listRecent: (limit: number): DbAgentPlaybook[] => {
     const db = getDb();
     return db

@@ -3,6 +3,7 @@ import type { Terminal } from '@xterm/xterm';
 import { toast } from 'sonner';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useAgentStore } from '@/stores/agent-store';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 import type { AgentRun, AgentStep } from '@shared/types/agent';
 
 interface CommandHintOverlayProps {
@@ -45,6 +46,21 @@ const COMMANDS: CommandHint[] = [
     description: 'Run AI operator workflow with step approvals',
     usage: '@agent <task>',
   },
+  {
+    command: '@agent-save',
+    description: 'Save latest agent run as reusable playbook',
+    usage: '@agent-save <playbook-name>',
+  },
+  {
+    command: '@agent-playbooks',
+    description: 'List saved playbooks',
+    usage: '@agent-playbooks [filter]',
+  },
+  {
+    command: '@agent-run',
+    description: 'Run a saved playbook',
+    usage: '@agent-run <playbook-name>',
+  },
 ];
 
 export function CommandHintOverlay({
@@ -67,8 +83,12 @@ export function CommandHintOverlay({
   const { settings } = useSettingsStore();
   const initAgentListeners = useAgentStore((s) => s.initListeners);
   const startAgentRun = useAgentStore((s) => s.startRun);
+  const runPlaybook = useAgentStore((s) => s.runPlaybook);
+  const listPlaybooks = useAgentStore((s) => s.listPlaybooks);
+  const savePlaybook = useAgentStore((s) => s.savePlaybook);
   const approveAgentStep = useAgentStore((s) => s.approveStep);
   const cancelAgentRun = useAgentStore((s) => s.cancelRun);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspace?.id);
   const activeRunId = useAgentStore((s) => s.activeRunBySession[sessionId]);
   const activeRun = useAgentStore((s) => (activeRunId ? s.runs[activeRunId] : null));
   const stepOutputByStepId = useAgentStore((s) => s.stepOutputByStepId);
@@ -227,7 +247,7 @@ export function CommandHintOverlay({
       } else {
         renderHintLines([
           { text: 'Unknown command.', tone: 'header' },
-          { text: 'Available: @upload, @download, @ai, @agent' },
+          { text: 'Available: @upload, @download, @ai, @agent, @agent-save, @agent-playbooks, @agent-run' },
         ]);
       }
       return;
@@ -497,7 +517,22 @@ export function CommandHintOverlay({
       return;
     }
 
-    toast.error('Unknown command. Available: @upload, @download, @ai, @agent');
+    if (commandToken === '@agent-save') {
+      await handleAgentSave(args.join(' ').trim());
+      return;
+    }
+
+    if (commandToken === '@agent-playbooks') {
+      await handleAgentPlaybooks(args.join(' ').trim());
+      return;
+    }
+
+    if (commandToken === '@agent-run') {
+      await handleAgentRun(args.join(' ').trim());
+      return;
+    }
+
+    toast.error('Unknown command. Available: @upload, @download, @ai, @agent, @agent-save, @agent-playbooks, @agent-run');
   }
 
   async function handleUpload() {
@@ -642,6 +677,81 @@ export function CommandHintOverlay({
       toast.success('Agent plan ready. Review steps and press Enter to approve.');
     } catch (error) {
       toast.error((error as Error).message || 'Failed to start agent run');
+    }
+  }
+
+  async function handleAgentSave(name: string) {
+    const run = activeRunRef.current;
+    if (!run) {
+      toast.error('No active agent run to save');
+      return;
+    }
+    if (!name) {
+      toast.error('Usage: @agent-save <playbook-name>');
+      return;
+    }
+    try {
+      const playbook = await savePlaybook(run.id, name, activeWorkspaceId);
+      toast.success(`Saved playbook: ${playbook.name}`);
+      renderHintLines([
+        { text: `Saved playbook: ${playbook.name}`, tone: 'header' },
+        { text: `Run with: @agent-run ${playbook.name}` },
+      ]);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to save playbook');
+    }
+  }
+
+  async function handleAgentPlaybooks(filter: string) {
+    try {
+      const playbooks = await listPlaybooks(activeWorkspaceId);
+      const normalized = filter.trim().toLowerCase();
+      const filtered = normalized
+        ? playbooks.filter((playbook) => playbook.name.toLowerCase().includes(normalized))
+        : playbooks;
+
+      if (filtered.length === 0) {
+        renderHintLines([
+          { text: 'No playbooks found', tone: 'header' },
+          { text: 'Save one with: @agent-save <name>' },
+        ]);
+        return;
+      }
+
+      const shown = filtered.slice(0, 6);
+      renderHintLines([
+        { text: `Playbooks (${filtered.length})`, tone: 'header' },
+        ...shown.map((playbook) => ({ text: `• ${playbook.name} — ${playbook.task}` })),
+        filtered.length > shown.length
+          ? { text: `${filtered.length - shown.length} more`, tone: 'muted' }
+          : { text: 'Run with: @agent-run <name>', tone: 'muted' },
+      ]);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to list playbooks');
+    }
+  }
+
+  async function handleAgentRun(playbookName: string) {
+    if (!playbookName) {
+      toast.error('Usage: @agent-run <playbook-name>');
+      return;
+    }
+
+    try {
+      const run = await runPlaybook({
+        sessionId,
+        workspaceId: activeWorkspaceId,
+        playbookName,
+        hostId,
+        hostLabel,
+      });
+
+      activeRunRef.current = run;
+      selectedAgentStepIdxRef.current = 0;
+      renderAgentHints();
+      toast.success(`Loaded playbook: ${playbookName}`);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to run playbook');
     }
   }
 

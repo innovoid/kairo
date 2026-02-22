@@ -6,6 +6,7 @@ import type {
   ApproveAgentStepInput,
   CancelAgentRunInput,
   RejectAgentStepInput,
+  RunPlaybookInput,
   SavePlaybookInput,
   StartAgentRunInput,
 } from '../shared/types/agent';
@@ -23,6 +24,8 @@ const agentApi = {
     ipcRenderer.invoke('agent.getRun', runId),
   listRuns: (sessionId?: string): Promise<AgentRun[]> =>
     ipcRenderer.invoke('agent.listRuns', sessionId),
+  runPlaybook: (input: RunPlaybookInput): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.runPlaybook', input),
   savePlaybook: (input: SavePlaybookInput): Promise<AgentPlaybook> =>
     ipcRenderer.invoke('agent.savePlaybook', input),
   listPlaybooks: (workspaceId?: string): Promise<AgentPlaybook[]> =>

@@ -186,6 +186,7 @@ export function registerWorkspaceIpcHandlers(): void {
   register('agent.cancelRun', agentIpcHandlers.cancelRun);
   register('agent.getRun', agentIpcHandlers.getRun);
   register('agent.listRuns', agentIpcHandlers.listRuns);
+  register('agent.runPlaybook', agentIpcHandlers.runPlaybook);
   register('agent.savePlaybook', agentIpcHandlers.savePlaybook);
   register('agent.listPlaybooks', agentIpcHandlers.listPlaybooks);
 

@@ -20,6 +20,7 @@ import type {
   AgentStep,
   ApproveAgentStepInput,
   HostFacts,
+  RunPlaybookInput,
   SavePlaybookInput,
   StartAgentRunInput,
 } from '../../shared/types/agent';
@@ -172,6 +173,36 @@ function sanitizePlannedSteps(rawSteps: PlannedStep[], facts: HostFacts): AgentS
   return steps;
 }
 
+function sanitizePlaybookSteps(rawSteps: AgentPlaybook['steps'], facts: HostFacts): AgentStep[] {
+  const normalized: PlannedStep[] = rawSteps.map((step) => ({
+    title: step.title,
+    command: step.command,
+    verifyCommand: step.verifyCommand,
+  }));
+  return sanitizePlannedSteps(normalized, facts);
+}
+
+function createRunSkeleton(input: {
+  sessionId: string;
+  task: string;
+  workspaceId?: string;
+  hostId?: string;
+  hostLabel?: string;
+}): AgentRun {
+  return {
+    id: crypto.randomUUID(),
+    sessionId: input.sessionId,
+    workspaceId: input.workspaceId,
+    hostId: input.hostId,
+    hostLabel: input.hostLabel,
+    task: input.task,
+    status: 'planning',
+    steps: [],
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+}
+
 function emitRun(sender: WebContents, run: AgentRun): void {
   if (!sender.isDestroyed()) {
     sender.send('agent:run-updated', run);
@@ -283,18 +314,13 @@ function ensureRun(runId: string): AgentRun {
 
 export const agentOrchestrator = {
   async startRun(input: StartAgentRunInput, sender: WebContents): Promise<AgentRun> {
-    const run: AgentRun = {
-      id: crypto.randomUUID(),
+    const run = createRunSkeleton({
       sessionId: input.sessionId,
+      task: input.task,
       workspaceId: input.workspaceId,
       hostId: input.hostId,
       hostLabel: input.hostLabel,
-      task: input.task,
-      status: 'planning',
-      steps: [],
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
+    });
 
     runCache.set(run.id, run);
     persistRun(run);
@@ -523,6 +549,64 @@ export const agentOrchestrator = {
       : agentRunQueries.listRecent(50);
 
     return rows.map((row) => ensureRun(row.id));
+  },
+
+  async runPlaybook(input: RunPlaybookInput, sender: WebContents): Promise<AgentRun> {
+    const playbookRow = input.playbookId
+      ? agentPlaybookQueries.getById(input.playbookId)
+      : input.playbookName
+        ? agentPlaybookQueries.getByName(input.playbookName, input.workspaceId)
+        : undefined;
+
+    if (!playbookRow) {
+      throw new Error('Playbook not found');
+    }
+
+    const parsedSteps = jsonSafeParse<AgentPlaybook['steps']>(playbookRow.steps);
+    if (!parsedSteps || parsedSteps.length === 0) {
+      throw new Error('Playbook has no runnable steps');
+    }
+
+    const run = createRunSkeleton({
+      sessionId: input.sessionId,
+      task: playbookRow.task,
+      workspaceId: input.workspaceId ?? playbookRow.workspace_id ?? undefined,
+      hostId: input.hostId,
+      hostLabel: input.hostLabel,
+    });
+
+    run.task = `Playbook: ${playbookRow.name}`;
+    runCache.set(run.id, run);
+    persistRun(run);
+    appendEvent(run.id, 'info', `Playbook run started: ${playbookRow.name}`);
+    emitRun(sender, run);
+
+    try {
+      const facts = await agentFactsService.getOrDiscover(input.sessionId, input.hostId);
+      run.facts = facts;
+      run.steps = sanitizePlaybookSteps(parsedSteps, facts);
+      run.steps[0].status = 'awaiting_approval';
+      run.status = 'awaiting_approval';
+      run.updatedAt = nowIso();
+      run.summary = `Playbook loaded: ${playbookRow.name}`;
+      appendEvent(run.id, 'info', 'Playbook steps loaded', undefined, { name: playbookRow.name });
+      persistRun(run);
+      emitRun(sender, run);
+      return run;
+    } catch (error) {
+      run.status = 'failed';
+      run.lastError = (error as Error).message;
+      run.updatedAt = nowIso();
+      appendEvent(run.id, 'error', 'Failed to load playbook run context', undefined, {
+        error: run.lastError,
+      });
+      persistRun(run);
+      if (!sender.isDestroyed()) {
+        sender.send('agent:error', run.id, run.lastError);
+      }
+      emitRun(sender, run);
+      return run;
+    }
   },
 
   savePlaybook(input: SavePlaybookInput): AgentPlaybook {
