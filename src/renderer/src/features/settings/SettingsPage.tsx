@@ -20,8 +20,9 @@ import { cn } from '@/lib/utils';
 import type { AiProvider, CursorStyle, BellStyle, TerminalTheme } from '@shared/types/settings';
 import { TERMINAL_THEMES, TERMINAL_THEME_NAMES } from '@shared/themes/terminal-themes';
 import AccountSettingsTab from './AccountSettingsTab';
+import { ShortcutsSettingsTab } from './ShortcutsSettingsTab';
 
-export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'account';
+export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'account' | 'shortcuts';
 
 interface SettingsPageProps {
   activeTab: SettingsTab;
@@ -82,6 +83,16 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             >
               Account
             </TabsTrigger>
+            <TabsTrigger
+              value="shortcuts"
+              className={cn(
+                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
+                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
+                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
+              )}
+            >
+              Shortcuts
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab content */}
@@ -97,6 +108,9 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             </TabsContent>
             <TabsContent value="account" className="mt-0">
               <AccountSettingsTab />
+            </TabsContent>
+            <TabsContent value="shortcuts" className="mt-0">
+              <ShortcutsSettingsTab />
             </TabsContent>
           </div>
         </Tabs>
