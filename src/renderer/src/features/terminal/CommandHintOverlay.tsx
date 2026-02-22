@@ -319,6 +319,21 @@ export function CommandHintOverlay({
     if (!terminal) return;
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      const terminalElement = terminal.element as HTMLElement | undefined;
+      const terminalHasFocus = Boolean(
+        terminalElement &&
+          activeElement &&
+          (terminalElement === activeElement || terminalElement.contains(activeElement))
+      );
+
+      if (!terminalHasFocus) {
+        if (commandModeRef.current) {
+          resetCommandMode();
+        }
+        return true;
+      }
+
       const consume = () => {
         event.preventDefault();
         event.stopPropagation();

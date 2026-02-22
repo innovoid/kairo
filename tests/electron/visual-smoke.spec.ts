@@ -38,6 +38,16 @@ test.describe('ArchTerm Electron Visual Smoke', () => {
     await expect(page).toHaveScreenshot('04-settings-overlay.png', { fullPage: true });
   });
 
+  test('allows selecting terminal font inside settings modal', async () => {
+    await pressPrimaryShortcut(page, ',');
+    await expect(page.getByRole('heading', { name: 'Settings', level: 2 })).toBeVisible();
+
+    const trigger = page.getByRole('combobox').first();
+    await trigger.click();
+    await page.getByRole('option', { name: /Fira Code/i }).click();
+    await expect(trigger).toContainText('Fira Code');
+  });
+
   test('opens host form from host browser new host action', async () => {
     await pressPrimaryShortcut(page, 'H');
     await expect(page.getByRole('heading', { name: 'Browse Hosts', level: 2 })).toBeVisible();
