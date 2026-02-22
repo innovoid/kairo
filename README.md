@@ -46,6 +46,44 @@ ArchTerm provides a complete SSH client experience with team collaboration and A
 - Session management with tabs
 - Connection status indicators
 
+## Keyboard Shortcuts
+
+View all shortcuts in-app: Press `Cmd+K` and search for "Keyboard Shortcuts"
+
+### General
+- `Cmd+K` - Open command palette
+- `Cmd+,` - Open settings
+
+### Terminal
+- `Cmd+T` - New terminal connection
+- `Cmd+L` - Open local terminal
+- `Cmd+W` - Close active tab
+- `Cmd+F` - Search in terminal
+- `Cmd+D` - Split pane horizontally
+- `Cmd+Shift+D` - Split pane vertically
+- `Cmd+Shift+S` - Open snippet picker
+
+### Navigation
+- `Cmd+H` - Browse hosts
+- `Cmd+B` - Open SFTP browser
+- `Cmd+;` - Open snippets
+
+### SFTP
+- `Cmd+Shift+F` - Open SFTP for active tab
+
+### Recording & Broadcast
+- `Cmd+Shift+R` - Start/stop recording
+- `Cmd+Shift+B` - Toggle broadcast mode
+
+### Command Hints
+
+Type `@` in any terminal to see command hints:
+- `@upload` - Upload files to remote server
+- `@download <filename>` - Download file from remote server
+- `@ai <natural language>` - Translate natural language to shell command
+
+Example: `@ai find all log files` → translates to `find . -name "*.log"`
+
 ## Architecture
 
 This repository includes the mandatory **workspace tenancy** implementation with Supabase RLS, invitation flow, and renderer/main integration scaffolding.
