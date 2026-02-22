@@ -259,6 +259,44 @@ export function TerminalCentricAppShell() {
     });
   }, [openTab]);
 
+  // Open SFTP
+  useHotkeys(getHotkey('open-sftp')!.key, (e) => {
+    e.preventDefault();
+    if (activeTabId) handleOpenSftp(activeTabId);
+  }, [activeTabId, handleOpenSftp]);
+
+  // Toggle Recording
+  useHotkeys(getHotkey('toggle-recording')!.key, (e) => {
+    e.preventDefault();
+    if (activeTabId) {
+      const tab = tabs.get(activeTabId);
+      if (tab?.sessionId) {
+        if (isRecording(tab.sessionId)) {
+          handleStopRecording(activeTabId);
+        } else {
+          handleStartRecording(activeTabId);
+        }
+      }
+    }
+  }, [activeTabId, tabs, isRecording, handleStartRecording, handleStopRecording]);
+
+  // Toggle Broadcast
+  useHotkeys(getHotkey('toggle-broadcast')!.key, (e) => {
+    e.preventDefault();
+    if (activeTabId) handleToggleBroadcast(activeTabId);
+  }, [activeTabId, handleToggleBroadcast]);
+
+  // Close Tab
+  useHotkeys(getHotkey('close-tab')!.key, (e) => {
+    e.preventDefault();
+    if (activeTabId) {
+      const tab = tabs.get(activeTabId);
+      if (tab?.closable !== false) {
+        closeTab(activeTabId);
+      }
+    }
+  }, [activeTabId, tabs, closeTab]);
+
   // Convert tabs to FloatingTabBar format
   const floatingTabs = Array.from(tabs.values())
     .filter((tab) => tab.tabType === 'terminal' || tab.tabType === 'sftp')
