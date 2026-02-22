@@ -4,6 +4,7 @@ import { platform, userInfo } from 'os';
 import { existsSync } from 'fs';
 import { logger } from '../lib/logger';
 import { recordingManager } from './recording-manager';
+import { sessionEventBus } from './session-event-bus';
 
 interface LocalSession {
   pty: pty.IPty;
@@ -182,6 +183,7 @@ export const localShellManager = {
     sessions.set(sessionId, { pty: ptyProcess });
 
     ptyProcess.onData((data) => {
+      sessionEventBus.emitData(sessionId, data);
       if (!sender.isDestroyed()) {
         sender.send('ssh:data', sessionId, data);
       }
@@ -192,6 +194,7 @@ export const localShellManager = {
 
     ptyProcess.onExit(({ exitCode }) => {
       sessions.delete(sessionId);
+      sessionEventBus.emitClosed(sessionId);
       if (!sender.isDestroyed()) {
         sender.send('ssh:closed', sessionId);
       }

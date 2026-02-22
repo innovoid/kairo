@@ -4,6 +4,7 @@ import type { SshSessionConfig } from '../../shared/types/ssh';
 import { privateKeyQueries } from '../db';
 import { keyManager } from './key-manager';
 import { recordingManager } from './recording-manager';
+import { sessionEventBus } from './session-event-bus';
 
 const { Client } = ssh2;
 type ConnectConfig = ssh2.ConnectConfig;
@@ -62,6 +63,7 @@ export const sshManager = {
 
         stream.on('data', (data: Buffer) => {
           const dataStr = data.toString('utf8');
+          sessionEventBus.emitData(sessionId, dataStr);
           if (!sender.isDestroyed()) {
             sender.send('ssh:data', sessionId, dataStr);
           }
@@ -72,6 +74,7 @@ export const sshManager = {
 
         stream.stderr.on('data', (data: Buffer) => {
           const dataStr = data.toString('utf8');
+          sessionEventBus.emitData(sessionId, dataStr);
           if (!sender.isDestroyed()) {
             sender.send('ssh:data', sessionId, dataStr);
           }
@@ -82,6 +85,7 @@ export const sshManager = {
 
         stream.on('close', () => {
           sessions.delete(sessionId);
+          sessionEventBus.emitClosed(sessionId);
           if (!sender.isDestroyed()) {
             sender.send('ssh:closed', sessionId);
           }
@@ -93,6 +97,7 @@ export const sshManager = {
 
     client.on('error', (err) => {
       sessions.delete(sessionId);
+      sessionEventBus.emitError(sessionId, err.message);
       if (!sender.isDestroyed()) {
         let userMessage = err.message;
         if (err.message.includes('All configured authentication methods failed')) {
@@ -112,6 +117,7 @@ export const sshManager = {
 
     client.on('close', () => {
       sessions.delete(sessionId);
+      sessionEventBus.emitClosed(sessionId);
       if (!sender.isDestroyed()) {
         sender.send('ssh:closed', sessionId);
       }
@@ -141,6 +147,10 @@ export const sshManager = {
   resize(sessionId: string, cols: number, rows: number): void {
     const session = sessions.get(sessionId);
     session?.shell?.setWindow(rows, cols, 0, 0);
+  },
+
+  has(sessionId: string): boolean {
+    return sessions.has(sessionId);
   },
 
   getSftpClient(sessionId: string): Client | undefined {

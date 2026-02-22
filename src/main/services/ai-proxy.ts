@@ -1,34 +1,37 @@
 import type { WebContents } from 'electron';
 import type { AiCompleteInput, AiTranslateInput } from '../../shared/types/ai';
 
+type ChatMessage = Array<{ role: string; content: string }>;
+
+async function resolveModel(provider: string, apiKey: string, modelId: string) {
+  if (provider === 'openai') {
+    const { createOpenAI } = await import('@ai-sdk/openai');
+    return createOpenAI({ apiKey })(modelId);
+  }
+  if (provider === 'anthropic') {
+    const { createAnthropic } = await import('@ai-sdk/anthropic');
+    return createAnthropic({ apiKey })(modelId);
+  }
+  if (provider === 'gemini') {
+    const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+    return createGoogleGenerativeAI({ apiKey })(modelId);
+  }
+  throw new Error(`Unknown provider: ${provider}`);
+}
+
 async function streamText(
   provider: string,
   apiKey: string,
   modelId: string,
-  messages: Array<{ role: string; content: string }>,
+  messages: ChatMessage,
   requestId: string,
   sender: WebContents
 ): Promise<void> {
   // Dynamic import to avoid top-level failures if AI SDK not installed
   const { streamText } = await import('ai');
 
-  let model: Parameters<typeof streamText>[0]['model'];
-
-  if (provider === 'openai') {
-    const { createOpenAI } = await import('@ai-sdk/openai');
-    model = createOpenAI({ apiKey })(modelId);
-  } else if (provider === 'anthropic') {
-    const { createAnthropic } = await import('@ai-sdk/anthropic');
-    model = createAnthropic({ apiKey })(modelId);
-  } else if (provider === 'gemini') {
-    const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
-    model = createGoogleGenerativeAI({ apiKey })(modelId);
-  } else {
-    sender.send('ai:error', requestId, `Unknown provider: ${provider}`);
-    return;
-  }
-
   try {
+    const model = await resolveModel(provider, apiKey, modelId);
     const result = streamText({
       model,
       messages: messages.map((m) => ({
@@ -54,6 +57,29 @@ async function streamText(
 }
 
 export const aiProxy = {
+  async completeText(
+    provider: string,
+    apiKey: string,
+    model: string,
+    messages: ChatMessage
+  ): Promise<string> {
+    const { streamText } = await import('ai');
+    const resolvedModel = await resolveModel(provider, apiKey, model);
+    const result = streamText({
+      model: resolvedModel,
+      messages: messages.map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      })),
+    });
+
+    let output = '';
+    for await (const chunk of result.textStream) {
+      output += chunk;
+    }
+    return output;
+  },
+
   async complete(input: AiCompleteInput, sender: WebContents): Promise<void> {
     await streamText(
       input.provider,

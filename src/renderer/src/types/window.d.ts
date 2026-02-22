@@ -5,6 +5,7 @@ import type { SshApi } from '../../../preload/ssh-api';
 import type { SftpApi } from '../../../preload/sftp-api';
 import type { KeysApi } from '../../../preload/keys-api';
 import type { AiApi } from '../../../preload/ai-api';
+import type { AgentApi } from '../../../preload/agent-api';
 import type { SettingsApi } from '../../../preload/settings-api';
 import type { ApiKeysApi } from '../../../preload/api-keys-api';
 import type { SnippetsApi } from '../../../preload/snippets-api';
@@ -24,6 +25,7 @@ declare global {
     sftpApi: SftpApi;
     keysApi: KeysApi;
     aiApi: AiApi;
+    agentApi: AgentApi;
     settingsApi: SettingsApi;
     apiKeysApi: ApiKeysApi;
     snippetsApi: SnippetsApi;

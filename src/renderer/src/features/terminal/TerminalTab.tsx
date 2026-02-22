@@ -112,6 +112,8 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
           terminal={terminal.current}
           sessionId={tab.sessionId!}
           currentRemotePath="/home"
+          hostId={tab.hostId}
+          hostLabel={tab.label}
         />
 
         {showSearch && (

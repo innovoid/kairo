@@ -8,6 +8,7 @@ import { sshIpcHandlers } from './ssh';
 import { sftpIpcHandlers } from './sftp';
 import { keysIpcHandlers } from './keys';
 import { aiIpcHandlers } from './ai';
+import { agentIpcHandlers } from './agent';
 import { settingsIpcHandlers } from './settings';
 import { apiKeysIpcHandlers } from './api-keys';
 import { snippetsIpcHandlers } from './snippets';
@@ -179,6 +180,14 @@ export function registerWorkspaceIpcHandlers(): void {
   // AI
   register('ai.complete', aiIpcHandlers.complete);
   register('ai.translateCommand', aiIpcHandlers.translateCommand);
+  register('agent.startRun', agentIpcHandlers.startRun);
+  register('agent.approveStep', agentIpcHandlers.approveStep);
+  register('agent.rejectStep', agentIpcHandlers.rejectStep);
+  register('agent.cancelRun', agentIpcHandlers.cancelRun);
+  register('agent.getRun', agentIpcHandlers.getRun);
+  register('agent.listRuns', agentIpcHandlers.listRuns);
+  register('agent.savePlaybook', agentIpcHandlers.savePlaybook);
+  register('agent.listPlaybooks', agentIpcHandlers.listPlaybooks);
 
   // Settings
   register('settings.get', withSupabase(settingsIpcHandlers.get));

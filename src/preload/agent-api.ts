@@ -1,0 +1,64 @@
+import { contextBridge, ipcRenderer } from 'electron';
+import type {
+  AgentPlaybook,
+  AgentRun,
+  AgentStepOutputEvent,
+  ApproveAgentStepInput,
+  CancelAgentRunInput,
+  RejectAgentStepInput,
+  SavePlaybookInput,
+  StartAgentRunInput,
+} from '../shared/types/agent';
+
+const agentApi = {
+  startRun: (input: StartAgentRunInput): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.startRun', input),
+  approveStep: (input: ApproveAgentStepInput): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.approveStep', input),
+  rejectStep: (input: RejectAgentStepInput): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.rejectStep', input),
+  cancelRun: (input: CancelAgentRunInput): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.cancelRun', input),
+  getRun: (runId: string): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.getRun', runId),
+  listRuns: (sessionId?: string): Promise<AgentRun[]> =>
+    ipcRenderer.invoke('agent.listRuns', sessionId),
+  savePlaybook: (input: SavePlaybookInput): Promise<AgentPlaybook> =>
+    ipcRenderer.invoke('agent.savePlaybook', input),
+  listPlaybooks: (workspaceId?: string): Promise<AgentPlaybook[]> =>
+    ipcRenderer.invoke('agent.listPlaybooks', workspaceId),
+
+  onRunUpdated: (callback: (run: AgentRun) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, run: AgentRun) => callback(run);
+    ipcRenderer.on('agent:run-updated', listener);
+    return () => void ipcRenderer.removeListener('agent:run-updated', listener);
+  },
+
+  onStepOutput: (callback: (event: AgentStepOutputEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, event: AgentStepOutputEvent) => callback(event);
+    ipcRenderer.on('agent:step-output', listener);
+    return () => void ipcRenderer.removeListener('agent:step-output', listener);
+  },
+
+  onBlocked: (callback: (runId: string, reason: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, runId: string, reason: string) => callback(runId, reason);
+    ipcRenderer.on('agent:blocked', listener);
+    return () => void ipcRenderer.removeListener('agent:blocked', listener);
+  },
+
+  onDone: (callback: (runId: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, runId: string) => callback(runId);
+    ipcRenderer.on('agent:done', listener);
+    return () => void ipcRenderer.removeListener('agent:done', listener);
+  },
+
+  onError: (callback: (runId: string, error: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, runId: string, error: string) => callback(runId, error);
+    ipcRenderer.on('agent:error', listener);
+    return () => void ipcRenderer.removeListener('agent:error', listener);
+  },
+};
+
+contextBridge.exposeInMainWorld('agentApi', agentApi);
+
+export type AgentApi = typeof agentApi;

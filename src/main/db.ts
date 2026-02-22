@@ -103,6 +103,66 @@ function runMigrations(db: Database.Database): void {
       created_by text,
       synced_at integer
     );
+
+    create table if not exists agent_runs (
+      id text primary key,
+      session_id text not null,
+      workspace_id text,
+      host_id text,
+      host_label text,
+      task text not null,
+      status text not null,
+      facts text,
+      summary text,
+      last_error text,
+      created_at integer not null,
+      updated_at integer not null
+    );
+
+    create table if not exists agent_steps (
+      id text primary key,
+      run_id text not null,
+      step_index integer not null,
+      title text not null,
+      command text not null,
+      verify_command text,
+      status text not null,
+      risk text not null,
+      requires_double_confirm integer default 0,
+      output_summary text,
+      exit_code integer,
+      error text,
+      started_at integer,
+      ended_at integer,
+      foreign key (run_id) references agent_runs(id) on delete cascade
+    );
+
+    create table if not exists agent_events (
+      id text primary key,
+      run_id text not null,
+      step_id text,
+      type text not null,
+      message text not null,
+      payload text,
+      created_at integer not null,
+      foreign key (run_id) references agent_runs(id) on delete cascade
+    );
+
+    create table if not exists agent_host_facts (
+      host_id text primary key,
+      facts text not null,
+      updated_at integer not null
+    );
+
+    create table if not exists agent_playbooks (
+      id text primary key,
+      workspace_id text,
+      name text not null,
+      task text not null,
+      source_run_id text,
+      steps text not null,
+      created_at integer not null
+    );
   `);
 
   // Add salt column to private_keys if it doesn't exist (migration for existing databases)
@@ -295,5 +355,177 @@ export const snippetQueries = {
   delete: (id: string): void => {
     const db = getDb();
     db.prepare('delete from snippets where id = ?').run(id);
+  },
+};
+
+export interface DbAgentRun {
+  id: string;
+  session_id: string;
+  workspace_id: string | null;
+  host_id: string | null;
+  host_label: string | null;
+  task: string;
+  status: string;
+  facts: string | null;
+  summary: string | null;
+  last_error: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface DbAgentStep {
+  id: string;
+  run_id: string;
+  step_index: number;
+  title: string;
+  command: string;
+  verify_command: string | null;
+  status: string;
+  risk: string;
+  requires_double_confirm: number;
+  output_summary: string | null;
+  exit_code: number | null;
+  error: string | null;
+  started_at: number | null;
+  ended_at: number | null;
+}
+
+export interface DbAgentEvent {
+  id: string;
+  run_id: string;
+  step_id: string | null;
+  type: string;
+  message: string;
+  payload: string | null;
+  created_at: number;
+}
+
+export interface DbHostFacts {
+  host_id: string;
+  facts: string;
+  updated_at: number;
+}
+
+export interface DbAgentPlaybook {
+  id: string;
+  workspace_id: string | null;
+  name: string;
+  task: string;
+  source_run_id: string | null;
+  steps: string;
+  created_at: number;
+}
+
+export const agentRunQueries = {
+  upsert: (run: DbAgentRun): void => {
+    const db = getDb();
+    db.prepare(`
+      insert or replace into agent_runs
+        (id, session_id, workspace_id, host_id, host_label, task, status, facts, summary, last_error, created_at, updated_at)
+      values
+        (@id, @session_id, @workspace_id, @host_id, @host_label, @task, @status, @facts, @summary, @last_error, @created_at, @updated_at)
+    `).run(run);
+  },
+  getById: (id: string): DbAgentRun | undefined => {
+    const db = getDb();
+    return db.prepare('select * from agent_runs where id = ?').get(id) as DbAgentRun | undefined;
+  },
+  listBySession: (sessionId: string): DbAgentRun[] => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_runs where session_id = ? order by created_at desc')
+      .all(sessionId) as DbAgentRun[];
+  },
+  listRecent: (limit: number): DbAgentRun[] => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_runs order by created_at desc limit ?')
+      .all(limit) as DbAgentRun[];
+  },
+};
+
+export const agentStepQueries = {
+  replaceForRun: (runId: string, steps: DbAgentStep[]): void => {
+    const db = getDb();
+    const clearStmt = db.prepare('delete from agent_steps where run_id = ?');
+    const insertStmt = db.prepare(`
+      insert into agent_steps
+        (id, run_id, step_index, title, command, verify_command, status, risk, requires_double_confirm, output_summary, exit_code, error, started_at, ended_at)
+      values
+        (@id, @run_id, @step_index, @title, @command, @verify_command, @status, @risk, @requires_double_confirm, @output_summary, @exit_code, @error, @started_at, @ended_at)
+    `);
+    const tx = db.transaction(() => {
+      clearStmt.run(runId);
+      for (const step of steps) {
+        insertStmt.run(step);
+      }
+    });
+    tx();
+  },
+  listByRun: (runId: string): DbAgentStep[] => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_steps where run_id = ? order by step_index asc')
+      .all(runId) as DbAgentStep[];
+  },
+};
+
+export const agentEventQueries = {
+  insert: (event: DbAgentEvent): void => {
+    const db = getDb();
+    db.prepare(`
+      insert into agent_events
+        (id, run_id, step_id, type, message, payload, created_at)
+      values
+        (@id, @run_id, @step_id, @type, @message, @payload, @created_at)
+    `).run(event);
+  },
+  listByRun: (runId: string): DbAgentEvent[] => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_events where run_id = ? order by created_at asc')
+      .all(runId) as DbAgentEvent[];
+  },
+};
+
+export const hostFactsQueries = {
+  get: (hostId: string): DbHostFacts | undefined => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_host_facts where host_id = ?')
+      .get(hostId) as DbHostFacts | undefined;
+  },
+  upsert: (facts: DbHostFacts): void => {
+    const db = getDb();
+    db.prepare(`
+      insert or replace into agent_host_facts
+        (host_id, facts, updated_at)
+      values
+        (@host_id, @facts, @updated_at)
+    `).run(facts);
+  },
+};
+
+export const agentPlaybookQueries = {
+  upsert: (playbook: DbAgentPlaybook): void => {
+    const db = getDb();
+    db.prepare(`
+      insert or replace into agent_playbooks
+        (id, workspace_id, name, task, source_run_id, steps, created_at)
+      values
+        (@id, @workspace_id, @name, @task, @source_run_id, @steps, @created_at)
+    `).run(playbook);
+  },
+  listByWorkspace: (workspaceId: string): DbAgentPlaybook[] => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_playbooks where workspace_id = ? order by created_at desc')
+      .all(workspaceId) as DbAgentPlaybook[];
+  },
+  listRecent: (limit: number): DbAgentPlaybook[] => {
+    const db = getDb();
+    return db
+      .prepare('select * from agent_playbooks order by created_at desc limit ?')
+      .all(limit) as DbAgentPlaybook[];
   },
 };

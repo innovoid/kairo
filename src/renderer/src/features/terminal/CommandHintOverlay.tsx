@@ -2,11 +2,15 @@ import { useEffect, useRef } from 'react';
 import type { Terminal } from '@xterm/xterm';
 import { toast } from 'sonner';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useAgentStore } from '@/stores/agent-store';
+import type { AgentRun, AgentStep } from '@shared/types/agent';
 
 interface CommandHintOverlayProps {
   terminal: Terminal | null;
   sessionId: string;
   currentRemotePath?: string;
+  hostId?: string;
+  hostLabel?: string;
 }
 
 interface CommandHint {
@@ -36,24 +40,139 @@ const COMMANDS: CommandHint[] = [
     description: 'Translate natural language to shell command',
     usage: '@ai <describe what you want>',
   },
+  {
+    command: '@agent',
+    description: 'Run AI operator workflow with step approvals',
+    usage: '@agent <task>',
+  },
 ];
 
 export function CommandHintOverlay({
   terminal,
   sessionId,
   currentRemotePath = '/home',
+  hostId,
+  hostLabel,
 }: CommandHintOverlayProps) {
   const commandModeRef = useRef(false);
   const inputBufferRef = useRef('');
   const hintLineCountRef = useRef(0);
   const currentMatchesRef = useRef<CommandHint[]>([]);
   const selectedIndexRef = useRef(0);
+  const selectedAgentStepIdxRef = useRef(0);
+  const pendingDoubleConfirmStepIdRef = useRef<string | null>(null);
+  const activeRunRef = useRef<AgentRun | null>(null);
+  const stepOutputByStepIdRef = useRef<Record<string, string>>({});
   const settingsRef = useRef(useSettingsStore.getState().settings);
   const { settings } = useSettingsStore();
+  const initAgentListeners = useAgentStore((s) => s.initListeners);
+  const startAgentRun = useAgentStore((s) => s.startRun);
+  const approveAgentStep = useAgentStore((s) => s.approveStep);
+  const cancelAgentRun = useAgentStore((s) => s.cancelRun);
+  const activeRunId = useAgentStore((s) => s.activeRunBySession[sessionId]);
+  const activeRun = useAgentStore((s) => (activeRunId ? s.runs[activeRunId] : null));
+  const stepOutputByStepId = useAgentStore((s) => s.stepOutputByStepId);
 
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    initAgentListeners();
+  }, [initAgentListeners]);
+
+  useEffect(() => {
+    activeRunRef.current = activeRun;
+    if (activeRun) {
+      const approvalIdx = activeRun.steps.findIndex(
+        (step) => step.status === 'awaiting_approval' || step.status === 'blocked'
+      );
+      if (approvalIdx >= 0) {
+        selectedAgentStepIdxRef.current = approvalIdx;
+      }
+    }
+    if (!commandModeRef.current) {
+      renderAgentHints();
+    }
+  }, [activeRun]);
+
+  useEffect(() => {
+    stepOutputByStepIdRef.current = stepOutputByStepId;
+    if (!commandModeRef.current) {
+      renderAgentHints();
+    }
+  }, [stepOutputByStepId]);
+
+  const getStatusGlyph = (status: AgentStep['status']) => {
+    if (status === 'done') return '✓';
+    if (status === 'failed') return '✗';
+    if (status === 'running') return '…';
+    if (status === 'awaiting_approval') return '!';
+    if (status === 'blocked') return '⚠';
+    if (status === 'skipped') return '-';
+    return '·';
+  };
+
+  const renderAgentHints = () => {
+    const run = activeRunRef.current;
+    if (!run) {
+      clearHintLines();
+      return;
+    }
+
+    const steps = run.steps;
+    if (steps.length === 0) {
+      renderHintLines([
+        { text: `Agent: ${run.task}`, tone: 'header' },
+        { text: `Status: ${run.status}` },
+      ]);
+      return;
+    }
+
+    if (selectedAgentStepIdxRef.current >= steps.length) {
+      selectedAgentStepIdxRef.current = steps.length - 1;
+    }
+    if (selectedAgentStepIdxRef.current < 0) {
+      selectedAgentStepIdxRef.current = 0;
+    }
+
+    const maxVisible = 5;
+    const windowStart = Math.max(
+      0,
+      Math.min(selectedAgentStepIdxRef.current - 2, Math.max(0, steps.length - maxVisible))
+    );
+    const visibleSteps = steps.slice(windowStart, windowStart + maxVisible);
+
+    const footer = run.status === 'awaiting_approval' || run.status === 'blocked'
+      ? 'Enter approve  Tab preview command  ↑/↓ select  Esc cancel'
+      : run.status === 'running'
+        ? 'Agent executing...'
+        : `Run ${run.status}`;
+
+    const selectedStep = steps[selectedAgentStepIdxRef.current];
+    const rawOutput = selectedStep
+      ? stepOutputByStepIdRef.current[selectedStep.id] ?? selectedStep.outputSummary ?? ''
+      : '';
+    const outputPreview = rawOutput
+      .replace(/\x1b\[[0-9;]*m/g, '')
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+      .slice(-1)[0];
+
+    renderHintLines([
+      { text: `Agent: ${run.task}`, tone: 'header' },
+      ...visibleSteps.map((step, idx) => {
+        const absoluteIdx = windowStart + idx;
+        const active = absoluteIdx === selectedAgentStepIdxRef.current;
+        return {
+          text: `${active ? '›' : ' '} [${getStatusGlyph(step.status)}] ${step.title}`,
+          tone: active ? 'active' : 'muted',
+        } as HintLine;
+      }),
+      run.lastError ? { text: `Error: ${run.lastError}`, tone: 'muted' } : { text: footer, tone: 'muted' },
+      outputPreview ? { text: `Output: ${outputPreview.slice(0, 96)}`, tone: 'muted' } : { text: '' },
+    ]);
+  };
 
   const renderHintLines = (lines: HintLine[]) => {
     if (!terminal) return;
@@ -108,7 +227,7 @@ export function CommandHintOverlay({
       } else {
         renderHintLines([
           { text: 'Unknown command.', tone: 'header' },
-          { text: 'Available: @upload, @download, @ai' },
+          { text: 'Available: @upload, @download, @ai, @agent' },
         ]);
       }
       return;
@@ -163,6 +282,10 @@ export function CommandHintOverlay({
     inputBufferRef.current = '';
     currentMatchesRef.current = [];
     selectedIndexRef.current = 0;
+    pendingDoubleConfirmStepIdRef.current = null;
+    if (activeRunRef.current) {
+      renderAgentHints();
+    }
   };
 
   const eraseCurrentBuffer = () => {
@@ -185,6 +308,60 @@ export function CommandHintOverlay({
 
       if (event.type !== 'keydown') {
         return !commandModeRef.current;
+      }
+
+      const run = activeRunRef.current;
+      if (!commandModeRef.current && run && (run.status === 'awaiting_approval' || run.status === 'blocked')) {
+        if (event.key === 'ArrowDown') {
+          selectedAgentStepIdxRef.current = Math.min(
+            run.steps.length - 1,
+            selectedAgentStepIdxRef.current + 1
+          );
+          renderAgentHints();
+          return consume();
+        }
+
+        if (event.key === 'ArrowUp') {
+          selectedAgentStepIdxRef.current = Math.max(0, selectedAgentStepIdxRef.current - 1);
+          renderAgentHints();
+          return consume();
+        }
+
+        if (event.key === 'Tab') {
+          const selectedStep = run.steps[selectedAgentStepIdxRef.current];
+          if (selectedStep) {
+            terminal.write(selectedStep.command);
+          }
+          return consume();
+        }
+
+        if (event.key === 'Enter') {
+          const selectedStep = run.steps[selectedAgentStepIdxRef.current];
+          if (!selectedStep) return consume();
+          if (selectedStep.status !== 'awaiting_approval' && selectedStep.status !== 'blocked') {
+            toast.info('Select a step awaiting approval.');
+            return consume();
+          }
+
+          if (selectedStep.requiresDoubleConfirm && pendingDoubleConfirmStepIdRef.current !== selectedStep.id) {
+            pendingDoubleConfirmStepIdRef.current = selectedStep.id;
+            toast.warning('Press Enter again to confirm destructive command.');
+            renderAgentHints();
+            return consume();
+          }
+
+          pendingDoubleConfirmStepIdRef.current = null;
+          void approveAgentStep(run.id, selectedStep, {
+            elevate: selectedStep.risk === 'needs_privilege',
+            doubleConfirm: selectedStep.requiresDoubleConfirm,
+          });
+          return consume();
+        }
+
+        if (event.key === 'Escape') {
+          void cancelAgentRun(run.id);
+          return consume();
+        }
       }
 
       if (
@@ -315,7 +492,12 @@ export function CommandHintOverlay({
       return;
     }
 
-    toast.error('Unknown command. Available: @upload, @download, @ai');
+    if (commandToken === '@agent') {
+      await handleAgentTask(args.join(' ').trim());
+      return;
+    }
+
+    toast.error('Unknown command. Available: @upload, @download, @ai, @agent');
   }
 
   async function handleUpload() {
@@ -438,6 +620,28 @@ export function CommandHintOverlay({
       });
     } catch (err: any) {
       toast.error(`AI translation failed: ${err.message}`);
+    }
+  }
+
+  async function handleAgentTask(task: string) {
+    if (!task) {
+      toast.error('Usage: @agent <task>');
+      return;
+    }
+
+    try {
+      const run = await startAgentRun({
+        sessionId,
+        task,
+        hostId,
+        hostLabel,
+      });
+      activeRunRef.current = run;
+      selectedAgentStepIdxRef.current = 0;
+      renderAgentHints();
+      toast.success('Agent plan ready. Review steps and press Enter to approve.');
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to start agent run');
     }
   }
 
