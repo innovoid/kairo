@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useHotkeys } from '@tanstack/react-hotkeys';
+import { getHotkey } from '@/lib/hotkeys-registry';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { TerminalTab } from '@/features/terminal/TerminalTab';
@@ -15,43 +17,27 @@ export function MainArea() {
   const { settings } = useSettingsStore();
   const [focusedPaneSessionId, setFocusedPaneSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (!activeTab || activeTab.tabType !== 'terminal') return;
-      const isMeta = e.metaKey || e.ctrlKey;
-
-      // Cmd+D → horizontal split
-      if (isMeta && !e.shiftKey && e.key === 'd') {
-        e.preventDefault();
-        const newSessionId = `local-${Date.now()}`;
-        splitPane(activeTab.tabId, 'horizontal', newSessionId);
-        window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
-        setFocusedPaneSessionId(newSessionId);
-        return;
-      }
-
-      // Cmd+Shift+D → vertical split
-      if (isMeta && e.shiftKey && e.key === 'D') {
-        e.preventDefault();
-        const newSessionId = `local-${Date.now()}`;
-        splitPane(activeTab.tabId, 'vertical', newSessionId);
-        window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
-        setFocusedPaneSessionId(newSessionId);
-        return;
-      }
-
-      // Cmd+W → close focused pane when split pane is active
-      if (isMeta && e.key === 'w' && activeTab.paneTree && focusedPaneSessionId) {
-        e.preventDefault();
-        closePane(activeTab.tabId, focusedPaneSessionId);
-        setFocusedPaneSessionId(null);
-        return;
-      }
+  // Split Horizontal
+  useHotkeys(getHotkey('split-horizontal')!.key, (e) => {
+    e.preventDefault();
+    if (activeTab && activeTab.tabType === 'terminal') {
+      const newSessionId = `local-${Date.now()}`;
+      splitPane(activeTab.tabId, 'horizontal', newSessionId);
+      window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+      setFocusedPaneSessionId(newSessionId);
     }
+  }, [activeTab, splitPane, settings?.promptStyle]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, focusedPaneSessionId, splitPane, closePane]);
+  // Split Vertical
+  useHotkeys(getHotkey('split-vertical')!.key, (e) => {
+    e.preventDefault();
+    if (activeTab && activeTab.tabType === 'terminal') {
+      const newSessionId = `local-${Date.now()}`;
+      splitPane(activeTab.tabId, 'vertical', newSessionId);
+      window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+      setFocusedPaneSessionId(newSessionId);
+    }
+  }, [activeTab, splitPane, settings?.promptStyle]);
 
   if (!activeTab) return null;
 
