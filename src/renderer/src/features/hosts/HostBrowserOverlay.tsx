@@ -1,5 +1,17 @@
 import * as React from 'react';
-import { Search, Plus, FolderOpen, Server, Circle, ChevronRight } from 'lucide-react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { Search, Plus, FolderOpen, Folder, ChevronRight, Server, Circle, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Overlay,
@@ -9,96 +21,227 @@ import {
 } from '@/components/ui/overlay';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useHostStore } from '@/stores/host-store';
+import type { Host, HostFolder } from '@shared/types/hosts';
+import { FolderDialog } from './FolderDialog';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
-interface Host {
-  id: string;
-  hostname: string;
-  address: string;
-  username: string;
-  description?: string;
-  status: 'connected' | 'disconnected' | 'connecting';
-  folder?: string;
-  tags?: string[];
-}
-
-interface Folder {
-  name: string;
-  hosts: Host[];
-  expanded: boolean;
-}
+const ROOT_DROP_ID = 'folder:root';
 
 interface HostBrowserOverlayProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  hosts: Host[];
+  workspaceId: string;
   onConnect: (hostId: string) => void;
   onNewHost?: () => void;
   className?: string;
 }
 
+function hostDragId(hostId: string) {
+  return `host:${hostId}`;
+}
+
+function folderDropId(folderId: string | null) {
+  return folderId ? `folder:${folderId}` : ROOT_DROP_ID;
+}
+
+function parseHostId(id: string) {
+  return id.startsWith('host:') ? id.slice(5) : null;
+}
+
+function parseFolderId(id: string): string | null | undefined {
+  if (id === ROOT_DROP_ID) return null;
+  if (id.startsWith('folder:')) return id.slice(7);
+  return undefined;
+}
+
 export function HostBrowserOverlay({
   open,
   onOpenChange,
-  hosts,
+  workspaceId,
   onConnect,
   onNewHost,
   className,
 }: HostBrowserOverlayProps) {
+  const { hosts, folders, fetchHosts, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
   const [search, setSearch] = React.useState('');
-  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(
-    new Set(['All'])
-  );
+  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set());
+  const [dragHostId, setDragHostId] = React.useState<string | null>(null);
+  const [folderDialogOpen, setFolderDialogOpen] = React.useState(false);
+  const [editingFolder, setEditingFolder] = React.useState<HostFolder | null>(null);
 
-  // Group hosts by folder
-  const folders = React.useMemo(() => {
-    const folderMap = new Map<string, Host[]>();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-    hosts.forEach((host) => {
-      const folderName = host.folder || 'All';
-      if (!folderMap.has(folderName)) {
-        folderMap.set(folderName, []);
-      }
-      folderMap.get(folderName)!.push(host);
+  React.useEffect(() => {
+    if (!open || !workspaceId) return;
+    void fetchHosts(workspaceId);
+  }, [open, workspaceId, fetchHosts]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setSearch('');
+      setDragHostId(null);
+      setFolderDialogOpen(false);
+      setEditingFolder(null);
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!folders.length) return;
+    setExpandedFolders((prev) => {
+      if (prev.size > 0) return prev;
+      return new Set(folders.map((f) => f.id));
     });
+  }, [folders]);
 
-    return Array.from(folderMap.entries()).map(([name, hosts]) => ({
-      name,
-      hosts,
-      expanded: expandedFolders.has(name),
-    }));
-  }, [hosts, expandedFolders]);
-
-  // Filter hosts
   const filteredHosts = React.useMemo(() => {
     if (!search) return hosts;
-
-    const searchLower = search.toLowerCase();
-    return hosts.filter(
-      (host) =>
-        host.hostname.toLowerCase().includes(searchLower) ||
-        host.address.toLowerCase().includes(searchLower) ||
-        host.username.toLowerCase().includes(searchLower) ||
-        host.description?.toLowerCase().includes(searchLower) ||
-        host.tags?.some((tag) => tag.toLowerCase().includes(searchLower))
+    const q = search.toLowerCase();
+    return hosts.filter((host) =>
+      [host.label, host.hostname, host.username, ...(host.tags ?? [])].some((value) =>
+        value.toLowerCase().includes(q)
+      )
     );
   }, [hosts, search]);
 
-  const toggleFolder = (folderName: string) => {
+  const hostById = React.useMemo(
+    () =>
+      new Map(hosts.map((host) => [host.id, host])),
+    [hosts]
+  );
+
+  const foldersByParent = React.useMemo(() => {
+    const map = new Map<string | null, HostFolder[]>();
+    for (const folder of folders) {
+      const parentId = folder.parentId ?? null;
+      const current = map.get(parentId) ?? [];
+      current.push(folder);
+      map.set(parentId, current);
+    }
+    for (const [parentId, items] of map.entries()) {
+      map.set(
+        parentId,
+        items.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+      );
+    }
+    return map;
+  }, [folders]);
+
+  const hostsByFolder = React.useMemo(() => {
+    const map = new Map<string | null, Host[]>();
+    for (const host of filteredHosts) {
+      const folderId = host.folderId ?? null;
+      const current = map.get(folderId) ?? [];
+      current.push(host);
+      map.set(folderId, current);
+    }
+    return map;
+  }, [filteredHosts]);
+
+  const dragHost = dragHostId ? hostById.get(dragHostId) ?? null : null;
+
+  const toggleFolder = (folderId: string) => {
     setExpandedFolders((prev) => {
       const next = new Set(prev);
-      if (next.has(folderName)) {
-        next.delete(folderName);
-      } else {
-        next.add(folderName);
-      }
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
       return next;
     });
   };
 
-  const handleConnect = (hostId: string) => {
-    onConnect(hostId);
-    onOpenChange(false);
+  const openCreateFolderDialog = () => {
+    setEditingFolder(null);
+    setFolderDialogOpen(true);
   };
+
+  const openRenameFolderDialog = (folder: HostFolder) => {
+    setEditingFolder(folder);
+    setFolderDialogOpen(true);
+  };
+
+  const handleDeleteFolder = async (folder: HostFolder) => {
+    if (!window.confirm(`Delete folder "${folder.name}"? Hosts in this folder will move to root.`)) return;
+    await deleteFolder(folder.id);
+  };
+
+  const handleSaveFolder = async (name: string, folderId?: string) => {
+    if (folderId) {
+      await updateFolder(folderId, name);
+    } else {
+      await createFolder({ workspaceId, name });
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const id = parseHostId(String(event.active.id));
+    setDragHostId(id);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setDragHostId(null);
+    if (!event.over) return;
+
+    const hostId = parseHostId(String(event.active.id));
+    const folderId = parseFolderId(String(event.over.id));
+    if (!hostId || folderId === undefined) return;
+
+    const host = hostById.get(hostId);
+    if (!host || host.folderId === folderId) return;
+
+    await moveToFolder(hostId, folderId);
+  };
+
+  const renderFolderTree = (parentId: string | null, depth = 0): React.ReactNode => {
+    const nodes = foldersByParent.get(parentId) ?? [];
+    if (!nodes.length) return null;
+
+    return nodes.map((folder) => {
+      const isExpanded = expandedFolders.has(folder.id);
+      const nestedFolders = foldersByParent.get(folder.id) ?? [];
+      const folderHosts = hostsByFolder.get(folder.id) ?? [];
+      const totalItems = nestedFolders.length + folderHosts.length;
+
+      return (
+        <div key={folder.id} className="space-y-1">
+          <FolderRow
+            folder={folder}
+            depth={depth}
+            isExpanded={isExpanded}
+            totalItems={totalItems}
+            onToggle={() => toggleFolder(folder.id)}
+            onRename={() => openRenameFolderDialog(folder)}
+            onDelete={() => {
+              void handleDeleteFolder(folder);
+            }}
+          />
+
+          {isExpanded && (
+            <div className="space-y-1">
+              {folderHosts.map((host) => (
+                <HostRow
+                  key={host.id}
+                  host={host}
+                  depth={depth + 1}
+                  onConnect={() => {
+                    onConnect(host.id);
+                    onOpenChange(false);
+                  }}
+                />
+              ))}
+              {renderFolderTree(folder.id, depth + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
+  const rootHosts = hostsByFolder.get(null) ?? [];
 
   return (
     <Overlay open={open} onOpenChange={onOpenChange} className={className}>
@@ -109,65 +252,75 @@ export function HostBrowserOverlay({
       />
 
       <OverlayContent className="pt-2">
-        {/* Search Bar */}
         <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search hosts by name, address, or tags..."
+              placeholder="Search hosts by name, address, username, or tags..."
               className={cn(
                 'pl-10 h-11 !bg-[var(--surface-1)] border-[var(--border)]',
                 'font-mono text-sm tracking-tight text-foreground',
                 'placeholder:text-text-tertiary',
-                'focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary',
-                'transition-all duration-200'
+                'focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary'
               )}
             />
           </div>
         </div>
 
-        {/* Host List */}
-        <div className="space-y-4">
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={(event) => void handleDragEnd(event)}>
           {search ? (
-            // Flat list when searching
             filteredHosts.length === 0 ? (
               <EmptyState search={search} />
             ) : (
-              <div className="space-y-2">
-                {filteredHosts.map((host, index) => (
-                  <HostItem
+              <div className="space-y-1">
+                {filteredHosts.map((host) => (
+                  <HostRow
                     key={host.id}
                     host={host}
-                    index={index}
-                    onClick={() => handleConnect(host.id)}
+                    depth={0}
+                    onConnect={() => {
+                      onConnect(host.id);
+                      onOpenChange(false);
+                    }}
                   />
                 ))}
               </div>
             )
           ) : (
-            // Grouped by folder
-            folders.map((folder, folderIndex) => (
-              <FolderSection
-                key={folder.name}
-                folder={folder}
-                index={folderIndex}
-                onToggle={() => toggleFolder(folder.name)}
-                onHostClick={handleConnect}
-              />
-            ))
+            <div className="space-y-2">
+              <RootDropZone hostCount={rootHosts.length}>
+                {rootHosts.map((host) => (
+                  <HostRow
+                    key={host.id}
+                    host={host}
+                    depth={0}
+                    onConnect={() => {
+                      onConnect(host.id);
+                      onOpenChange(false);
+                    }}
+                  />
+                ))}
+              </RootDropZone>
+              {renderFolderTree(null)}
+            </div>
           )}
-        </div>
+
+          <DragOverlay>
+            {dragHost ? (
+              <div className="px-3 py-2 rounded-lg border bg-[var(--surface-2)] shadow-lg text-sm font-mono">
+                {dragHost.label}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </OverlayContent>
 
       <OverlayFooter>
-        <Button
-          variant="outline"
-          onClick={() => onOpenChange(false)}
-          className="hover:scale-105 active:scale-95 transition-transform"
-        >
-          Cancel
+        <Button variant="outline" onClick={openCreateFolderDialog} className="gap-2">
+          <Folder className="h-4 w-4" />
+          New Folder
         </Button>
         {onNewHost && (
           <Button
@@ -186,207 +339,151 @@ export function HostBrowserOverlay({
           </Button>
         )}
       </OverlayFooter>
+
+      <FolderDialog
+        open={folderDialogOpen}
+        folder={editingFolder}
+        workspaceId={workspaceId}
+        onClose={() => {
+          setFolderDialogOpen(false);
+          setEditingFolder(null);
+        }}
+        onSave={handleSaveFolder}
+      />
     </Overlay>
   );
 }
 
-interface FolderSectionProps {
-  folder: Folder;
-  index: number;
-  onToggle: () => void;
-  onHostClick: (hostId: string) => void;
+interface RootDropZoneProps {
+  hostCount: number;
+  children: React.ReactNode;
 }
 
-function FolderSection({ folder, index, onToggle, onHostClick }: FolderSectionProps) {
+function RootDropZone({ hostCount, children }: RootDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: ROOT_DROP_ID });
+
   return (
-    <div
-      style={{
-        animation: `folderEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * index}s both`,
-      }}
-    >
-      {/* Folder Header */}
-      <button
-        onClick={onToggle}
-        className={cn(
-          'flex items-center gap-2 w-full px-3 py-2 rounded-lg',
-          'bg-[var(--surface-1)] hover:bg-[var(--surface-2)]',
-          'transition-all duration-200',
-          'hover:scale-[1.01] active:scale-[0.99]',
-          'group'
-        )}
-      >
-        <ChevronRight
-          className={cn(
-            'h-4 w-4 text-text-tertiary transition-transform duration-300',
-            folder.expanded && 'rotate-90'
+    <div ref={setNodeRef} className={cn('rounded-lg border p-2', isOver ? 'border-primary bg-primary/10' : 'border-[var(--border)]')}>
+      <div className="flex items-center gap-2 px-1 pb-1 text-xs font-medium text-muted-foreground">
+        <FolderOpen className="h-3.5 w-3.5" />
+        <span>Unorganized ({hostCount})</span>
+      </div>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+interface FolderRowProps {
+  folder: HostFolder;
+  depth: number;
+  isExpanded: boolean;
+  totalItems: number;
+  onToggle: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}
+
+function FolderRow({ folder, depth, isExpanded, totalItems, onToggle, onRename, onDelete }: FolderRowProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: folderDropId(folder.id) });
+
+  return (
+    <ContextMenu>
+      <div ref={setNodeRef} style={{ marginLeft: depth * 14 }}>
+        <ContextMenuTrigger
+          render={(props) => (
+            <button
+              {...props}
+              type="button"
+              onClick={(event) => {
+                props.onClick?.(event);
+                onToggle();
+              }}
+              className={cn(
+                'w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors',
+                isOver ? 'bg-primary/10 border border-primary/50' : 'hover:bg-[var(--surface-2)]'
+              )}
+            >
+              <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', isExpanded && 'rotate-90')} />
+              {isExpanded ? (
+                <FolderOpen className="h-4 w-4 text-primary" />
+              ) : (
+                <Folder className="h-4 w-4 text-primary" />
+              )}
+              <span className="text-sm font-mono">{folder.name}</span>
+              <span className="ml-auto text-[11px] text-muted-foreground">{totalItems}</span>
+            </button>
           )}
         />
-        <FolderOpen className="h-4 w-4 text-primary" />
-        <span className="flex-1 text-left text-sm font-mono font-medium text-foreground">
-          {folder.name}
-        </span>
-        <span className="text-xs font-mono text-text-secondary">
-          {folder.hosts.length}
-        </span>
-      </button>
-
-      {/* Hosts in Folder */}
-      {folder.expanded && (
-        <div className="mt-2 ml-6 space-y-2">
-          {folder.hosts.map((host, hostIndex) => (
-            <HostItem
-              key={host.id}
-              host={host}
-              index={hostIndex}
-              onClick={() => onHostClick(host.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes folderEnter {
-          from {
-            opacity: 0;
-            transform: translateX(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
-    </div>
+      </div>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={onRename}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={onDelete}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete folder
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
-interface HostItemProps {
+interface HostRowProps {
   host: Host;
-  index: number;
-  onClick: () => void;
+  depth: number;
+  onConnect: () => void;
 }
 
-function HostItem({ host, index, onClick }: HostItemProps) {
-  const statusConfig = {
-    connected: { color: 'text-success', label: 'Connected' },
-    connecting: { color: 'text-warning', label: 'Connecting...' },
-    disconnected: { color: 'text-text-disabled', label: 'Disconnected' },
+function HostRow({ host, depth, onConnect }: HostRowProps) {
+  const { setNodeRef, listeners, attributes, transform, isDragging } = useDraggable({
+    id: hostDragId(host.id),
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.45 : 1,
+    marginLeft: depth * 14,
   };
 
-  const status = statusConfig[host.status];
-
   return (
-    <div
-      onClick={onClick}
+    <button
+      ref={setNodeRef}
+      style={style}
       className={cn(
-        'group relative flex items-center gap-4 p-4 rounded-lg',
-        'bg-[var(--surface-1)] hover:bg-[var(--surface-3)]',
-        'border border-transparent hover:border-[var(--border)]',
-        'cursor-pointer select-none',
-        'transition-all duration-300 ease-out',
-        'hover:scale-[1.02] hover:shadow-[0_8px_24px_-4px_rgba(59,130,246,0.2)]',
-        'hover:-translate-y-0.5',
-        'active:scale-[0.98]'
+        'w-full flex items-center gap-3 rounded-md px-2 py-2 text-left',
+        'hover:bg-[var(--surface-2)] transition-colors',
+        isDragging && 'cursor-grabbing'
       )}
-      style={{
-        animation: `hostEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * index}s both`,
-      }}
+      onClick={onConnect}
+      {...listeners}
+      {...attributes}
+      type="button"
     >
-      {/* Left accent bar */}
-      <div
-        className={cn(
-          'absolute left-0 top-2 bottom-2 w-1 rounded-r-full',
-          'bg-gradient-to-b from-primary to-cyan-400',
-          'opacity-0 group-hover:opacity-100',
-          'transition-opacity duration-300'
-        )}
-      />
-
-      {/* Icon */}
-      <div
-        className={cn(
-          'flex-shrink-0 flex items-center justify-center',
-          'h-12 w-12 rounded-lg',
-          'bg-[var(--surface-2)] group-hover:bg-primary/10',
-          'border border-[var(--border)] group-hover:border-primary/30',
-          'transition-all duration-300',
-          'group-hover:scale-110'
-        )}
-      >
-        <Server className="h-5 w-5 text-text-secondary group-hover:text-primary transition-colors duration-300" />
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-mono font-semibold text-foreground truncate">
-            {host.hostname}
-          </h3>
-          <Circle
-            className={cn('h-2 w-2 flex-shrink-0', status.color)}
-            fill="currentColor"
-          />
-        </div>
-        <p className="text-xs font-mono text-text-secondary truncate">
-          {host.username}@{host.address}
+      <Server className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-mono truncate">{host.label}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {host.username}@{host.hostname}
         </p>
-        {host.description && (
-          <p className="text-xs text-text-secondary truncate mt-1">
-            {host.description}
-          </p>
-        )}
-        {host.tags && host.tags.length > 0 && (
-          <div className="flex items-center gap-1 mt-2">
-            {host.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] border border-[var(--border)] rounded-md text-text-secondary"
-              >
-                {tag}
-              </span>
-            ))}
-            {host.tags.length > 3 && (
-              <span className="text-[10px] text-text-tertiary">
-                +{host.tags.length - 3}
-              </span>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Status */}
-      <div className="flex-shrink-0 text-right">
-        <span className={cn('text-xs font-mono', status.color)}>
-          {status.label}
-        </span>
-      </div>
-
-      <style jsx>{`
-        @keyframes hostEnter {
-          from {
-            opacity: 0;
-            transform: translateX(-8px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-          }
-        }
-      `}</style>
-    </div>
+      <Circle className="h-2.5 w-2.5 text-muted-foreground/40" fill="currentColor" />
+    </button>
   );
 }
 
-function EmptyState({ search }: { search: string }) {
+interface EmptyStateProps {
+  search: string;
+}
+
+function EmptyState({ search }: EmptyStateProps) {
   return (
-    <div className="py-16 text-center">
-      <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-[var(--surface-2)] mb-4">
-        <Search className="h-8 w-8 text-text-disabled" />
-      </div>
-      <h3 className="text-sm font-medium text-foreground mb-1">No hosts found</h3>
-      <p className="text-sm text-text-secondary">
-        No results for "{search}"
-      </p>
+    <div className="py-16 text-center text-muted-foreground">
+      <p className="text-sm font-medium">No hosts found</p>
+      <p className="text-xs mt-1">No hosts match "{search}"</p>
     </div>
   );
 }

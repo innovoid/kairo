@@ -137,11 +137,13 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
         </Button>
         {enabled && (
           <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="Broadcast targets">
-                <span className="text-blue-500">({targetSessionIds.length})</span>
-              </Button>
-            </PopoverTrigger>
+            <PopoverTrigger
+              render={
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="Broadcast targets">
+                  <span className="text-blue-500">({targetSessionIds.length})</span>
+                </Button>
+              }
+            />
             <PopoverContent className="w-64 p-2" align="end">
               <div className="text-xs font-semibold mb-2">Broadcast Targets</div>
               <div className="space-y-2">

@@ -301,7 +301,7 @@ export function CommandPalette({
             </div>
           </div>
 
-          <style jsx>{`
+          <style>{`
             @keyframes paletteEnter {
               from {
                 opacity: 0;
@@ -448,7 +448,7 @@ function CommandItem({ command, icon: Icon, isSelected, index, categoryColor, on
         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/5 to-transparent pointer-events-none" />
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes itemEnter {
           from {
             opacity: 0;

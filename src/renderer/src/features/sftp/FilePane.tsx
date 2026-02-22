@@ -31,15 +31,11 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const { addTransfer, updateProgress } = useTransferStore();
+  const { addTransfer, removeTransfer } = useTransferStore();
 
   useEffect(() => {
     loadDirectory(currentPath);
   }, [sessionId, currentPath]);
-
-  useEffect(() => {
-    return window.sftpApi.onProgress(updateProgress);
-  }, []);
 
   async function loadDirectory(path: string) {
     setLoading(true);
@@ -93,12 +89,13 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
         filename,
         bytesTransferred: 0,
         totalBytes: 0,
-        speed: 0,
         direction: 'upload',
+        status: 'active',
+        startedAt: new Date().toISOString(),
       });
 
       try {
-        await window.sftpApi.upload(sessionId, localPath, remotePath);
+        await window.sftpApi.upload(sessionId, localPath, remotePath, transferId);
         await loadDirectory(currentPath);
       } catch (e) {
         console.error('Upload failed:', e);
@@ -115,12 +112,19 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
       filename: entry.name,
       bytesTransferred: 0,
       totalBytes: entry.size,
-      speed: 0,
       direction: 'download',
+      status: 'active',
+      startedAt: new Date().toISOString(),
     });
 
     try {
-      await window.sftpApi.download(sessionId, entry.path);
+      const defaultLocalPath = `${entry.name}`;
+      const localPath = window.prompt('Save downloaded file as:', defaultLocalPath);
+      if (!localPath?.trim()) {
+        removeTransfer(transferId);
+        return;
+      }
+      await window.sftpApi.download(sessionId, entry.path, localPath.trim(), transferId);
     } catch (e) {
       console.error('Download failed:', e);
     }
@@ -146,18 +150,21 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
     for (const file of files) {
       const remotePath = `${currentPath}/${file.name}`.replace('//', '/');
       const transferId = crypto.randomUUID();
+      const localPath = (file as File & { path?: string }).path;
+      if (!localPath) continue;
 
       addTransfer({
         transferId,
         filename: file.name,
         bytesTransferred: 0,
         totalBytes: file.size,
-        speed: 0,
         direction: 'upload',
+        status: 'active',
+        startedAt: new Date().toISOString(),
       });
 
       try {
-        await window.sftpApi.upload(sessionId, file.path, remotePath);
+        await window.sftpApi.upload(sessionId, localPath, remotePath, transferId);
         await loadDirectory(currentPath);
       } catch (e) {
         console.error('Upload failed:', e);

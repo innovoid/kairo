@@ -110,7 +110,7 @@ export function PreviewBanner() {
           </button>
         </div>
 
-        <style jsx>{`
+        <style>{`
           @keyframes slideUpFadeIn {
             from {
               opacity: 0;

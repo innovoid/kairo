@@ -15,5 +15,8 @@ export interface TransferProgress {
   bytesTransferred: number;
   totalBytes: number;
   status: 'active' | 'done' | 'error';
+  speedBytesPerSec?: number;
+  startedAt?: string;
+  updatedAt?: string;
   error?: string;
 }

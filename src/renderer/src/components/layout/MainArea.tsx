@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
+import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -16,9 +17,14 @@ export function MainArea() {
   const { splitPane, closePane } = useSessionStore();
   const { settings } = useSettingsStore();
   const [focusedPaneSessionId, setFocusedPaneSessionId] = useState<string | null>(null);
+  const resolveHotkey = (id: string): RegisterableHotkey => {
+    const definition = getHotkey(id);
+    if (!definition) throw new Error(`Missing hotkey definition: ${id}`);
+    return definition.key as RegisterableHotkey;
+  };
 
   // Split Horizontal
-  useHotkey(getHotkey('split-horizontal')!.key, (e) => {
+  useHotkey(resolveHotkey('split-horizontal'), (e) => {
     e.preventDefault();
     if (activeTab && activeTab.tabType === 'terminal') {
       const newSessionId = `local-${Date.now()}`;
@@ -26,10 +32,10 @@ export function MainArea() {
       window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
       setFocusedPaneSessionId(newSessionId);
     }
-  }, [activeTab, splitPane, settings?.promptStyle]);
+  });
 
   // Split Vertical
-  useHotkey(getHotkey('split-vertical')!.key, (e) => {
+  useHotkey(resolveHotkey('split-vertical'), (e) => {
     e.preventDefault();
     if (activeTab && activeTab.tabType === 'terminal') {
       const newSessionId = `local-${Date.now()}`;
@@ -37,7 +43,7 @@ export function MainArea() {
       window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
       setFocusedPaneSessionId(newSessionId);
     }
-  }, [activeTab, splitPane, settings?.promptStyle]);
+  });
 
   if (!activeTab) return null;
 

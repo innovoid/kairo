@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { LoginPage } from './LoginPage';
+import { isE2EMode } from '@/lib/e2e';
 
 interface AuthGateProps {
   children: React.ReactNode;
 }
 
 export function AuthGate({ children }: AuthGateProps) {
+  if (isE2EMode()) {
+    return <>{children}</>;
+  }
+
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
   useEffect(() => {

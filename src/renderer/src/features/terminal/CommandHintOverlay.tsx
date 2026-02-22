@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Terminal } from '@xterm/xterm';
-import { Upload, Download, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useSettingsStore } from '@/stores/settings-store';
 
@@ -14,27 +12,28 @@ interface CommandHintOverlayProps {
 interface CommandHint {
   command: string;
   description: string;
-  icon: typeof Upload;
   usage: string;
+}
+
+interface HintLine {
+  text: string;
+  tone?: 'muted' | 'active' | 'header';
 }
 
 const COMMANDS: CommandHint[] = [
   {
     command: '@upload',
     description: 'Upload files to remote server',
-    icon: Upload,
     usage: '@upload',
   },
   {
     command: '@download',
     description: 'Download file from remote server',
-    icon: Download,
     usage: '@download <filename>',
   },
   {
     command: '@ai',
     description: 'Translate natural language to shell command',
-    icon: Sparkles,
     usage: '@ai <describe what you want>',
   },
 ];
@@ -44,106 +43,279 @@ export function CommandHintOverlay({
   sessionId,
   currentRemotePath = '/home',
 }: CommandHintOverlayProps) {
-  const [inputBuffer, setInputBuffer] = useState('');
-  const [showMenu, setShowMenu] = useState(false);
-  const [filteredCommands, setFilteredCommands] = useState<CommandHint[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isTranslating, setIsTranslating] = useState(false);
-  const disposableRef = useRef<{ dispose: () => void } | null>(null);
+  const commandModeRef = useRef(false);
+  const inputBufferRef = useRef('');
+  const hintLineCountRef = useRef(0);
+  const currentMatchesRef = useRef<CommandHint[]>([]);
+  const selectedIndexRef = useRef(0);
+  const settingsRef = useRef(useSettingsStore.getState().settings);
   const { settings } = useSettingsStore();
 
-  // Intercept keyboard events to handle @ commands
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  const renderHintLines = (lines: HintLine[]) => {
+    if (!terminal) return;
+
+    const normalizedLines = lines.filter((line) => line.text.trim().length > 0);
+    const maxLines = Math.max(hintLineCountRef.current, normalizedLines.length);
+
+    terminal.write('\x1b7');
+
+    // Move one row down at a time to keep the block tightly aligned below the prompt.
+    for (let i = 0; i < maxLines; i += 1) {
+      terminal.write('\x1b[B\r\x1b[2K');
+      if (i < normalizedLines.length) {
+        const line = normalizedLines[i];
+        if (line.tone === 'active') {
+          terminal.write(`\x1b[1;96m${line.text}\x1b[0m`);
+        } else if (line.tone === 'header') {
+          terminal.write(`\x1b[37m${line.text}\x1b[0m`);
+        } else {
+          terminal.write(`\x1b[90m${line.text}\x1b[0m`);
+        }
+      }
+    }
+
+    hintLineCountRef.current = normalizedLines.length;
+    terminal.write('\x1b8');
+  };
+
+  const clearHintLines = () => {
+    if (hintLineCountRef.current === 0) return;
+    renderHintLines([]);
+  };
+
+  const updateHintLine = () => {
+    const [commandToken, ...rest] = inputBufferRef.current.split(' ');
+    if (!commandToken.startsWith('@')) {
+      currentMatchesRef.current = [];
+      selectedIndexRef.current = 0;
+      clearHintLines();
+      return;
+    }
+
+    if (rest.length > 0) {
+      currentMatchesRef.current = [];
+      selectedIndexRef.current = 0;
+      const exact = COMMANDS.find((cmd) => cmd.command === commandToken);
+      if (exact) {
+        renderHintLines([
+          { text: `${exact.command}  ${exact.description}`, tone: 'header' },
+          { text: `Usage: ${exact.usage}` },
+        ]);
+      } else {
+        renderHintLines([
+          { text: 'Unknown command.', tone: 'header' },
+          { text: 'Available: @upload, @download, @ai' },
+        ]);
+      }
+      return;
+    }
+
+    const matches = COMMANDS.filter((cmd) => cmd.command.startsWith(commandToken));
+    if (matches.length === 0) {
+      currentMatchesRef.current = [];
+      selectedIndexRef.current = 0;
+      renderHintLines([{ text: 'No matching commands' }]);
+      return;
+    }
+
+    const prevSelectedCommand = currentMatchesRef.current[selectedIndexRef.current]?.command;
+    currentMatchesRef.current = matches;
+
+    if (prevSelectedCommand) {
+      const newSelectedIdx = matches.findIndex((cmd) => cmd.command === prevSelectedCommand);
+      selectedIndexRef.current = newSelectedIdx >= 0 ? newSelectedIdx : 0;
+    }
+
+    if (selectedIndexRef.current >= matches.length) {
+      selectedIndexRef.current = 0;
+    }
+
+    const maxVisible = 5;
+    const windowStart = Math.max(
+      0,
+      Math.min(selectedIndexRef.current - 2, Math.max(0, matches.length - maxVisible))
+    );
+    const visibleMatches = matches.slice(windowStart, windowStart + maxVisible);
+
+    renderHintLines([
+      { text: 'Hints (↑/↓ navigate, Tab complete):', tone: 'header' },
+      ...visibleMatches.map((cmd, idx) => {
+        const absoluteIdx = windowStart + idx;
+        const isActive = absoluteIdx === selectedIndexRef.current;
+        return {
+          text: `${isActive ? '›' : ' '} ${cmd.command}  ${cmd.description}`,
+          tone: isActive ? 'active' : 'muted',
+        } as HintLine;
+      }),
+      matches.length > maxVisible
+        ? { text: `${matches.length - visibleMatches.length} more matches`, tone: 'muted' }
+        : { text: '' },
+    ]);
+  };
+
+  const resetCommandMode = () => {
+    clearHintLines();
+    commandModeRef.current = false;
+    inputBufferRef.current = '';
+    currentMatchesRef.current = [];
+    selectedIndexRef.current = 0;
+  };
+
+  const eraseCurrentBuffer = () => {
+    if (!terminal || inputBufferRef.current.length === 0) return;
+    clearHintLines();
+    terminal.write('\b \b'.repeat(inputBufferRef.current.length));
+    inputBufferRef.current = '';
+  };
+
   useEffect(() => {
     if (!terminal) return;
 
-    const handler = terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-      // Only handle keydown events
-      if (event.type !== 'keydown') return true;
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      const consume = () => {
+        event.preventDefault();
+        event.stopPropagation();
+        setTimeout(() => terminal.focus(), 0);
+        return false;
+      };
 
-      // Check for @ key to start menu
-      if (event.key === '@' && !showMenu && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        setInputBuffer('@');
-        setShowMenu(true);
-        setFilteredCommands(COMMANDS);
-        setSelectedIndex(0);
-        return false; // Prevent @ from being sent to terminal
+      if (event.type !== 'keydown') {
+        return !commandModeRef.current;
       }
 
-      // If menu is not showing, allow default behavior
-      if (!showMenu) return true;
+      if (
+        event.key === '@' &&
+        !commandModeRef.current &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
+      ) {
+        commandModeRef.current = true;
+        inputBufferRef.current = '@';
+        terminal.write('@');
+        updateHintLine();
+        return consume();
+      }
 
-      // Handle keys when menu is active
-      if (event.key === 'Enter') {
-        handleSelectCommand(filteredCommands[selectedIndex]);
-        return false; // Prevent Enter from being sent
-      } else if (event.key === 'Escape') {
-        setShowMenu(false);
-        setInputBuffer('');
-        return false;
-      } else if (event.key === 'ArrowUp') {
-        setSelectedIndex((prev) => Math.max(0, prev - 1));
-        return false;
-      } else if (event.key === 'ArrowDown') {
-        setSelectedIndex((prev) => Math.min(filteredCommands.length - 1, prev + 1));
-        return false;
-      } else if (event.key === 'Tab') {
-        // Tab key: auto-complete to selected command
-        const selectedCommand = filteredCommands[selectedIndex];
-        if (selectedCommand) {
-          setInputBuffer(selectedCommand.command);
-          // Keep only the exact match in filtered commands
-          setFilteredCommands([selectedCommand]);
+      if (!commandModeRef.current) return true;
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        resetCommandMode();
+        return true;
+      }
+
+      if (event.key === 'Escape') {
+        eraseCurrentBuffer();
+        resetCommandMode();
+        return consume();
+      }
+
+      if (event.key === 'Backspace') {
+        if (inputBufferRef.current.length === 0) {
+          resetCommandMode();
+          return consume();
         }
-        return false; // Prevent Tab from being sent
-      } else if (event.key === 'Backspace') {
-        const newBuffer = inputBuffer.slice(0, -1);
-        if (newBuffer.length === 0 || !newBuffer.startsWith('@')) {
-          setShowMenu(false);
-          setInputBuffer('');
+
+        inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+        terminal.write('\b \b');
+
+        if (inputBufferRef.current.length === 0) {
+          resetCommandMode();
         } else {
-          setInputBuffer(newBuffer);
-          filterCommands(newBuffer);
+          updateHintLine();
         }
-        return false;
-      } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        // Regular character
-        const newBuffer = inputBuffer + event.key;
-        setInputBuffer(newBuffer);
-        filterCommands(newBuffer);
-        return false; // Prevent character from being sent
+
+        return consume();
       }
 
-      return true; // Allow other keys
+      if (event.key === 'Tab') {
+        const [commandToken, ...rest] = inputBufferRef.current.split(' ');
+        if (rest.length === 0) {
+          const match =
+            currentMatchesRef.current[selectedIndexRef.current] ??
+            COMMANDS.find((cmd) => cmd.command.startsWith(commandToken));
+          if (match && match.command !== commandToken) {
+            const remaining = match.command.slice(commandToken.length);
+            terminal.write(remaining);
+            inputBufferRef.current = match.command;
+          }
+          updateHintLine();
+        }
+        return consume();
+      }
+
+      if (event.key === 'ArrowDown') {
+        if (currentMatchesRef.current.length > 0) {
+          selectedIndexRef.current =
+            (selectedIndexRef.current + 1) % currentMatchesRef.current.length;
+          updateHintLine();
+        }
+        return consume();
+      }
+
+      if (event.key === 'ArrowUp') {
+        if (currentMatchesRef.current.length > 0) {
+          selectedIndexRef.current =
+            (selectedIndexRef.current - 1 + currentMatchesRef.current.length) %
+            currentMatchesRef.current.length;
+          updateHintLine();
+        }
+        return consume();
+      }
+
+      if (event.key === 'Enter') {
+        const buffer = inputBufferRef.current.trim();
+        resetCommandMode();
+
+        if (!buffer.startsWith('@')) {
+          terminal.write('\r\n');
+          return consume();
+        }
+
+        terminal.write('\r\n');
+        void handleCommand(buffer);
+        return consume();
+      }
+
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        inputBufferRef.current += event.key;
+        terminal.write(event.key);
+
+        updateHintLine();
+        return consume();
+      }
+
+      return consume();
     });
 
     return () => {
-      if (handler) {
-        terminal.attachCustomKeyEventHandler(() => true);
-      }
+      clearHintLines();
+      terminal.attachCustomKeyEventHandler(() => true);
     };
-  }, [terminal, showMenu, inputBuffer, filteredCommands, selectedIndex]);
+  }, [terminal]);
 
-  function filterCommands(buffer: string) {
-    const lower = buffer.toLowerCase();
-    const matches = COMMANDS.filter((cmd) => cmd.command.toLowerCase().startsWith(lower));
-    setFilteredCommands(matches);
-    setSelectedIndex(0);
-  }
-
-  async function handleSelectCommand(command: CommandHint | undefined) {
-    if (!command || !terminal) return;
-
-    // Execute the command handler
-    if (command.command === '@upload') {
+  async function handleCommand(buffer: string) {
+    const [commandToken, ...args] = buffer.split(' ');
+    if (commandToken === '@upload') {
       await handleUpload();
-    } else if (command.command === '@download') {
-      await handleDownload();
-    } else if (command.command === '@ai') {
-      await handleAiTranslation();
+      return;
     }
 
-    setShowMenu(false);
-    setInputBuffer('');
+    if (commandToken === '@download') {
+      await handleDownload(args.join(' ').trim());
+      return;
+    }
+
+    if (commandToken === '@ai') {
+      await handleAiTranslation(args.join(' ').trim());
+      return;
+    }
+
+    toast.error('Unknown command. Available: @upload, @download, @ai');
   }
 
   async function handleUpload() {
@@ -156,7 +328,7 @@ export function CommandHintOverlay({
         const remotePath = `${currentRemotePath}/${filename}`.replace('//', '/');
 
         toast.promise(
-          window.sftpApi.upload(sessionId, localPath, remotePath),
+          window.sftpApi.upload(sessionId, localPath, remotePath, crypto.randomUUID()),
           {
             loading: `Uploading ${filename}...`,
             success: `Uploaded ${filename}`,
@@ -173,23 +345,22 @@ export function CommandHintOverlay({
     }
   }
 
-  async function handleDownload() {
-    // Parse filename from buffer
-    const parts = inputBuffer.split(' ');
-    if (parts.length < 2) {
+  async function handleDownload(filename: string) {
+    if (!filename) {
       toast.error('Usage: @download <filename>');
       return;
     }
 
-    const filename = parts.slice(1).join(' ');
     const remotePath = `${currentRemotePath}/${filename}`.replace('//', '/');
+    const localPath = window.prompt('Save downloaded file as:', filename);
+    if (!localPath?.trim()) return;
 
     try {
       toast.promise(
-        window.sftpApi.download(sessionId, remotePath),
+        window.sftpApi.download(sessionId, remotePath, localPath.trim(), crypto.randomUUID()),
         {
           loading: `Downloading ${filename}...`,
-          success: `Downloaded ${filename} to Downloads folder`,
+          success: `Downloaded ${filename}`,
           error: (err) => `Download failed: ${err.message}`,
         }
       );
@@ -204,23 +375,19 @@ export function CommandHintOverlay({
     }
   }
 
-  async function handleAiTranslation() {
-    // Parse natural language query from buffer
-    const parts = inputBuffer.split(' ');
-    if (parts.length < 2) {
+  async function handleAiTranslation(naturalLanguage: string) {
+    if (!naturalLanguage) {
       toast.error('Usage: @ai <describe what you want>');
       return;
     }
 
-    const naturalLanguage = parts.slice(1).join(' ');
+    const provider = settingsRef.current?.aiProvider ?? 'openai';
+    const apiKey = await window.apiKeysApi.get(provider);
 
-    // Check AI configuration
-    if (!settings?.openaiApiKeyEncrypted && !settings?.anthropicApiKeyEncrypted) {
-      toast.error('Configure AI provider in Settings (Cmd+,)');
+    if (!apiKey) {
+      toast.error(`No API key configured for ${provider}. Go to Settings → AI to add your key.`);
       return;
     }
-
-    setIsTranslating(true);
 
     try {
       const requestId = crypto.randomUUID();
@@ -235,8 +402,6 @@ export function CommandHintOverlay({
 
       const offDone = window.aiApi.onDone((id) => {
         if (id === requestId) {
-          setIsTranslating(false);
-          // Write translated command to terminal (don't execute)
           if (terminal) {
             terminal.write(translatedCommand);
           }
@@ -249,7 +414,6 @@ export function CommandHintOverlay({
 
       const offError = window.aiApi.onError((id, error) => {
         if (id === requestId) {
-          setIsTranslating(false);
           toast.error(`AI translation failed: ${error}`);
           offChunk();
           offDone();
@@ -258,80 +422,24 @@ export function CommandHintOverlay({
       });
 
       // Call AI translation
+      const model =
+        provider === 'openai'
+          ? 'gpt-4o-mini'
+          : provider === 'anthropic'
+            ? 'claude-haiku-3-5'
+            : 'gemini-2.0-flash';
+
       await window.aiApi.translateCommand({
-        provider: settings?.openaiApiKeyEncrypted ? 'openai' : 'anthropic',
-        apiKey: settings?.openaiApiKeyEncrypted || settings?.anthropicApiKeyEncrypted || '',
-        model: 'gpt-4o-mini',
+        provider,
+        apiKey,
+        model,
         naturalLanguage,
         requestId,
       });
     } catch (err: any) {
-      setIsTranslating(false);
       toast.error(`AI translation failed: ${err.message}`);
     }
   }
 
-  if (!showMenu || filteredCommands.length === 0) return null;
-
-  return (
-    <div className="absolute bottom-4 left-4 z-50">
-      <div className="bg-[var(--surface-3)] border border-[var(--border)] rounded-lg shadow-2xl overflow-hidden min-w-[320px]">
-        {/* Header */}
-        <div className="px-3 py-2 border-b border-[var(--border)] bg-[var(--surface-4)]">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Command Hints</span>
-            {isTranslating && (
-              <span className="text-xs text-blue-400 flex items-center gap-1">
-                <span className="animate-spin">⏳</span>
-                Translating...
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Commands List */}
-        <div className="py-1">
-          {filteredCommands.map((cmd, index) => {
-            const Icon = cmd.icon;
-            const isSelected = index === selectedIndex;
-
-            return (
-              <button
-                key={cmd.command}
-                onClick={() => handleSelectCommand(cmd)}
-                className={cn(
-                  'w-full px-3 py-2 flex items-start gap-3 transition-colors text-left',
-                  isSelected ? 'bg-primary/20' : 'hover:bg-accent/50'
-                )}
-              >
-                <Icon
-                  className={cn(
-                    'h-4 w-4 mt-0.5 shrink-0',
-                    isSelected ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">{cmd.command}</div>
-                  <div className="text-xs text-muted-foreground">{cmd.description}</div>
-                  <div className="text-xs text-muted-foreground/70 font-mono mt-1">
-                    {cmd.usage}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--surface-4)]">
-          <div className="text-xs text-muted-foreground">
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">↑↓</kbd> Navigate{' '}
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Tab</kbd> Complete{' '}
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> Select{' '}
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Esc</kbd> Close
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }

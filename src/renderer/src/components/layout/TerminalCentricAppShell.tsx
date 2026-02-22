@@ -15,11 +15,16 @@
 
 import { useEffect, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
+import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
+import { isE2EMode } from '@/lib/e2e';
 import { TerminalLayout } from './TerminalLayout';
 import { FloatingTabBar } from './FloatingTabBar';
 import { CommandPalette } from './CommandPalette';
 import { HostBrowserOverlay } from '@/features/hosts/HostBrowserOverlay';
+import { TeamOverlay } from '@/features/team/TeamOverlay';
+import { SettingsOverlay } from '@/features/settings/SettingsOverlay';
+import { TransferProgress } from '@/features/sftp/TransferProgress';
 import { MainArea } from './MainArea';
 import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
@@ -31,20 +36,22 @@ import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { ArchTermLogoIcon } from '@/components/ui/logo';
 import type { Workspace } from '@shared/types/workspace';
+import type { SettingsTab } from '@/features/settings/SettingsPage';
 
 export function TerminalCentricAppShell() {
+  const e2eMode = isE2EMode();
   const [workspaceId, setWorkspaceId] = useState<string>('');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [hostBrowserOpen, setHostBrowserOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [snippetsOpen, setSnippetsOpen] = useState(false);
-  const [keysOpen, setKeysOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('terminal');
 
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
-  const { hosts } = useHostStore();
+  const { hosts, fetchHosts } = useHostStore();
   const { isRecording, startRecording, stopRecording } = useRecordingStore();
-  const { enabled: broadcastEnabled, toggle: toggleBroadcastEnabled, addTarget, removeTarget } = useBroadcastStore();
+  const { enabled: broadcastEnabled, toggle: toggleBroadcastEnabled, addTarget } = useBroadcastStore();
 
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
@@ -52,16 +59,32 @@ export function TerminalCentricAppShell() {
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
   const closeTab = useSessionStore((s) => s.closeTab);
   const splitPane = useSessionStore((s) => s.splitPane);
+  const activeTab = activeTabId ? tabs.get(activeTabId) : null;
+  const resolveHotkey = (id: string): RegisterableHotkey => {
+    const definition = getHotkey(id);
+    if (!definition) throw new Error(`Missing hotkey definition: ${id}`);
+    return definition.key as RegisterableHotkey;
+  };
 
   // Initialize workspace and settings
   useEffect(() => {
-    window.workspaceApi.getActiveContext().then((ctx) => {
-      if (ctx) setWorkspaceId((ctx as { workspace: Workspace }).workspace.id);
-    });
+    if (e2eMode) {
+      setWorkspaceId('e2e-workspace');
+    } else {
+      window.workspaceApi.getActiveContext().then((ctx) => {
+        if (ctx) setWorkspaceId((ctx as { workspace: Workspace }).workspace.id);
+      });
+    }
+
     const offProgress = window.sftpApi.onProgress(updateProgress);
     fetchSettings();
     return offProgress;
-  }, []);
+  }, [e2eMode, updateProgress, fetchSettings]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    void fetchHosts(workspaceId);
+  }, [workspaceId, fetchHosts]);
 
   // Sync theme
   useEffect(() => {
@@ -73,7 +96,6 @@ export function TerminalCentricAppShell() {
   // Handler functions (defined before use)
   const handleOpenLocalTerminal = () => {
     const sessionId = `local-${Date.now()}`;
-    console.log('Opening local terminal with sessionId:', sessionId);
     openTab({
       tabId: sessionId,
       tabType: 'terminal',
@@ -81,13 +103,7 @@ export function TerminalCentricAppShell() {
       sessionId,
       status: 'connecting',
     });
-    console.log('Tab opened, connecting SSH with type: local, promptStyle:', settings?.promptStyle);
-    try {
-      window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
-      console.log('SSH connect called successfully');
-    } catch (error) {
-      console.error('Failed to call SSH connect:', error);
-    }
+    void window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
   };
 
   const handleConnectHost = (hostId: string) => {
@@ -114,12 +130,13 @@ export function TerminalCentricAppShell() {
       });
       window.sshApi.connect(sessionId, {
         type: 'ssh',
-        host: {
-          hostname: host.hostname,
-          port: host.port,
-          username: host.username,
-          privateKey: host.privateKeyId,
-        },
+        host: host.hostname,
+        port: host.port,
+        username: host.username,
+        authType: host.authType,
+        password: host.password ?? undefined,
+        privateKeyId: host.keyId ?? undefined,
+        hostId: host.id,
         promptStyle: settings?.promptStyle,
       });
     }
@@ -143,7 +160,7 @@ export function TerminalCentricAppShell() {
 
   const handleOpenSftp = (tabId: string) => {
     const tab = tabs.get(tabId);
-    if (!tab) return;
+    if (!tab || !tab.sessionId || tab.tabType !== 'terminal') return;
 
     const sftpTabId = `sftp-${tab.sessionId}`;
     openTab({
@@ -168,6 +185,11 @@ export function TerminalCentricAppShell() {
     } catch (error) {
       toast.error('Failed to start recording');
     }
+  };
+
+  const handleOpenSettings = (tab: SettingsTab = 'terminal') => {
+    setSettingsInitialTab(tab);
+    setSettingsOpen(true);
   };
 
   const handleStopRecording = async (tabId: string) => {
@@ -218,55 +240,54 @@ export function TerminalCentricAppShell() {
   };
 
   // Command Palette
-  useHotkey(getHotkey('command-palette')!.key, (e) => {
+  useHotkey(resolveHotkey('command-palette'), (e) => {
     e.preventDefault();
     setCommandPaletteOpen(true);
-  }, [setCommandPaletteOpen]);
+  });
 
   // Browse Hosts
-  useHotkey(getHotkey('browse-hosts')!.key, (e) => {
+  useHotkey(resolveHotkey('browse-hosts'), (e) => {
     e.preventDefault();
     setHostBrowserOpen(true);
-  }, [setHostBrowserOpen]);
+  });
 
   // New Connection
-  useHotkey(getHotkey('new-tab')!.key, (e) => {
+  useHotkey(resolveHotkey('new-tab'), (e) => {
     e.preventDefault();
     setHostBrowserOpen(true);
-  }, [setHostBrowserOpen]);
+  });
 
   // Local Terminal
-  useHotkey(getHotkey('local-terminal')!.key, (e) => {
+  useHotkey(resolveHotkey('local-terminal'), (e) => {
     e.preventDefault();
     handleOpenLocalTerminal();
-  }, [handleOpenLocalTerminal]);
+  });
 
   // Snippets
-  useHotkey(getHotkey('snippets')!.key, (e) => {
-    e.preventDefault();
-    setSnippetsOpen(true);
-  }, [setSnippetsOpen]);
-
-  // Settings
-  useHotkey(getHotkey('settings')!.key, (e) => {
+  useHotkey(resolveHotkey('snippets'), (e) => {
     e.preventDefault();
     openTab({
-      tabId: 'settings',
-      tabType: 'settings',
-      label: 'Settings',
+      tabId: 'snippets',
+      tabType: 'snippets',
+      label: 'Snippets',
       closable: false,
-      settingsTab: 'terminal',
     });
-  }, [openTab]);
+  });
+
+  // Settings
+  useHotkey(resolveHotkey('settings'), (e) => {
+    e.preventDefault();
+    handleOpenSettings('terminal');
+  });
 
   // Open SFTP
-  useHotkey(getHotkey('open-sftp')!.key, (e) => {
+  useHotkey(resolveHotkey('open-sftp'), (e) => {
     e.preventDefault();
     if (activeTabId) handleOpenSftp(activeTabId);
-  }, [activeTabId, handleOpenSftp]);
+  });
 
   // Toggle Recording
-  useHotkey(getHotkey('toggle-recording')!.key, (e) => {
+  useHotkey(resolveHotkey('toggle-recording'), (e) => {
     e.preventDefault();
     if (activeTabId) {
       const tab = tabs.get(activeTabId);
@@ -278,16 +299,16 @@ export function TerminalCentricAppShell() {
         }
       }
     }
-  }, [activeTabId, tabs, isRecording, handleStartRecording, handleStopRecording]);
+  });
 
   // Toggle Broadcast
-  useHotkey(getHotkey('toggle-broadcast')!.key, (e) => {
+  useHotkey(resolveHotkey('toggle-broadcast'), (e) => {
     e.preventDefault();
     if (activeTabId) handleToggleBroadcast(activeTabId);
-  }, [activeTabId, handleToggleBroadcast]);
+  });
 
   // Close Tab
-  useHotkey(getHotkey('close-tab')!.key, (e) => {
+  useHotkey(resolveHotkey('close-tab'), (e) => {
     e.preventDefault();
     if (activeTabId) {
       const tab = tabs.get(activeTabId);
@@ -295,7 +316,7 @@ export function TerminalCentricAppShell() {
         closeTab(activeTabId);
       }
     }
-  }, [activeTabId, tabs, closeTab]);
+  });
 
   // Convert tabs to FloatingTabBar format
   const floatingTabs = Array.from(tabs.values())
@@ -309,27 +330,6 @@ export function TerminalCentricAppShell() {
       sessionId: tab.sessionId,
       isRecording: tab.sessionId ? isRecording(tab.sessionId) : false,
     }));
-
-  // Convert hosts to HostBrowserOverlay format
-  const browserHosts = hosts.map((host) => {
-    // Check if host has an active connection
-    const activeConnection = Array.from(tabs.values()).find(
-      (tab) => tab.hostId === host.id && tab.tabType === 'terminal'
-    );
-
-    return {
-      id: host.id,
-      hostname: host.label,
-      address: host.hostname,
-      username: host.username,
-      description: host.notes,
-      status: activeConnection
-        ? (activeConnection.status as 'connected' | 'connecting' | 'disconnected')
-        : ('disconnected' as const),
-      folder: host.folder,
-      tags: host.tags,
-    };
-  });
 
   // Command palette commands
   const commands = [
@@ -360,7 +360,11 @@ export function TerminalCentricAppShell() {
       shortcut: 'Cmd+B',
       keywords: ['sftp', 'files', 'browser'],
       onExecute: () => {
-        // TODO: Open SFTP browser
+        if (!activeTabId) {
+          toast.info('Open a terminal tab first');
+          return;
+        }
+        handleOpenSftp(activeTabId);
       },
     },
     {
@@ -370,7 +374,14 @@ export function TerminalCentricAppShell() {
       category: 'actions',
       shortcut: 'Cmd+;',
       keywords: ['snippets', 'commands', 'saved'],
-      onExecute: () => setSnippetsOpen(true),
+      onExecute: () => {
+        openTab({
+          tabId: 'snippets',
+          tabType: 'snippets',
+          label: 'Snippets',
+          closable: false,
+        });
+      },
     },
     {
       id: 'ssh-keys',
@@ -378,7 +389,17 @@ export function TerminalCentricAppShell() {
       description: 'Manage SSH keys',
       category: 'actions',
       keywords: ['keys', 'ssh', 'authentication'],
-      onExecute: () => setKeysOpen(true),
+      onExecute: () => {
+        toast.info('SSH key manager is currently in workspace flow.');
+      },
+    },
+    {
+      id: 'team',
+      title: 'Team',
+      description: 'Invite and manage workspace members',
+      category: 'actions',
+      keywords: ['team', 'members', 'roles', 'invite'],
+      onExecute: () => setTeamOpen(true),
     },
     // Settings
     {
@@ -388,7 +409,7 @@ export function TerminalCentricAppShell() {
       category: 'settings',
       shortcut: 'Cmd+,',
       keywords: ['settings', 'preferences', 'config'],
-      onExecute: () => setSettingsOpen(true),
+      onExecute: () => handleOpenSettings('terminal'),
     },
     {
       id: 'keyboard-shortcuts',
@@ -396,15 +417,7 @@ export function TerminalCentricAppShell() {
       description: 'View all keyboard shortcuts',
       category: 'settings',
       keywords: ['hotkeys', 'keys', 'shortcuts', 'keybindings', 'help'],
-      onExecute: () => {
-        openTab({
-          tabId: 'settings',
-          tabType: 'settings',
-          label: 'Settings',
-          closable: false,
-          settingsTab: 'shortcuts',
-        });
-      },
+      onExecute: () => handleOpenSettings('shortcuts'),
     },
     // Terminal
     {
@@ -433,7 +446,7 @@ export function TerminalCentricAppShell() {
       shortcut: 'Cmd+D',
       keywords: ['split', 'horizontal', 'pane'],
       onExecute: () => {
-        // TODO: Implement split
+        if (activeTabId) handleSplitHorizontal(activeTabId);
       },
     },
     {
@@ -444,7 +457,7 @@ export function TerminalCentricAppShell() {
       shortcut: 'Cmd+Shift+D',
       keywords: ['split', 'vertical', 'pane'],
       onExecute: () => {
-        // TODO: Implement split
+        if (activeTabId) handleSplitVertical(activeTabId);
       },
     },
   ];
@@ -482,12 +495,25 @@ export function TerminalCentricAppShell() {
             }}
             onBrowseHosts={() => setHostBrowserOpen(true)}
             onBrowseFiles={() => {
-              // TODO: Open SFTP browser
+              if (!activeTabId) {
+                toast.info('Open a terminal tab first');
+                return;
+              }
+              handleOpenSftp(activeTabId);
             }}
-            onSnippets={() => setSnippetsOpen(true)}
-            onKeys={() => setKeysOpen(true)}
+            onSnippets={() =>
+              openTab({
+                tabId: 'snippets',
+                tabType: 'snippets',
+                label: 'Snippets',
+                closable: false,
+              })
+            }
+            onKeys={() => {
+              toast.info('SSH key manager is currently in workspace flow.');
+            }}
             onCommandPalette={() => setCommandPaletteOpen(true)}
-            onSettings={() => setSettingsOpen(true)}
+            onSettings={() => handleOpenSettings('terminal')}
             onOpenSftp={handleOpenSftp}
             onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
@@ -507,19 +533,29 @@ export function TerminalCentricAppShell() {
           <HostBrowserOverlay
             open={hostBrowserOpen}
             onOpenChange={setHostBrowserOpen}
-            hosts={browserHosts}
+            workspaceId={workspaceId}
             onConnect={handleConnectHost}
             onNewHost={() => {
               // TODO: Open new host form
               setHostBrowserOpen(false);
             }}
           />
-          {/* TODO: Add other overlays (Settings, Snippets, Keys, SFTP) */}
+          <TeamOverlay
+            open={teamOpen}
+            onOpenChange={setTeamOpen}
+            workspaceId={workspaceId}
+          />
+          <SettingsOverlay
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            workspaceId={workspaceId}
+            initialTab={settingsInitialTab}
+          />
         </>
       }
     >
       {/* Terminal area */}
-      {floatingTabs.length === 0 ? (
+      {floatingTabs.length === 0 && activeTab?.tabType !== 'snippets' ? (
         // Empty state - no terminals
         <div className="relative h-full w-full bg-background flex items-center justify-center">
           <div className="text-center space-y-6 p-8 max-w-md">
@@ -576,6 +612,7 @@ export function TerminalCentricAppShell() {
         <MainArea />
       )}
 
+      <TransferProgress variant="floating" />
       <Toaster />
     </TerminalLayout>
   );

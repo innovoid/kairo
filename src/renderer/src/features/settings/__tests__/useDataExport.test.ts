@@ -16,18 +16,23 @@ describe('useDataExport', () => {
   let mockCreateObjectURL: ReturnType<typeof vi.fn>;
   let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
   let mockLink: HTMLAnchorElement;
+  let originalCreateElement: typeof document.createElement;
 
   beforeEach(() => {
     // Mock URL.createObjectURL and URL.revokeObjectURL
     mockCreateObjectURL = vi.fn(() => 'blob:mock-url');
     mockRevokeObjectURL = vi.fn();
-    global.URL.createObjectURL = mockCreateObjectURL;
-    global.URL.revokeObjectURL = mockRevokeObjectURL;
+    global.URL.createObjectURL = mockCreateObjectURL as unknown as typeof URL.createObjectURL;
+    global.URL.revokeObjectURL = mockRevokeObjectURL as unknown as typeof URL.revokeObjectURL;
 
     // Mock anchor element
+    originalCreateElement = document.createElement.bind(document);
     mockLink = document.createElement('a');
     mockLink.click = vi.fn();
-    vi.spyOn(document, 'createElement').mockReturnValueOnce(mockLink);
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName.toLowerCase() === 'a') return mockLink;
+      return originalCreateElement(tagName);
+    }) as typeof document.createElement);
   });
 
   afterEach(() => {

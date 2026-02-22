@@ -9,13 +9,14 @@ import type { SettingsApi } from '../../../preload/settings-api';
 import type { ApiKeysApi } from '../../../preload/api-keys-api';
 import type { SnippetsApi } from '../../../preload/snippets-api';
 import type { RecordingApi } from '../../../preload/recording-api';
+import type { ActiveWorkspaceContext, Workspace } from '../../../shared/types/workspace';
 
 declare global {
   interface Window {
     authApi: AuthApi;
     workspaceApi: WorkspaceApi & {
-      getActiveContext: () => Promise<unknown>;
-      ensurePersonalWorkspace: (name?: string) => Promise<unknown>;
+      getActiveContext: () => Promise<ActiveWorkspaceContext | null>;
+      ensurePersonalWorkspace: (name?: string) => Promise<Workspace>;
     };
     hostsApi: HostsApi;
     foldersApi: FoldersApi;

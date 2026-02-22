@@ -69,12 +69,14 @@ export const sftpManager = {
   ): Promise<void> {
     const sftp = await getSftp(sessionId);
     const filename = remotePath.split('/').pop() ?? 'file';
+    const startedAt = new Date().toISOString();
 
     return new Promise((resolve, reject) => {
       sftp.stat(remotePath, (statErr, stats) => {
         const totalBytes = statErr ? 0 : (stats.size ?? 0);
         let bytesTransferred = 0;
         let lastUpdate = Date.now();
+        let lastBytesTransferred = 0;
 
         const readStream = sftp.createReadStream(remotePath);
         const writeStream = createWriteStream(localPath);
@@ -85,6 +87,8 @@ export const sftpManager = {
           // Throttle progress events to every 100ms
           const now = Date.now();
           if (now - lastUpdate > 100) {
+            const elapsedSec = Math.max((now - lastUpdate) / 1000, 0.001);
+            const speedBytesPerSec = (bytesTransferred - lastBytesTransferred) / elapsedSec;
             const progress: TransferProgress = {
               transferId,
               filename,
@@ -92,9 +96,13 @@ export const sftpManager = {
               bytesTransferred,
               totalBytes,
               status: 'active',
+              speedBytesPerSec,
+              startedAt,
+              updatedAt: new Date(now).toISOString(),
             };
             if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
             lastUpdate = now;
+            lastBytesTransferred = bytesTransferred;
           }
         });
 
@@ -102,6 +110,8 @@ export const sftpManager = {
           const progress: TransferProgress = {
             transferId, filename, direction: 'download',
             bytesTransferred, totalBytes, status: 'error', error: err.message,
+            startedAt,
+            updatedAt: new Date().toISOString(),
           };
           if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
           reject(err);
@@ -111,6 +121,9 @@ export const sftpManager = {
           const progress: TransferProgress = {
             transferId, filename, direction: 'download',
             bytesTransferred: totalBytes, totalBytes, status: 'done',
+            speedBytesPerSec: 0,
+            startedAt,
+            updatedAt: new Date().toISOString(),
           };
           if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
           resolve();
@@ -134,6 +147,8 @@ export const sftpManager = {
     const totalBytes = fileStat.size;
     let bytesTransferred = 0;
     let lastUpdate = Date.now();
+    let lastBytesTransferred = 0;
+    const startedAt = new Date().toISOString();
 
     return new Promise((resolve, reject) => {
       const readStream = createReadStream(localPath);
@@ -145,12 +160,18 @@ export const sftpManager = {
         // Throttle progress events to every 100ms
         const now = Date.now();
         if (now - lastUpdate > 100) {
+          const elapsedSec = Math.max((now - lastUpdate) / 1000, 0.001);
+          const speedBytesPerSec = (bytesTransferred - lastBytesTransferred) / elapsedSec;
           const progress: TransferProgress = {
             transferId, filename, direction: 'upload',
             bytesTransferred, totalBytes, status: 'active',
+            speedBytesPerSec,
+            startedAt,
+            updatedAt: new Date(now).toISOString(),
           };
           if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
           lastUpdate = now;
+          lastBytesTransferred = bytesTransferred;
         }
       });
 
@@ -158,6 +179,8 @@ export const sftpManager = {
         const progress: TransferProgress = {
           transferId, filename, direction: 'upload',
           bytesTransferred, totalBytes, status: 'error', error: err.message,
+          startedAt,
+          updatedAt: new Date().toISOString(),
         };
         if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
         reject(err);
@@ -167,6 +190,9 @@ export const sftpManager = {
         const progress: TransferProgress = {
           transferId, filename, direction: 'upload',
           bytesTransferred: totalBytes, totalBytes, status: 'done',
+          speedBytesPerSec: 0,
+          startedAt,
+          updatedAt: new Date().toISOString(),
         };
         if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
         resolve();

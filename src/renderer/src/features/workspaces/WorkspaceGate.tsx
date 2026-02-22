@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { Workspace } from '@shared/types/workspace';
+import { isE2EMode } from '@/lib/e2e';
 
 interface WorkspaceGateProps {
   children: React.ReactNode;
 }
 
 export function WorkspaceGate({ children }: WorkspaceGateProps) {
+  if (isE2EMode()) {
+    return <>{children}</>;
+  }
+
   const [workspace, setWorkspace] = useState<Workspace | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 

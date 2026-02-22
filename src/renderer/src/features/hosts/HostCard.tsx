@@ -17,32 +17,38 @@ interface HostCardProps {
 }
 
 export function HostCard({ host, onEdit, onDelete }: HostCardProps) {
-  const { sessions, openSession, setActiveSession } = useSessionStore();
+  const tabs = useSessionStore((s) => s.tabs);
+  const openTab = useSessionStore((s) => s.openTab);
+  const setActiveTab = useSessionStore((s) => s.setActiveTab);
 
-  const existingSession = [...sessions.values()].find(
+  const existingSession = [...tabs.values()].find(
     (s) => s.hostId === host.id && s.tabType === 'terminal'
   );
 
   function connect() {
     if (existingSession) {
-      setActiveSession(existingSession.sessionId);
+      setActiveTab(existingSession.tabId);
       return;
     }
 
     const sessionId = crypto.randomUUID();
-    openSession({
-      sessionId,
+    openTab({
+      tabId: sessionId,
       hostId: host.id,
-      hostLabel: host.label,
+      label: host.label,
       hostname: host.hostname,
       tabType: 'terminal',
+      sessionId,
+      status: 'connecting',
     });
 
     window.sshApi.connect(sessionId, {
+      type: 'ssh',
       host: host.hostname,
       port: host.port,
       username: host.username,
       authType: host.authType,
+      password: host.password ?? undefined,
       privateKeyId: host.keyId ?? undefined,
       hostId: host.id,
     });
@@ -52,29 +58,37 @@ export function HostCard({ host, onEdit, onDelete }: HostCardProps) {
     const sessionId = existingSession?.sessionId ?? crypto.randomUUID();
 
     if (!existingSession) {
-      openSession({
-        sessionId,
+      openTab({
+        tabId: sessionId,
         hostId: host.id,
-        hostLabel: host.label,
+        label: host.label,
         hostname: host.hostname,
         tabType: 'terminal',
+        sessionId,
+        status: 'connecting',
       });
 
       window.sshApi.connect(sessionId, {
+        type: 'ssh',
         host: host.hostname,
         port: host.port,
         username: host.username,
         authType: host.authType,
+        password: host.password ?? undefined,
         privateKeyId: host.keyId ?? undefined,
         hostId: host.id,
       });
     }
 
-    useSessionStore.getState().openSftpTab({
-      sessionId: sessionId.replace('sftp-', ''),
+    const sftpTabId = `sftp-${sessionId}`;
+    openTab({
+      tabId: sftpTabId,
+      tabType: 'sftp',
+      label: `SFTP: ${host.label}`,
       hostId: host.id,
-      hostLabel: `SFTP: ${host.label}`,
       hostname: host.hostname,
+      sessionId,
+      status: 'connected',
     });
   }
 

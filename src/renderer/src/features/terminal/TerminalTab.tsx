@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
+import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { toast } from 'sonner';
 import type { Tab } from '@/stores/session-store';
@@ -29,6 +30,11 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   const { targetSessionIds } = useBroadcastStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showSnippetPicker, setShowSnippetPicker] = useState(false);
+  const resolveHotkey = (id: string): RegisterableHotkey => {
+    const definition = getHotkey(id);
+    if (!definition) throw new Error(`Missing hotkey definition: ${id}`);
+    return definition.key as RegisterableHotkey;
+  };
 
   const isBroadcastTarget = tab.sessionId && targetSessionIds.includes(tab.sessionId);
 
@@ -82,16 +88,16 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   }, [tab.sessionId, tab.status]);
 
   // Search
-  useHotkey(getHotkey('search')!.key, (e) => {
+  useHotkey(resolveHotkey('search'), (e) => {
     e.preventDefault();
     setShowSearch(true);
-  }, []);
+  });
 
   // Snippet Picker
-  useHotkey(getHotkey('snippet-picker')!.key, (e) => {
+  useHotkey(resolveHotkey('snippet-picker'), (e) => {
     e.preventDefault();
     setShowSnippetPicker(true);
-  }, []);
+  });
 
   return (
     <div className={cn('h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>

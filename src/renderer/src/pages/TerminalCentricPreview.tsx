@@ -84,7 +84,7 @@ export function TerminalCentricPreview() {
       {/* Terminal-centric layout */}
       <TerminalCentricAppShell />
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideDownFadeIn {
           from {
             opacity: 0;

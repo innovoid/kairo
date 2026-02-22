@@ -114,7 +114,6 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         macOptionIsMeta: false,
         drawBoldTextInBrightColors: true,
         smoothScrollDuration: 0,
-        fastScrollModifier: 'shift',
         fastScrollSensitivity: 5,
         scrollSensitivity: 3,
       });

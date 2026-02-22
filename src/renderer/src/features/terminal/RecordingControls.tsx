@@ -42,11 +42,13 @@ export function RecordingControls() {
   return (
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="View recordings">
-            <Video className="h-3.5 w-3.5" />
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger
+          render={
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="View recordings">
+              <Video className="h-3.5 w-3.5" />
+            </Button>
+          }
+        />
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Terminal Recordings</DialogTitle>

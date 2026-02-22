@@ -90,10 +90,9 @@ export function AiPanel({ open, onOpenChange }: AiPanelProps) {
                 {messages.map((msg, idx) => (
                   <ChatMessage
                     key={idx}
-                    role={msg.role}
+                    role={msg.role === 'system' ? 'assistant' : msg.role}
                     content={msg.content}
-                    command={msg.command}
-                    timestamp={msg.timestamp}
+                    timestamp={msg.createdAt}
                     onInsertCommand={(cmd) => console.log('Insert command:', cmd)}
                   />
                 ))}

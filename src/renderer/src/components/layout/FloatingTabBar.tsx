@@ -85,7 +85,7 @@ export function FloatingTabBar({
   className,
 }: FloatingTabBarProps) {
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delay={200}>
       <div
         className={cn(
           // Base styles
@@ -168,23 +168,26 @@ export function FloatingTabBar({
         {/* Workspace Selector */}
         {workspaces.length > 0 && (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-9 px-3 rounded-lg gap-1.5',
-                  'text-text-secondary hover:text-foreground',
-                  'hover:bg-[var(--surface-3)]',
-                  'transition-all duration-200',
-                  'hover:scale-[1.02] active:scale-95',
-                  'font-mono text-xs tracking-tight'
-                )}
-              >
-                {currentWorkspace || 'Default'}
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={(props) => (
+                <Button
+                  {...props}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-9 px-3 rounded-lg gap-1.5',
+                    'text-text-secondary hover:text-foreground',
+                    'hover:bg-[var(--surface-3)]',
+                    'transition-all duration-200',
+                    'hover:scale-[1.02] active:scale-95',
+                    'font-mono text-xs tracking-tight'
+                  )}
+                >
+                  {currentWorkspace || 'Default'}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              )}
+            />
             <DropdownMenuContent align="end" className="w-48">
               {workspaces.map((workspace) => (
                 <DropdownMenuItem
@@ -204,7 +207,7 @@ export function FloatingTabBar({
       </div>
 
       {/* Bottom glow effect on active tab */}
-      <style jsx>{`
+      <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
@@ -239,104 +242,100 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          onClick={onClick}
-          className={cn(
-        // Base styles
-        'relative group flex items-center gap-2 h-9 px-3 rounded-lg',
-        'cursor-pointer select-none',
-        'transition-all duration-200 ease-out',
-        // Animations
-        'hover:scale-[1.02] active:scale-[0.98]',
-        // Active state
-        tab.isActive && [
-          'bg-[var(--surface-2)]',
-          'shadow-[0_2px_12px_-2px_rgba(59,130,246,0.3)]',
-        ],
-        // Inactive state
-        !tab.isActive && [
-          'hover:bg-[var(--surface-2)]',
-        ]
-      )}
-      style={{
-        animation: `tabEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.05}s both`,
-      }}
-    >
-      {/* Active indicator - bottom glow */}
-      {tab.isActive && (
-        <div
-          className="absolute -bottom-[1px] left-2 right-2 h-[3px] bg-primary rounded-full"
-          style={{
-            boxShadow: '0 0 12px 2px rgba(59, 130, 246, 0.4)',
-            animation: 'glowPulse 2s ease-in-out infinite',
-          }}
-        />
-      )}
+      <ContextMenuTrigger
+        render={(props) => (
+          <div
+            {...props}
+            onClick={(event) => {
+              props.onClick?.(event);
+              onClick();
+            }}
+            className={cn(
+              'relative group flex items-center gap-2 h-9 px-3 rounded-lg',
+              'cursor-pointer select-none',
+              'transition-all duration-200 ease-out',
+              'hover:scale-[1.02] active:scale-[0.98]',
+              tab.isActive && [
+                'bg-[var(--surface-2)]',
+                'shadow-[0_2px_12px_-2px_rgba(59,130,246,0.3)]',
+              ],
+              !tab.isActive && ['hover:bg-[var(--surface-2)]']
+            )}
+            style={{
+              animation: `tabEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.05}s both`,
+            }}
+          >
+            {tab.isActive && (
+              <div
+                className="absolute -bottom-[1px] left-2 right-2 h-[3px] bg-primary rounded-full"
+                style={{
+                  boxShadow: '0 0 12px 2px rgba(59, 130, 246, 0.4)',
+                  animation: 'glowPulse 2s ease-in-out infinite',
+                }}
+              />
+            )}
 
-      {/* Status indicator */}
-      <Circle
-        className={cn(
-          'h-2 w-2 flex-shrink-0 transition-all duration-300',
-          statusColors[tab.status],
-          tab.status === 'connecting' && 'animate-pulse'
+            <Circle
+              className={cn(
+                'h-2 w-2 flex-shrink-0 transition-all duration-300',
+                statusColors[tab.status],
+                tab.status === 'connecting' && 'animate-pulse'
+              )}
+              fill="currentColor"
+            />
+
+            <span
+              className={cn(
+                'text-xs font-mono tracking-tight truncate max-w-[120px]',
+                'transition-colors duration-200',
+                tab.isActive ? 'text-primary font-medium' : 'text-foreground'
+              )}
+            >
+              {tab.hostname || tab.title}
+            </span>
+
+            <button
+              onClick={handleClose}
+              className={cn(
+                'flex-shrink-0 rounded-md p-0.5',
+                'text-text-tertiary hover:text-foreground',
+                'hover:bg-[var(--surface-3)]',
+                'transition-all duration-200',
+                'opacity-0 group-hover:opacity-100',
+                tab.isActive && 'opacity-100',
+                'hover:scale-110 active:scale-90'
+              )}
+              aria-label={`Close ${tab.title}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+
+            <style>{`
+              @keyframes tabEnter {
+                from {
+                  opacity: 0;
+                  transform: translateX(-8px) scale(0.95);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateX(0) scale(1);
+                }
+              }
+
+              @keyframes glowPulse {
+                0%, 100% {
+                  opacity: 1;
+                  box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.4);
+                }
+                50% {
+                  opacity: 0.8;
+                  box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.6);
+                }
+              }
+            `}</style>
+          </div>
         )}
-        fill="currentColor"
       />
-
-      {/* Tab title */}
-      <span
-        className={cn(
-          'text-xs font-mono tracking-tight truncate max-w-[120px]',
-          'transition-colors duration-200',
-          tab.isActive ? 'text-primary font-medium' : 'text-foreground'
-        )}
-      >
-        {tab.hostname || tab.title}
-      </span>
-
-      {/* Close button */}
-      <button
-        onClick={handleClose}
-        className={cn(
-          'flex-shrink-0 rounded-md p-0.5',
-          'text-text-tertiary hover:text-foreground',
-          'hover:bg-[var(--surface-3)]',
-          'transition-all duration-200',
-          'opacity-0 group-hover:opacity-100',
-          tab.isActive && 'opacity-100',
-          'hover:scale-110 active:scale-90'
-        )}
-        aria-label={`Close ${tab.title}`}
-      >
-        <X className="h-3 w-3" />
-      </button>
-
-      <style jsx>{`
-        @keyframes tabEnter {
-          from {
-            opacity: 0;
-            transform: translateX(-8px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-          }
-        }
-
-        @keyframes glowPulse {
-          0%, 100% {
-            opacity: 1;
-            box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.4);
-          }
-          50% {
-            opacity: 0.8;
-            box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.6);
-          }
-        }
-      `}</style>
-    </div>
-      </ContextMenuTrigger>
 
       <ContextMenuContent className="w-56">
         <ContextMenuItem onClick={onOpenSftp} className="gap-2">
@@ -419,23 +418,26 @@ interface ActionButtonProps {
 function ActionButton({ icon: Icon, label, shortcut, onClick }: ActionButtonProps) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClick}
-          className={cn(
-            'h-9 w-9 p-0 rounded-lg',
-            'text-text-secondary hover:text-foreground',
-            'hover:bg-[var(--surface-3)]',
-            'transition-all duration-200',
-            'hover:scale-105 active:scale-95'
-          )}
-          aria-label={label}
-        >
-          <Icon className="h-4 w-4" />
-        </Button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={(props) => (
+          <Button
+            {...props}
+            variant="ghost"
+            size="sm"
+            onClick={onClick}
+            className={cn(
+              'h-9 w-9 p-0 rounded-lg',
+              'text-text-secondary hover:text-foreground',
+              'hover:bg-[var(--surface-3)]',
+              'transition-all duration-200',
+              'hover:scale-105 active:scale-95'
+            )}
+            aria-label={label}
+          >
+            <Icon className="h-4 w-4" />
+          </Button>
+        )}
+      />
       <TooltipContent side="bottom" sideOffset={8}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-foreground">{label}</span>

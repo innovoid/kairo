@@ -76,7 +76,7 @@ export function Overlay({ open, onOpenChange, children, className }: OverlayProp
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes overlayEnter {
           from {
             opacity: 0;
@@ -154,7 +154,7 @@ export function OverlayHeader({
         <X className="h-4 w-4" />
       </Button>
 
-      <style jsx>{`
+      <style>{`
         @keyframes titleEnter {
           from {
             opacity: 0;

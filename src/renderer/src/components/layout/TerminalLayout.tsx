@@ -52,7 +52,7 @@ export function TerminalLayout({
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideDownFadeIn {
           from {
             opacity: 0;

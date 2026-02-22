@@ -144,8 +144,8 @@ export function ReplayPlayer({ recordingPath, onClose }: ReplayPlayerProps) {
     }
   }
 
-  function seek(value: number[]) {
-    const targetTime = value[0];
+  function seek(value: number | readonly number[]) {
+    const targetTime = Array.isArray(value) ? value[0] : value;
     setCurrentTime(targetTime);
 
     // Find the event index for this time

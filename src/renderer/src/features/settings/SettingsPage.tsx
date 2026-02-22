@@ -234,7 +234,7 @@ function TerminalTab() {
                 <button
                   key={name}
                   type="button"
-                  onClick={() => setTerminalTheme(name)}
+                  onClick={() => setTerminalTheme(name as TerminalTheme)}
                   className={cn(
                     'relative rounded-lg border-2 p-3 text-left transition-all duration-300 hover:scale-[1.02]',
                     terminalTheme === name
@@ -656,4 +656,3 @@ function AiTab() {
     </div>
   );
 }
-
