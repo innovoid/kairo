@@ -26,6 +26,7 @@ import { HostForm } from '@/features/hosts/HostForm';
 import { KeysPage } from '@/features/keys/KeysPage';
 import { TeamOverlay } from '@/features/team/TeamOverlay';
 import { SettingsOverlay } from '@/features/settings/SettingsOverlay';
+import { AgentSidebar } from '@/features/agent/AgentSidebar';
 import { TransferProgress } from '@/features/sftp/TransferProgress';
 import { Overlay, OverlayContent, OverlayHeader } from '@/components/ui/overlay';
 import { MainArea } from './MainArea';
@@ -54,6 +55,7 @@ export function TerminalCentricAppShell() {
   const [keysImportOpen, setKeysImportOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('terminal');
 
   const { updateProgress } = useTransferStore();
@@ -328,6 +330,12 @@ export function TerminalCentricAppShell() {
     handleOpenSettings('terminal');
   });
 
+  // AI Agent
+  useHotkey(resolveHotkey('ai-agent'), (e) => {
+    e.preventDefault();
+    setAgentOpen(true);
+  });
+
   // Open SFTP
   useHotkey(resolveHotkey('open-sftp'), (e) => {
     e.preventDefault();
@@ -463,6 +471,15 @@ export function TerminalCentricAppShell() {
       onExecute: () => handleOpenSettings('terminal'),
     },
     {
+      id: 'ai-agent',
+      title: 'AI Agent',
+      description: 'Open AI agent sidebar',
+      category: 'actions',
+      shortcut: 'Cmd+Shift+A',
+      keywords: ['ai', 'agent', 'automation', 'playbook'],
+      onExecute: () => setAgentOpen(true),
+    },
+    {
       id: 'keyboard-shortcuts',
       title: 'Keyboard Shortcuts',
       description: 'View all keyboard shortcuts',
@@ -559,6 +576,7 @@ export function TerminalCentricAppShell() {
             }
             onKeys={handleOpenKeys}
             onCommandPalette={() => setCommandPaletteOpen(true)}
+            onAiAgent={() => setAgentOpen(true)}
             onSettings={() => handleOpenSettings('terminal')}
             onOpenSftp={handleOpenSftp}
             onStartRecording={handleStartRecording}
@@ -637,6 +655,11 @@ export function TerminalCentricAppShell() {
             onOpenChange={setSettingsOpen}
             workspaceId={workspaceId}
             initialTab={settingsInitialTab}
+          />
+          <AgentSidebar
+            open={agentOpen}
+            onOpenChange={setAgentOpen}
+            workspaceId={workspaceId}
           />
         </>
       }

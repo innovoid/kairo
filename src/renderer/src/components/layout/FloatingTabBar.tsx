@@ -1,4 +1,4 @@
-import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio } from 'lucide-react';
+import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,7 @@ interface FloatingTabBarProps {
   onSnippets?: () => void;
   onKeys?: () => void;
   onCommandPalette?: () => void;
+  onAiAgent?: () => void;
   onSettings?: () => void;
   onOpenSftp?: (tabId: string) => void;
   onStartRecording?: (tabId: string) => void;
@@ -75,6 +76,7 @@ export function FloatingTabBar({
   onSnippets,
   onKeys,
   onCommandPalette,
+  onAiAgent,
   onSettings,
   onOpenSftp,
   onStartRecording,
@@ -163,6 +165,7 @@ export function FloatingTabBar({
         <div className="h-6 w-px bg-[var(--border)] mx-1" />
 
         <ActionButton icon={Search} label="Command Palette" shortcut="Cmd+K" onClick={onCommandPalette} />
+        <ActionButton icon={Bot} label="AI Agent" shortcut="Cmd+Shift+A" onClick={onAiAgent} />
         <ActionButton icon={Settings} label="Settings" shortcut="Cmd+," onClick={onSettings} />
 
         {/* Divider */}

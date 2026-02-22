@@ -11,6 +11,7 @@ export const HOTKEY_DEFINITIONS: HotkeyDefinition[] = [
   // General
   { id: 'command-palette', key: 'mod+k', description: 'Open command palette', category: 'general' },
   { id: 'settings', key: 'mod+,', description: 'Open settings', category: 'general' },
+  { id: 'ai-agent', key: 'mod+shift+a', description: 'Open AI agent sidebar', category: 'general' },
 
   // Terminal
   { id: 'new-tab', key: 'mod+t', description: 'New terminal connection', category: 'terminal' },

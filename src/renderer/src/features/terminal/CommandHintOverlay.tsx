@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { Terminal } from '@xterm/xterm';
-import { toast } from 'sonner';
-import { useSettingsStore } from '@/stores/settings-store';
-import { useAgentStore } from '@/stores/agent-store';
+import type { Snippet } from '@shared/types/snippets';
+import type { SftpEntry } from '@shared/types/sftp';
+import { useSnippetStore } from '@/stores/snippet-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
-import type { AgentRun, AgentStep } from '@shared/types/agent';
 
 interface CommandHintOverlayProps {
   terminal: Terminal | null;
@@ -14,202 +13,217 @@ interface CommandHintOverlayProps {
   hostLabel?: string;
 }
 
-interface CommandHint {
-  command: string;
-  description: string;
-  usage: string;
+type HintGroup = 'Snippets' | 'History' | 'Context';
+
+interface HintSuggestion {
+  group: HintGroup;
+  text: string;
 }
 
 interface HintLine {
   text: string;
-  tone?: 'muted' | 'active' | 'header';
+  tone?: 'muted' | 'header';
 }
 
-const COMMANDS: CommandHint[] = [
-  {
-    command: '@upload',
-    description: 'Upload files to remote server',
-    usage: '@upload',
-  },
-  {
-    command: '@download',
-    description: 'Download file from remote server',
-    usage: '@download <filename>',
-  },
-  {
-    command: '@ai',
-    description: 'Translate natural language to shell command',
-    usage: '@ai <describe what you want>',
-  },
-  {
-    command: '@agent',
-    description: 'Run AI operator workflow with step approvals',
-    usage: '@agent <task>',
-  },
-  {
-    command: '@agent-save',
-    description: 'Save latest agent run as reusable playbook',
-    usage: '@agent-save <playbook-name>',
-  },
-  {
-    command: '@agent-playbooks',
-    description: 'List saved playbooks',
-    usage: '@agent-playbooks [filter]',
-  },
-  {
-    command: '@agent-run',
-    description: 'Run a saved playbook',
-    usage: '@agent-run <playbook-name>',
-  },
-];
+const PATH_COMMANDS = new Set([
+  'cd',
+  'ls',
+  'cat',
+  'less',
+  'more',
+  'tail',
+  'head',
+  'nano',
+  'vim',
+  'vi',
+  'rm',
+  'cp',
+  'mv',
+  'mkdir',
+  'rmdir',
+  'touch',
+  'chmod',
+  'chown',
+  'du',
+  'find',
+]);
+
+const MAX_PER_GROUP = 4;
+const HISTORY_LIMIT = 200;
+const CONTEXT_CACHE_TTL_MS = 5000;
+
+function normalizePath(pathValue: string): string {
+  if (!pathValue) return '/';
+  const collapsed = pathValue.replace(/\/+/, '/').replace(/\/+/g, '/');
+  return collapsed || '/';
+}
+
+function getHistoryKey(sessionId: string, hostId?: string): string {
+  return `archterm:terminal-history:${hostId ?? sessionId}`;
+}
+
+function loadHistory(key: string): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === 'string');
+  } catch {
+    return [];
+  }
+}
+
+function persistHistory(key: string, history: string[]): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(history.slice(0, HISTORY_LIMIT)));
+  } catch {
+    // Ignore localStorage write failures
+  }
+}
+
+function splitPathQuery(
+  token: string,
+  currentRemotePath: string,
+  commandAllowsPlainPath: boolean
+): { listDir: string; prefix: string } | null {
+  if (!token) {
+    return commandAllowsPlainPath
+      ? { listDir: currentRemotePath, prefix: '' }
+      : null;
+  }
+
+  if (token.startsWith('/')) {
+    if (token.endsWith('/')) {
+      return { listDir: normalizePath(token), prefix: '' };
+    }
+    const idx = token.lastIndexOf('/');
+    const listDir = idx <= 0 ? '/' : token.slice(0, idx);
+    const prefix = token.slice(idx + 1);
+    return { listDir: normalizePath(listDir), prefix };
+  }
+
+  if (token.startsWith('./')) {
+    const relative = token.slice(2);
+    if (!relative) return { listDir: currentRemotePath, prefix: '' };
+    if (relative.endsWith('/')) {
+      return { listDir: normalizePath(`${currentRemotePath}/${relative}`), prefix: '' };
+    }
+    const idx = relative.lastIndexOf('/');
+    if (idx < 0) {
+      return { listDir: currentRemotePath, prefix: relative };
+    }
+    return {
+      listDir: normalizePath(`${currentRemotePath}/${relative.slice(0, idx)}`),
+      prefix: relative.slice(idx + 1),
+    };
+  }
+
+  if (token.startsWith('~/')) {
+    const homeBase = currentRemotePath;
+    const relative = token.slice(2);
+    if (!relative) return { listDir: homeBase, prefix: '' };
+    if (relative.endsWith('/')) {
+      return { listDir: normalizePath(`${homeBase}/${relative}`), prefix: '' };
+    }
+    const idx = relative.lastIndexOf('/');
+    if (idx < 0) {
+      return { listDir: homeBase, prefix: relative };
+    }
+    return {
+      listDir: normalizePath(`${homeBase}/${relative.slice(0, idx)}`),
+      prefix: relative.slice(idx + 1),
+    };
+  }
+
+  if (token.includes('/')) {
+    if (token.endsWith('/')) {
+      return { listDir: normalizePath(`${currentRemotePath}/${token}`), prefix: '' };
+    }
+    const idx = token.lastIndexOf('/');
+    return {
+      listDir: normalizePath(`${currentRemotePath}/${token.slice(0, idx)}`),
+      prefix: token.slice(idx + 1),
+    };
+  }
+
+  if (commandAllowsPlainPath) {
+    return { listDir: currentRemotePath, prefix: token };
+  }
+
+  return null;
+}
+
+function parseContextToken(line: string): { token: string; commandAllowsPlainPath: boolean } | null {
+  const rightTrimmed = line.replace(/\s+$/, '');
+  if (!rightTrimmed) return null;
+
+  const endsWithSpace = /\s$/.test(line);
+  const parts = rightTrimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const command = parts[0];
+  const commandAllowsPlainPath = PATH_COMMANDS.has(command);
+  const token = endsWithSpace ? '' : (parts[parts.length - 1] ?? '');
+
+  const patternContext =
+    token.startsWith('/') || token.startsWith('./') || token.startsWith('~/') || token.includes('/');
+
+  if (!commandAllowsPlainPath && !patternContext) {
+    return null;
+  }
+
+  return { token, commandAllowsPlainPath };
+}
 
 export function CommandHintOverlay({
   terminal,
   sessionId,
   currentRemotePath = '/home',
   hostId,
-  hostLabel,
 }: CommandHintOverlayProps) {
-  const commandModeRef = useRef(false);
-  const inputBufferRef = useRef('');
   const hintLineCountRef = useRef(0);
-  const currentMatchesRef = useRef<CommandHint[]>([]);
-  const selectedIndexRef = useRef(0);
-  const selectedAgentStepIdxRef = useRef(0);
-  const pendingDoubleConfirmStepIdRef = useRef<string | null>(null);
-  const activeRunRef = useRef<AgentRun | null>(null);
-  const stepOutputByStepIdRef = useRef<Record<string, string>>({});
-  const settingsRef = useRef(useSettingsStore.getState().settings);
-  const { settings } = useSettingsStore();
-  const initAgentListeners = useAgentStore((s) => s.initListeners);
-  const startAgentRun = useAgentStore((s) => s.startRun);
-  const runPlaybook = useAgentStore((s) => s.runPlaybook);
-  const listPlaybooks = useAgentStore((s) => s.listPlaybooks);
-  const savePlaybook = useAgentStore((s) => s.savePlaybook);
-  const approveAgentStep = useAgentStore((s) => s.approveStep);
-  const cancelAgentRun = useAgentStore((s) => s.cancelRun);
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspace?.id);
-  const activeRunId = useAgentStore((s) => s.activeRunBySession[sessionId]);
-  const activeRun = useAgentStore((s) => (activeRunId ? s.runs[activeRunId] : null));
-  const stepOutputByStepId = useAgentStore((s) => s.stepOutputByStepId);
+  const inputBufferRef = useRef('');
+  const refreshTimerRef = useRef<number | null>(null);
+  const refreshTokenRef = useRef(0);
+  const historyRef = useRef<string[]>([]);
+  const historyKeyRef = useRef('');
+  const snippetsRef = useRef<Snippet[]>([]);
+  const cacheRef = useRef<Record<string, { at: number; entries: SftpEntry[] }>>({});
+
+  const workspaceId = useWorkspaceStore((s) => s.activeWorkspace?.id);
+  const snippets = useSnippetStore((s) => s.snippets);
+  const fetchSnippets = useSnippetStore((s) => s.fetchSnippets);
 
   useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
+    snippetsRef.current = snippets;
+  }, [snippets]);
 
   useEffect(() => {
-    initAgentListeners();
-  }, [initAgentListeners]);
+    if (workspaceId) {
+      void fetchSnippets(workspaceId);
+    }
+  }, [workspaceId, fetchSnippets]);
 
   useEffect(() => {
-    activeRunRef.current = activeRun;
-    if (activeRun) {
-      const approvalIdx = activeRun.steps.findIndex(
-        (step) => step.status === 'awaiting_approval' || step.status === 'blocked'
-      );
-      if (approvalIdx >= 0) {
-        selectedAgentStepIdxRef.current = approvalIdx;
-      }
-    }
-    if (!commandModeRef.current) {
-      renderAgentHints();
-    }
-  }, [activeRun]);
-
-  useEffect(() => {
-    stepOutputByStepIdRef.current = stepOutputByStepId;
-    if (!commandModeRef.current) {
-      renderAgentHints();
-    }
-  }, [stepOutputByStepId]);
-
-  const getStatusGlyph = (status: AgentStep['status']) => {
-    if (status === 'done') return '✓';
-    if (status === 'failed') return '✗';
-    if (status === 'running') return '…';
-    if (status === 'awaiting_approval') return '!';
-    if (status === 'blocked') return '⚠';
-    if (status === 'skipped') return '-';
-    return '·';
-  };
-
-  const renderAgentHints = () => {
-    const run = activeRunRef.current;
-    if (!run) {
-      clearHintLines();
-      return;
-    }
-
-    const steps = run.steps;
-    if (steps.length === 0) {
-      renderHintLines([
-        { text: `Agent: ${run.task}`, tone: 'header' },
-        { text: `Status: ${run.status}` },
-      ]);
-      return;
-    }
-
-    if (selectedAgentStepIdxRef.current >= steps.length) {
-      selectedAgentStepIdxRef.current = steps.length - 1;
-    }
-    if (selectedAgentStepIdxRef.current < 0) {
-      selectedAgentStepIdxRef.current = 0;
-    }
-
-    const maxVisible = 5;
-    const windowStart = Math.max(
-      0,
-      Math.min(selectedAgentStepIdxRef.current - 2, Math.max(0, steps.length - maxVisible))
-    );
-    const visibleSteps = steps.slice(windowStart, windowStart + maxVisible);
-
-    const footer = run.status === 'awaiting_approval' || run.status === 'blocked'
-      ? 'Enter approve  Tab preview command  ↑/↓ select  Esc cancel'
-      : run.status === 'running'
-        ? 'Agent executing...'
-        : `Run ${run.status}`;
-
-    const selectedStep = steps[selectedAgentStepIdxRef.current];
-    const rawOutput = selectedStep
-      ? stepOutputByStepIdRef.current[selectedStep.id] ?? selectedStep.outputSummary ?? ''
-      : '';
-    const outputPreview = rawOutput
-      .replace(/\x1b\[[0-9;]*m/g, '')
-      .split('\n')
-      .filter((line) => line.trim().length > 0)
-      .slice(-1)[0];
-
-    renderHintLines([
-      { text: `Agent: ${run.task}`, tone: 'header' },
-      ...visibleSteps.map((step, idx) => {
-        const absoluteIdx = windowStart + idx;
-        const active = absoluteIdx === selectedAgentStepIdxRef.current;
-        return {
-          text: `${active ? '›' : ' '} [${getStatusGlyph(step.status)}] ${step.title}`,
-          tone: active ? 'active' : 'muted',
-        } as HintLine;
-      }),
-      run.lastError ? { text: `Error: ${run.lastError}`, tone: 'muted' } : { text: footer, tone: 'muted' },
-      outputPreview ? { text: `Output: ${outputPreview.slice(0, 96)}`, tone: 'muted' } : { text: '' },
-    ]);
-  };
+    const key = getHistoryKey(sessionId, hostId);
+    historyKeyRef.current = key;
+    historyRef.current = loadHistory(key);
+  }, [sessionId, hostId]);
 
   const renderHintLines = (lines: HintLine[]) => {
     if (!terminal) return;
 
-    const normalizedLines = lines.filter((line) => line.text.trim().length > 0);
-    const maxLines = Math.max(hintLineCountRef.current, normalizedLines.length);
+    const normalized = lines.filter((line) => line.text.trim().length > 0);
+    const maxLines = Math.max(hintLineCountRef.current, normalized.length);
 
     terminal.write('\x1b7');
 
-    // Move one row down at a time to keep the block tightly aligned below the prompt.
     for (let i = 0; i < maxLines; i += 1) {
       terminal.write('\x1b[B\r\x1b[2K');
-      if (i < normalizedLines.length) {
-        const line = normalizedLines[i];
-        if (line.tone === 'active') {
-          terminal.write(`\x1b[1;96m${line.text}\x1b[0m`);
-        } else if (line.tone === 'header') {
+      if (i < normalized.length) {
+        const line = normalized[i];
+        if (line.tone === 'header') {
           terminal.write(`\x1b[37m${line.text}\x1b[0m`);
         } else {
           terminal.write(`\x1b[90m${line.text}\x1b[0m`);
@@ -217,7 +231,7 @@ export function CommandHintOverlay({
       }
     }
 
-    hintLineCountRef.current = normalizedLines.length;
+    hintLineCountRef.current = normalized.length;
     terminal.write('\x1b8');
   };
 
@@ -226,97 +240,156 @@ export function CommandHintOverlay({
     renderHintLines([]);
   };
 
-  const updateHintLine = () => {
-    const [commandToken, ...rest] = inputBufferRef.current.split(' ');
-    if (!commandToken.startsWith('@')) {
-      currentMatchesRef.current = [];
-      selectedIndexRef.current = 0;
+  const pushHistory = (line: string) => {
+    const command = line.trim();
+    if (!command) return;
+
+    const existing = historyRef.current.filter((item) => item !== command);
+    historyRef.current = [command, ...existing].slice(0, HISTORY_LIMIT);
+    persistHistory(historyKeyRef.current, historyRef.current);
+  };
+
+  const buildSnippetSuggestions = (line: string): HintSuggestion[] => {
+    const query = line.trim().toLowerCase();
+    if (!query) return [];
+
+    return snippetsRef.current
+      .filter((snippet) => {
+        const nameMatch = snippet.name.toLowerCase().includes(query);
+        const commandMatch = snippet.command.toLowerCase().includes(query);
+        return nameMatch || commandMatch;
+      })
+      .slice(0, MAX_PER_GROUP)
+      .map((snippet) => ({
+        group: 'Snippets' as const,
+        text: `${snippet.command}  (${snippet.name})`,
+      }));
+  };
+
+  const buildHistorySuggestions = (line: string): HintSuggestion[] => {
+    const query = line.trim().toLowerCase();
+    if (!query) return [];
+
+    return historyRef.current
+      .filter((cmd) => cmd.toLowerCase().includes(query) && cmd !== line.trim())
+      .slice(0, MAX_PER_GROUP)
+      .map((cmd) => ({
+        group: 'History' as const,
+        text: cmd,
+      }));
+  };
+
+  const listContextEntries = async (listDir: string): Promise<SftpEntry[]> => {
+    const cached = cacheRef.current[listDir];
+    if (cached && Date.now() - cached.at < CONTEXT_CACHE_TTL_MS) {
+      return cached.entries;
+    }
+
+    const entries = await window.sftpApi.list(sessionId, listDir);
+    cacheRef.current[listDir] = { at: Date.now(), entries };
+    return entries;
+  };
+
+  const buildContextSuggestions = async (line: string): Promise<HintSuggestion[]> => {
+    const parsed = parseContextToken(line);
+    if (!parsed) return [];
+
+    const split = splitPathQuery(parsed.token, currentRemotePath, parsed.commandAllowsPlainPath);
+    if (!split) return [];
+
+    try {
+      const entries = await listContextEntries(split.listDir);
+      const prefixLower = split.prefix.toLowerCase();
+
+      return entries
+        .filter((entry) => entry.name.toLowerCase().startsWith(prefixLower))
+        .slice(0, MAX_PER_GROUP)
+        .map((entry) => {
+          const suffix = entry.type === 'directory' ? '/' : '';
+          const fullPath = split.listDir === '/'
+            ? `/${entry.name}${suffix}`
+            : `${split.listDir}/${entry.name}${suffix}`;
+          return {
+            group: 'Context' as const,
+            text: fullPath,
+          };
+        });
+    } catch {
+      return [];
+    }
+  };
+
+  const renderGroupedSuggestions = (suggestions: HintSuggestion[]) => {
+    if (suggestions.length === 0) {
       clearHintLines();
       return;
     }
 
-    if (rest.length > 0) {
-      currentMatchesRef.current = [];
-      selectedIndexRef.current = 0;
-      const exact = COMMANDS.find((cmd) => cmd.command === commandToken);
-      if (exact) {
-        renderHintLines([
-          { text: `${exact.command}  ${exact.description}`, tone: 'header' },
-          { text: `Usage: ${exact.usage}` },
-        ]);
-      } else {
-        renderHintLines([
-          { text: 'Unknown command.', tone: 'header' },
-          { text: 'Available: @upload, @download, @ai, @agent, @agent-save, @agent-playbooks, @agent-run' },
-        ]);
+    const groups: HintGroup[] = ['Snippets', 'History', 'Context'];
+    const lines: HintLine[] = [{ text: 'Hints', tone: 'header' }];
+
+    for (const group of groups) {
+      const groupItems = suggestions.filter((item) => item.group === group);
+      if (groupItems.length === 0) continue;
+
+      lines.push({ text: `${group}:`, tone: 'header' });
+      for (const item of groupItems) {
+        lines.push({ text: `  ${item.text}`, tone: 'muted' });
       }
+    }
+
+    renderHintLines(lines);
+  };
+
+  const refreshHints = async () => {
+    const token = ++refreshTokenRef.current;
+    const line = inputBufferRef.current;
+
+    if (!line.trim()) {
+      clearHintLines();
       return;
     }
 
-    const matches = COMMANDS.filter((cmd) => cmd.command.startsWith(commandToken));
-    if (matches.length === 0) {
-      currentMatchesRef.current = [];
-      selectedIndexRef.current = 0;
-      renderHintLines([{ text: 'No matching commands' }]);
-      return;
-    }
+    const snippetSuggestions = buildSnippetSuggestions(line);
+    const historySuggestions = buildHistorySuggestions(line);
+    const contextSuggestions = await buildContextSuggestions(line);
 
-    const prevSelectedCommand = currentMatchesRef.current[selectedIndexRef.current]?.command;
-    currentMatchesRef.current = matches;
+    if (token !== refreshTokenRef.current) return;
 
-    if (prevSelectedCommand) {
-      const newSelectedIdx = matches.findIndex((cmd) => cmd.command === prevSelectedCommand);
-      selectedIndexRef.current = newSelectedIdx >= 0 ? newSelectedIdx : 0;
-    }
-
-    if (selectedIndexRef.current >= matches.length) {
-      selectedIndexRef.current = 0;
-    }
-
-    const maxVisible = 5;
-    const windowStart = Math.max(
-      0,
-      Math.min(selectedIndexRef.current - 2, Math.max(0, matches.length - maxVisible))
-    );
-    const visibleMatches = matches.slice(windowStart, windowStart + maxVisible);
-
-    renderHintLines([
-      { text: 'Hints (↑/↓ navigate, Tab complete):', tone: 'header' },
-      ...visibleMatches.map((cmd, idx) => {
-        const absoluteIdx = windowStart + idx;
-        const isActive = absoluteIdx === selectedIndexRef.current;
-        return {
-          text: `${isActive ? '›' : ' '} ${cmd.command}  ${cmd.description}`,
-          tone: isActive ? 'active' : 'muted',
-        } as HintLine;
-      }),
-      matches.length > maxVisible
-        ? { text: `${matches.length - visibleMatches.length} more matches`, tone: 'muted' }
-        : { text: '' },
+    renderGroupedSuggestions([
+      ...snippetSuggestions,
+      ...historySuggestions,
+      ...contextSuggestions,
     ]);
   };
 
-  const resetCommandMode = () => {
-    clearHintLines();
-    commandModeRef.current = false;
-    inputBufferRef.current = '';
-    currentMatchesRef.current = [];
-    selectedIndexRef.current = 0;
-    pendingDoubleConfirmStepIdRef.current = null;
-    if (activeRunRef.current) {
-      renderAgentHints();
+  const scheduleRefresh = () => {
+    if (refreshTimerRef.current) {
+      window.clearTimeout(refreshTimerRef.current);
     }
-  };
-
-  const eraseCurrentBuffer = () => {
-    if (!terminal || inputBufferRef.current.length === 0) return;
-    clearHintLines();
-    terminal.write('\b \b'.repeat(inputBufferRef.current.length));
-    inputBufferRef.current = '';
+    refreshTimerRef.current = window.setTimeout(() => {
+      void refreshHints();
+    }, 120);
   };
 
   useEffect(() => {
     if (!terminal) return;
+
+    const focusHandler = () => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      const terminalElement = terminal.element as HTMLElement | undefined;
+      const terminalHasFocus = Boolean(
+        terminalElement &&
+          activeElement &&
+          (terminalElement === activeElement || terminalElement.contains(activeElement))
+      );
+
+      if (!terminalHasFocus) {
+        clearHintLines();
+      }
+    };
+
+    document.addEventListener('focusin', focusHandler);
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const activeElement = document.activeElement as HTMLElement | null;
@@ -328,447 +401,67 @@ export function CommandHintOverlay({
       );
 
       if (!terminalHasFocus) {
-        if (commandModeRef.current) {
-          resetCommandMode();
-        }
+        clearHintLines();
         return true;
       }
 
-      const consume = () => {
-        event.preventDefault();
-        event.stopPropagation();
-        setTimeout(() => terminal.focus(), 0);
-        return false;
-      };
-
       if (event.type !== 'keydown') {
-        return !commandModeRef.current;
+        return true;
       }
-
-      const run = activeRunRef.current;
-      if (!commandModeRef.current && run && (run.status === 'awaiting_approval' || run.status === 'blocked')) {
-        if (event.key === 'ArrowDown') {
-          selectedAgentStepIdxRef.current = Math.min(
-            run.steps.length - 1,
-            selectedAgentStepIdxRef.current + 1
-          );
-          renderAgentHints();
-          return consume();
-        }
-
-        if (event.key === 'ArrowUp') {
-          selectedAgentStepIdxRef.current = Math.max(0, selectedAgentStepIdxRef.current - 1);
-          renderAgentHints();
-          return consume();
-        }
-
-        if (event.key === 'Tab') {
-          const selectedStep = run.steps[selectedAgentStepIdxRef.current];
-          if (selectedStep) {
-            terminal.write(selectedStep.command);
-          }
-          return consume();
-        }
-
-        if (event.key === 'Enter') {
-          const selectedStep = run.steps[selectedAgentStepIdxRef.current];
-          if (!selectedStep) return consume();
-          if (selectedStep.status !== 'awaiting_approval' && selectedStep.status !== 'blocked') {
-            toast.info('Select a step awaiting approval.');
-            return consume();
-          }
-
-          if (selectedStep.requiresDoubleConfirm && pendingDoubleConfirmStepIdRef.current !== selectedStep.id) {
-            pendingDoubleConfirmStepIdRef.current = selectedStep.id;
-            toast.warning('Press Enter again to confirm destructive command.');
-            renderAgentHints();
-            return consume();
-          }
-
-          pendingDoubleConfirmStepIdRef.current = null;
-          void approveAgentStep(run.id, selectedStep, {
-            elevate: selectedStep.risk === 'needs_privilege',
-            doubleConfirm: selectedStep.requiresDoubleConfirm,
-          });
-          return consume();
-        }
-
-        if (event.key === 'Escape') {
-          void cancelAgentRun(run.id);
-          return consume();
-        }
-      }
-
-      if (
-        event.key === '@' &&
-        !commandModeRef.current &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
-        commandModeRef.current = true;
-        inputBufferRef.current = '@';
-        terminal.write('@');
-        updateHintLine();
-        return consume();
-      }
-
-      if (!commandModeRef.current) return true;
 
       if (event.ctrlKey || event.metaKey || event.altKey) {
-        resetCommandMode();
+        return true;
+      }
+
+      if (event.key === 'Enter') {
+        pushHistory(inputBufferRef.current);
+        inputBufferRef.current = '';
+        clearHintLines();
+        return true;
+      }
+
+      if (event.key === 'Backspace') {
+        inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+        scheduleRefresh();
         return true;
       }
 
       if (event.key === 'Escape') {
-        eraseCurrentBuffer();
-        resetCommandMode();
-        return consume();
+        inputBufferRef.current = '';
+        clearHintLines();
+        return true;
       }
 
-      if (event.key === 'Backspace') {
-        if (inputBufferRef.current.length === 0) {
-          resetCommandMode();
-          return consume();
-        }
-
-        inputBufferRef.current = inputBufferRef.current.slice(0, -1);
-        terminal.write('\b \b');
-
-        if (inputBufferRef.current.length === 0) {
-          resetCommandMode();
-        } else {
-          updateHintLine();
-        }
-
-        return consume();
+      if (
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown' ||
+        event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight'
+      ) {
+        inputBufferRef.current = '';
+        clearHintLines();
+        return true;
       }
 
-      if (event.key === 'Tab') {
-        const [commandToken, ...rest] = inputBufferRef.current.split(' ');
-        if (rest.length === 0) {
-          const match =
-            currentMatchesRef.current[selectedIndexRef.current] ??
-            COMMANDS.find((cmd) => cmd.command.startsWith(commandToken));
-          if (match && match.command !== commandToken) {
-            const remaining = match.command.slice(commandToken.length);
-            terminal.write(remaining);
-            inputBufferRef.current = match.command;
-          }
-          updateHintLine();
-        }
-        return consume();
-      }
-
-      if (event.key === 'ArrowDown') {
-        if (currentMatchesRef.current.length > 0) {
-          selectedIndexRef.current =
-            (selectedIndexRef.current + 1) % currentMatchesRef.current.length;
-          updateHintLine();
-        }
-        return consume();
-      }
-
-      if (event.key === 'ArrowUp') {
-        if (currentMatchesRef.current.length > 0) {
-          selectedIndexRef.current =
-            (selectedIndexRef.current - 1 + currentMatchesRef.current.length) %
-            currentMatchesRef.current.length;
-          updateHintLine();
-        }
-        return consume();
-      }
-
-      if (event.key === 'Enter') {
-        const buffer = inputBufferRef.current.trim();
-        resetCommandMode();
-
-        if (!buffer.startsWith('@')) {
-          terminal.write('\r\n');
-          return consume();
-        }
-
-        terminal.write('\r\n');
-        void handleCommand(buffer);
-        return consume();
-      }
-
-      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.key.length === 1) {
         inputBufferRef.current += event.key;
-        terminal.write(event.key);
-
-        updateHintLine();
-        return consume();
+        scheduleRefresh();
+        return true;
       }
 
-      return consume();
+      return true;
     });
 
     return () => {
+      document.removeEventListener('focusin', focusHandler);
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
       clearHintLines();
       terminal.attachCustomKeyEventHandler(() => true);
     };
-  }, [terminal]);
-
-  async function handleCommand(buffer: string) {
-    const [commandToken, ...args] = buffer.split(' ');
-    if (commandToken === '@upload') {
-      await handleUpload();
-      return;
-    }
-
-    if (commandToken === '@download') {
-      await handleDownload(args.join(' ').trim());
-      return;
-    }
-
-    if (commandToken === '@ai') {
-      await handleAiTranslation(args.join(' ').trim());
-      return;
-    }
-
-    if (commandToken === '@agent') {
-      await handleAgentTask(args.join(' ').trim());
-      return;
-    }
-
-    if (commandToken === '@agent-save') {
-      await handleAgentSave(args.join(' ').trim());
-      return;
-    }
-
-    if (commandToken === '@agent-playbooks') {
-      await handleAgentPlaybooks(args.join(' ').trim());
-      return;
-    }
-
-    if (commandToken === '@agent-run') {
-      await handleAgentRun(args.join(' ').trim());
-      return;
-    }
-
-    toast.error('Unknown command. Available: @upload, @download, @ai, @agent, @agent-save, @agent-playbooks, @agent-run');
-  }
-
-  async function handleUpload() {
-    try {
-      const files = await window.sftpApi.pickUploadFiles();
-      if (!files || files.length === 0) return;
-
-      for (const localPath of files) {
-        const filename = localPath.split('/').pop() || 'file';
-        const remotePath = `${currentRemotePath}/${filename}`.replace('//', '/');
-
-        toast.promise(
-          window.sftpApi.upload(sessionId, localPath, remotePath, crypto.randomUUID()),
-          {
-            loading: `Uploading ${filename}...`,
-            success: `Uploaded ${filename}`,
-            error: (err) => `Upload failed: ${err.message}`,
-          }
-        );
-      }
-    } catch (err: any) {
-      if (err.message?.includes('SFTP')) {
-        toast.error('No SFTP connection. Open SFTP first (Cmd+Shift+F)');
-      } else {
-        toast.error(`Upload failed: ${err.message}`);
-      }
-    }
-  }
-
-  async function handleDownload(filename: string) {
-    if (!filename) {
-      toast.error('Usage: @download <filename>');
-      return;
-    }
-
-    const remotePath = `${currentRemotePath}/${filename}`.replace('//', '/');
-    const localPath = window.prompt('Save downloaded file as:', filename);
-    if (!localPath?.trim()) return;
-
-    try {
-      toast.promise(
-        window.sftpApi.download(sessionId, remotePath, localPath.trim(), crypto.randomUUID()),
-        {
-          loading: `Downloading ${filename}...`,
-          success: `Downloaded ${filename}`,
-          error: (err) => `Download failed: ${err.message}`,
-        }
-      );
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        toast.error(`File not found: ${filename}`);
-      } else if (err.message?.includes('SFTP')) {
-        toast.error('No SFTP connection. Open SFTP first (Cmd+Shift+F)');
-      } else {
-        toast.error(`Download failed: ${err.message}`);
-      }
-    }
-  }
-
-  async function handleAiTranslation(naturalLanguage: string) {
-    if (!naturalLanguage) {
-      toast.error('Usage: @ai <describe what you want>');
-      return;
-    }
-
-    const provider = settingsRef.current?.aiProvider ?? 'openai';
-    const apiKey = await window.apiKeysApi.get(provider);
-
-    if (!apiKey) {
-      toast.error(`No API key configured for ${provider}. Go to Settings → AI to add your key.`);
-      return;
-    }
-
-    try {
-      const requestId = crypto.randomUUID();
-      let translatedCommand = '';
-
-      // Listen for chunks
-      const offChunk = window.aiApi.onChunk((id, chunk) => {
-        if (id === requestId) {
-          translatedCommand += chunk;
-        }
-      });
-
-      const offDone = window.aiApi.onDone((id) => {
-        if (id === requestId) {
-          if (terminal) {
-            terminal.write(translatedCommand);
-          }
-          toast.success('Command translated');
-          offChunk();
-          offDone();
-          offError();
-        }
-      });
-
-      const offError = window.aiApi.onError((id, error) => {
-        if (id === requestId) {
-          toast.error(`AI translation failed: ${error}`);
-          offChunk();
-          offDone();
-          offError();
-        }
-      });
-
-      // Call AI translation
-      const model =
-        provider === 'openai'
-          ? 'gpt-4o-mini'
-          : provider === 'anthropic'
-            ? 'claude-haiku-3-5'
-            : 'gemini-2.0-flash';
-
-      await window.aiApi.translateCommand({
-        provider,
-        apiKey,
-        model,
-        naturalLanguage,
-        requestId,
-      });
-    } catch (err: any) {
-      toast.error(`AI translation failed: ${err.message}`);
-    }
-  }
-
-  async function handleAgentTask(task: string) {
-    if (!task) {
-      toast.error('Usage: @agent <task>');
-      return;
-    }
-
-    try {
-      const run = await startAgentRun({
-        sessionId,
-        task,
-        hostId,
-        hostLabel,
-      });
-      activeRunRef.current = run;
-      selectedAgentStepIdxRef.current = 0;
-      renderAgentHints();
-      toast.success('Agent plan ready. Review steps and press Enter to approve.');
-    } catch (error) {
-      toast.error((error as Error).message || 'Failed to start agent run');
-    }
-  }
-
-  async function handleAgentSave(name: string) {
-    const run = activeRunRef.current;
-    if (!run) {
-      toast.error('No active agent run to save');
-      return;
-    }
-    if (!name) {
-      toast.error('Usage: @agent-save <playbook-name>');
-      return;
-    }
-    try {
-      const playbook = await savePlaybook(run.id, name, activeWorkspaceId);
-      toast.success(`Saved playbook: ${playbook.name}`);
-      renderHintLines([
-        { text: `Saved playbook: ${playbook.name}`, tone: 'header' },
-        { text: `Run with: @agent-run ${playbook.name}` },
-      ]);
-    } catch (error) {
-      toast.error((error as Error).message || 'Failed to save playbook');
-    }
-  }
-
-  async function handleAgentPlaybooks(filter: string) {
-    try {
-      const playbooks = await listPlaybooks(activeWorkspaceId);
-      const normalized = filter.trim().toLowerCase();
-      const filtered = normalized
-        ? playbooks.filter((playbook) => playbook.name.toLowerCase().includes(normalized))
-        : playbooks;
-
-      if (filtered.length === 0) {
-        renderHintLines([
-          { text: 'No playbooks found', tone: 'header' },
-          { text: 'Save one with: @agent-save <name>' },
-        ]);
-        return;
-      }
-
-      const shown = filtered.slice(0, 6);
-      renderHintLines([
-        { text: `Playbooks (${filtered.length})`, tone: 'header' },
-        ...shown.map((playbook) => ({ text: `• ${playbook.name} — ${playbook.task}` })),
-        filtered.length > shown.length
-          ? { text: `${filtered.length - shown.length} more`, tone: 'muted' }
-          : { text: 'Run with: @agent-run <name>', tone: 'muted' },
-      ]);
-    } catch (error) {
-      toast.error((error as Error).message || 'Failed to list playbooks');
-    }
-  }
-
-  async function handleAgentRun(playbookName: string) {
-    if (!playbookName) {
-      toast.error('Usage: @agent-run <playbook-name>');
-      return;
-    }
-
-    try {
-      const run = await runPlaybook({
-        sessionId,
-        workspaceId: activeWorkspaceId,
-        playbookName,
-        hostId,
-        hostLabel,
-      });
-
-      activeRunRef.current = run;
-      selectedAgentStepIdxRef.current = 0;
-      renderAgentHints();
-      toast.success(`Loaded playbook: ${playbookName}`);
-    } catch (error) {
-      toast.error((error as Error).message || 'Failed to run playbook');
-    }
-  }
+  }, [terminal, sessionId, currentRemotePath]);
 
   return null;
 }
