@@ -390,6 +390,22 @@ export function TerminalCentricAppShell() {
       keywords: ['settings', 'preferences', 'config'],
       onExecute: () => setSettingsOpen(true),
     },
+    {
+      id: 'keyboard-shortcuts',
+      title: 'Keyboard Shortcuts',
+      description: 'View all keyboard shortcuts',
+      category: 'settings',
+      keywords: ['hotkeys', 'keys', 'shortcuts', 'keybindings', 'help'],
+      onExecute: () => {
+        openTab({
+          tabId: 'settings',
+          tabType: 'settings',
+          label: 'Settings',
+          closable: false,
+          settingsTab: 'shortcuts',
+        });
+      },
+    },
     // Terminal
     {
       id: 'new-terminal',
