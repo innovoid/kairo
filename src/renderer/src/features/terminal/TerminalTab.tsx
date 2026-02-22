@@ -103,7 +103,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
 
         {/* Command Hint Overlay */}
         <CommandHintOverlay
-          terminal={terminal}
+          terminal={terminal.current}
           sessionId={tab.sessionId!}
           currentRemotePath="/home"
         />
