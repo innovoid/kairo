@@ -8,6 +8,25 @@ import { stat } from 'node:fs/promises';
 type SFTPWrapper = ssh2.SFTPWrapper;
 type Stats = ssh2.Stats;
 
+interface ActiveTransfer {
+  cancel: () => void;
+}
+
+const activeTransfers = new Map<string, ActiveTransfer>();
+const TRANSFER_CANCELLED_MESSAGE = 'Transfer cancelled';
+
+function sendTransferProgress(sender: WebContents, progress: TransferProgress): void {
+  if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+}
+
+function registerTransfer(transferId: string, transfer: ActiveTransfer): void {
+  activeTransfers.set(transferId, transfer);
+}
+
+function unregisterTransfer(transferId: string): void {
+  activeTransfers.delete(transferId);
+}
+
 function statsToEntry(name: string, remotePath: string, s: Stats): SftpEntry {
   let type: SftpEntry['type'] = 'other';
   if (s.isDirectory()) type = 'directory';
@@ -77,11 +96,41 @@ export const sftpManager = {
         let bytesTransferred = 0;
         let lastUpdate = Date.now();
         let lastBytesTransferred = 0;
+        let settled = false;
+        let cancelled = false;
 
         const readStream = sftp.createReadStream(remotePath);
         const writeStream = createWriteStream(localPath);
 
+        registerTransfer(transferId, {
+          cancel: () => {
+            if (settled) return;
+            cancelled = true;
+            readStream.destroy(new Error(TRANSFER_CANCELLED_MESSAGE));
+            writeStream.destroy(new Error(TRANSFER_CANCELLED_MESSAGE));
+          },
+        });
+
+        const finish = (status: TransferProgress['status'], error?: string) => {
+          if (settled) return;
+          settled = true;
+          unregisterTransfer(transferId);
+          sendTransferProgress(sender, {
+            transferId,
+            filename,
+            direction: 'download',
+            bytesTransferred: status === 'done' ? totalBytes : bytesTransferred,
+            totalBytes,
+            status,
+            speedBytesPerSec: 0,
+            startedAt,
+            updatedAt: new Date().toISOString(),
+            error,
+          });
+        };
+
         readStream.on('data', (chunk: Buffer) => {
+          if (settled) return;
           bytesTransferred += chunk.length;
 
           // Throttle progress events to every 100ms
@@ -100,32 +149,39 @@ export const sftpManager = {
               startedAt,
               updatedAt: new Date(now).toISOString(),
             };
-            if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+            sendTransferProgress(sender, progress);
             lastUpdate = now;
             lastBytesTransferred = bytesTransferred;
           }
         });
 
         readStream.on('error', (err: Error) => {
-          const progress: TransferProgress = {
-            transferId, filename, direction: 'download',
-            bytesTransferred, totalBytes, status: 'error', error: err.message,
-            startedAt,
-            updatedAt: new Date().toISOString(),
-          };
-          if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+          if (cancelled || err.message === TRANSFER_CANCELLED_MESSAGE) {
+            finish('cancelled', TRANSFER_CANCELLED_MESSAGE);
+            reject(new Error(TRANSFER_CANCELLED_MESSAGE));
+            return;
+          }
+          finish('error', err.message);
+          reject(err);
+        });
+
+        writeStream.on('error', (err: Error) => {
+          if (cancelled || err.message === TRANSFER_CANCELLED_MESSAGE) {
+            finish('cancelled', TRANSFER_CANCELLED_MESSAGE);
+            reject(new Error(TRANSFER_CANCELLED_MESSAGE));
+            return;
+          }
+          finish('error', err.message);
           reject(err);
         });
 
         writeStream.on('close', () => {
-          const progress: TransferProgress = {
-            transferId, filename, direction: 'download',
-            bytesTransferred: totalBytes, totalBytes, status: 'done',
-            speedBytesPerSec: 0,
-            startedAt,
-            updatedAt: new Date().toISOString(),
-          };
-          if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+          if (cancelled) {
+            finish('cancelled', TRANSFER_CANCELLED_MESSAGE);
+            reject(new Error(TRANSFER_CANCELLED_MESSAGE));
+            return;
+          }
+          finish('done');
           resolve();
         });
 
@@ -153,8 +209,38 @@ export const sftpManager = {
     return new Promise((resolve, reject) => {
       const readStream = createReadStream(localPath);
       const writeStream = sftp.createWriteStream(remotePath);
+      let settled = false;
+      let cancelled = false;
+
+      registerTransfer(transferId, {
+        cancel: () => {
+          if (settled) return;
+          cancelled = true;
+          readStream.destroy(new Error(TRANSFER_CANCELLED_MESSAGE));
+          writeStream.destroy(new Error(TRANSFER_CANCELLED_MESSAGE));
+        },
+      });
+
+      const finish = (status: TransferProgress['status'], error?: string) => {
+        if (settled) return;
+        settled = true;
+        unregisterTransfer(transferId);
+        sendTransferProgress(sender, {
+          transferId,
+          filename,
+          direction: 'upload',
+          bytesTransferred: status === 'done' ? totalBytes : bytesTransferred,
+          totalBytes,
+          status,
+          speedBytesPerSec: 0,
+          startedAt,
+          updatedAt: new Date().toISOString(),
+          error,
+        });
+      };
 
       readStream.on('data', (chunk: Buffer) => {
+        if (settled) return;
         bytesTransferred += chunk.length;
 
         // Throttle progress events to every 100ms
@@ -169,37 +255,51 @@ export const sftpManager = {
             startedAt,
             updatedAt: new Date(now).toISOString(),
           };
-          if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+          sendTransferProgress(sender, progress);
           lastUpdate = now;
           lastBytesTransferred = bytesTransferred;
         }
       });
 
       readStream.on('error', (err: Error) => {
-        const progress: TransferProgress = {
-          transferId, filename, direction: 'upload',
-          bytesTransferred, totalBytes, status: 'error', error: err.message,
-          startedAt,
-          updatedAt: new Date().toISOString(),
-        };
-        if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+        if (cancelled || err.message === TRANSFER_CANCELLED_MESSAGE) {
+          finish('cancelled', TRANSFER_CANCELLED_MESSAGE);
+          reject(new Error(TRANSFER_CANCELLED_MESSAGE));
+          return;
+        }
+        finish('error', err.message);
+        reject(err);
+      });
+
+      writeStream.on('error', (err: Error) => {
+        if (cancelled || err.message === TRANSFER_CANCELLED_MESSAGE) {
+          finish('cancelled', TRANSFER_CANCELLED_MESSAGE);
+          reject(new Error(TRANSFER_CANCELLED_MESSAGE));
+          return;
+        }
+        finish('error', err.message);
         reject(err);
       });
 
       writeStream.on('close', () => {
-        const progress: TransferProgress = {
-          transferId, filename, direction: 'upload',
-          bytesTransferred: totalBytes, totalBytes, status: 'done',
-          speedBytesPerSec: 0,
-          startedAt,
-          updatedAt: new Date().toISOString(),
-        };
-        if (!sender.isDestroyed()) sender.send('sftp:progress', progress);
+        if (cancelled) {
+          finish('cancelled', TRANSFER_CANCELLED_MESSAGE);
+          reject(new Error(TRANSFER_CANCELLED_MESSAGE));
+          return;
+        }
+        finish('done');
         resolve();
       });
 
       readStream.pipe(writeStream);
     });
+  },
+
+  cancel(transferId: string): boolean {
+    const transfer = activeTransfers.get(transferId);
+    if (!transfer) return false;
+    transfer.cancel();
+    return true;
   },
 
   async mkdir(sessionId: string, remotePath: string): Promise<void> {

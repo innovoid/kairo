@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthGate } from '@/features/auth/AuthGate';
-import { WorkspaceGate } from '@/features/workspaces/WorkspaceGate';
+import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { TerminalCentricAppShell } from '@/components/layout/TerminalCentricAppShell';
 
 export function App() {
@@ -11,9 +11,9 @@ export function App() {
           path="/"
           element={
             <AuthGate>
-              <WorkspaceGate>
+              <OnboardingGate>
                 <TerminalCentricAppShell />
-              </WorkspaceGate>
+              </OnboardingGate>
             </AuthGate>
           }
         />

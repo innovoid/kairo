@@ -1,6 +1,7 @@
 import { localShellManager } from './local-shell-manager';
 import { sshManager } from './ssh-manager';
 import { sessionEventBus } from './session-event-bus';
+import { registerAgentMarker, unregisterAgentMarker } from './agent-command-visibility';
 
 export interface ExecuteShellCommandOptions {
   timeoutMs?: number;
@@ -46,6 +47,7 @@ export function executeShellCommand(
 
   const marker = `__ARCHTERM_AGENT_EXIT_${crypto.randomUUID().replace(/-/g, '')}__`;
   const markerPattern = new RegExp(`${marker}:(\\d+)`);
+  registerAgentMarker(sessionId, marker);
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -56,6 +58,7 @@ export function executeShellCommand(
       offClosed();
       offError();
       clearTimeout(timeoutHandle);
+      unregisterAgentMarker(sessionId, marker);
     };
 
     const finish = (result: ExecuteShellCommandResult) => {

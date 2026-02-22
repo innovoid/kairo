@@ -18,11 +18,12 @@ type HintGroup = 'Snippets' | 'History' | 'Context';
 interface HintSuggestion {
   group: HintGroup;
   text: string;
+  replacementLine: string;
 }
 
 interface HintLine {
   text: string;
-  tone?: 'muted' | 'header';
+  tone?: 'muted' | 'header' | 'active';
 }
 
 const PATH_COMMANDS = new Set([
@@ -186,6 +187,8 @@ export function CommandHintOverlay({
   const inputBufferRef = useRef('');
   const refreshTimerRef = useRef<number | null>(null);
   const refreshTokenRef = useRef(0);
+  const suggestionsRef = useRef<HintSuggestion[]>([]);
+  const activeSuggestionIndexRef = useRef(0);
   const historyRef = useRef<string[]>([]);
   const historyKeyRef = useRef('');
   const snippetsRef = useRef<Snippet[]>([]);
@@ -225,6 +228,8 @@ export function CommandHintOverlay({
         const line = normalized[i];
         if (line.tone === 'header') {
           terminal.write(`\x1b[37m${line.text}\x1b[0m`);
+        } else if (line.tone === 'active') {
+          terminal.write(`\x1b[96m${line.text}\x1b[0m`);
         } else {
           terminal.write(`\x1b[90m${line.text}\x1b[0m`);
         }
@@ -238,6 +243,12 @@ export function CommandHintOverlay({
   const clearHintLines = () => {
     if (hintLineCountRef.current === 0) return;
     renderHintLines([]);
+  };
+
+  const clearSuggestions = () => {
+    suggestionsRef.current = [];
+    activeSuggestionIndexRef.current = 0;
+    clearHintLines();
   };
 
   const pushHistory = (line: string) => {
@@ -262,7 +273,8 @@ export function CommandHintOverlay({
       .slice(0, MAX_PER_GROUP)
       .map((snippet) => ({
         group: 'Snippets' as const,
-        text: `${snippet.command}  (${snippet.name})`,
+        text: `${snippet.command} · ${snippet.name}`,
+        replacementLine: snippet.command,
       }));
   };
 
@@ -276,6 +288,7 @@ export function CommandHintOverlay({
       .map((cmd) => ({
         group: 'History' as const,
         text: cmd,
+        replacementLine: cmd,
       }));
   };
 
@@ -309,9 +322,11 @@ export function CommandHintOverlay({
           const fullPath = split.listDir === '/'
             ? `/${entry.name}${suffix}`
             : `${split.listDir}/${entry.name}${suffix}`;
+          const replacementLine = line.slice(0, line.length - parsed.token.length) + fullPath;
           return {
             group: 'Context' as const,
             text: fullPath,
+            replacementLine,
           };
         });
     } catch {
@@ -319,14 +334,15 @@ export function CommandHintOverlay({
     }
   };
 
-  const renderGroupedSuggestions = (suggestions: HintSuggestion[]) => {
+  const renderGroupedSuggestions = (suggestions: HintSuggestion[], activeIndex: number) => {
     if (suggestions.length === 0) {
-      clearHintLines();
+      clearSuggestions();
       return;
     }
 
     const groups: HintGroup[] = ['Snippets', 'History', 'Context'];
-    const lines: HintLine[] = [{ text: 'Hints', tone: 'header' }];
+    const lines: HintLine[] = [{ text: 'Hints  ↑↓ navigate  Tab apply  Esc dismiss', tone: 'header' }];
+    let index = 0;
 
     for (const group of groups) {
       const groupItems = suggestions.filter((item) => item.group === group);
@@ -334,11 +350,73 @@ export function CommandHintOverlay({
 
       lines.push({ text: `${group}:`, tone: 'header' });
       for (const item of groupItems) {
-        lines.push({ text: `  ${item.text}`, tone: 'muted' });
+        const isActive = index === activeIndex;
+        lines.push({ text: `${isActive ? '›' : ' '} ${item.text}`, tone: isActive ? 'active' : 'muted' });
+        index += 1;
       }
     }
 
     renderHintLines(lines);
+  };
+
+  const setSuggestions = (suggestions: HintSuggestion[]) => {
+    suggestionsRef.current = suggestions;
+    if (suggestions.length === 0) {
+      clearSuggestions();
+      return;
+    }
+
+    if (activeSuggestionIndexRef.current >= suggestions.length) {
+      activeSuggestionIndexRef.current = 0;
+    }
+    renderGroupedSuggestions(suggestions, activeSuggestionIndexRef.current);
+  };
+
+  const moveActiveSuggestion = (delta: number) => {
+    const suggestions = suggestionsRef.current;
+    if (suggestions.length === 0) return;
+    const next =
+      (activeSuggestionIndexRef.current + delta + suggestions.length) %
+      suggestions.length;
+    activeSuggestionIndexRef.current = next;
+    renderGroupedSuggestions(suggestions, activeSuggestionIndexRef.current);
+  };
+
+  const applyActiveSuggestion = () => {
+    if (!terminal) return false;
+    const suggestions = suggestionsRef.current;
+    if (suggestions.length === 0) return false;
+
+    const selected = suggestions[activeSuggestionIndexRef.current];
+    if (!selected) return false;
+
+    const currentLine = inputBufferRef.current;
+    const targetLine = selected.replacementLine;
+    if (currentLine === targetLine) return false;
+
+    let commonPrefixLength = 0;
+    while (
+      commonPrefixLength < currentLine.length &&
+      commonPrefixLength < targetLine.length &&
+      currentLine[commonPrefixLength] === targetLine[commonPrefixLength]
+    ) {
+      commonPrefixLength += 1;
+    }
+
+    const charsToDelete = currentLine.length - commonPrefixLength;
+    if (charsToDelete > 0) {
+      terminal.input('\x7f'.repeat(charsToDelete), true);
+    }
+
+    const charsToAdd = targetLine.slice(commonPrefixLength);
+    if (charsToAdd) {
+      terminal.input(charsToAdd, true);
+    }
+
+    inputBufferRef.current = targetLine;
+    terminal.focus();
+    activeSuggestionIndexRef.current = 0;
+    return true;
   };
 
   const refreshHints = async () => {
@@ -346,7 +424,7 @@ export function CommandHintOverlay({
     const line = inputBufferRef.current;
 
     if (!line.trim()) {
-      clearHintLines();
+      clearSuggestions();
       return;
     }
 
@@ -356,7 +434,7 @@ export function CommandHintOverlay({
 
     if (token !== refreshTokenRef.current) return;
 
-    renderGroupedSuggestions([
+    setSuggestions([
       ...snippetSuggestions,
       ...historySuggestions,
       ...contextSuggestions,
@@ -385,7 +463,7 @@ export function CommandHintOverlay({
       );
 
       if (!terminalHasFocus) {
-        clearHintLines();
+        clearSuggestions();
       }
     };
 
@@ -401,55 +479,72 @@ export function CommandHintOverlay({
       );
 
       if (!terminalHasFocus) {
-        clearHintLines();
-        return true;
+        clearSuggestions();
+        return false;
       }
 
       if (event.type !== 'keydown') {
-        return true;
+        return false;
       }
 
       if (event.ctrlKey || event.metaKey || event.altKey) {
-        return true;
+        return false;
       }
 
       if (event.key === 'Enter') {
         pushHistory(inputBufferRef.current);
         inputBufferRef.current = '';
-        clearHintLines();
-        return true;
+        clearSuggestions();
+        return false;
       }
 
       if (event.key === 'Backspace') {
         inputBufferRef.current = inputBufferRef.current.slice(0, -1);
         scheduleRefresh();
-        return true;
+        return false;
       }
 
       if (event.key === 'Escape') {
+        if (suggestionsRef.current.length > 0) {
+          clearSuggestions();
+          return true;
+        }
         inputBufferRef.current = '';
-        clearHintLines();
-        return true;
+        clearSuggestions();
+        return false;
       }
 
-      if (
-        event.key === 'ArrowUp' ||
-        event.key === 'ArrowDown' ||
-        event.key === 'ArrowLeft' ||
-        event.key === 'ArrowRight'
-      ) {
+      if (event.key === 'Tab') {
+        if (applyActiveSuggestion()) {
+          scheduleRefresh();
+          return true;
+        }
+        return false;
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        if (suggestionsRef.current.length > 0) {
+          moveActiveSuggestion(event.key === 'ArrowDown' ? 1 : -1);
+          return true;
+        }
         inputBufferRef.current = '';
-        clearHintLines();
-        return true;
+        clearSuggestions();
+        return false;
+      }
+
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        inputBufferRef.current = '';
+        clearSuggestions();
+        return false;
       }
 
       if (event.key.length === 1) {
         inputBufferRef.current += event.key;
         scheduleRefresh();
-        return true;
+        return false;
       }
 
-      return true;
+      return false;
     });
 
     return () => {
@@ -458,8 +553,8 @@ export function CommandHintOverlay({
         window.clearTimeout(refreshTimerRef.current);
         refreshTimerRef.current = null;
       }
-      clearHintLines();
-      terminal.attachCustomKeyEventHandler(() => true);
+      clearSuggestions();
+      terminal.attachCustomKeyEventHandler(() => false);
     };
   }, [terminal, sessionId, currentRemotePath]);
 

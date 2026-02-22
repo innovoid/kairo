@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event';
 import { AiPanel } from '../AiPanel';
 
 // Create mock functions that will be used in the mock
@@ -42,10 +42,6 @@ const mockAiApi = {
   onError: vi.fn(() => vi.fn()),
 };
 
-(global as any).window = {
-  aiApi: mockAiApi,
-};
-
 // Mock ChatMessage component
 vi.mock('../ChatMessage', () => ({
   ChatMessage: ({ message }: { message: any }) => (
@@ -74,6 +70,8 @@ describe('AiPanel', () => {
     mockClearHistory = vi.fn();
     mockSetOpen = vi.fn();
     mockSetModel = vi.fn();
+
+    (window as any).aiApi = mockAiApi;
 
     // Import and set default mock return value
     const { useAiStore } = await import('@/stores/ai-store');

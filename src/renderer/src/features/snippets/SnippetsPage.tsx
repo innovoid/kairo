@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Code2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Code2, Copy } from 'lucide-react';
 import { useSnippetStore } from '@/stores/snippet-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { Snippet, CreateSnippetInput, UpdateSnippetInput } from '@shared/types/snippets';
+import { toast } from 'sonner';
 
 interface SnippetFormData {
   name: string;
@@ -102,6 +103,15 @@ export function SnippetsPage() {
     await deleteSnippet(id);
   }
 
+  async function handleCopyCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      toast.success('Snippet command copied');
+    } catch {
+      toast.error('Failed to copy command');
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="flex-1 overflow-y-auto py-6 px-8">
@@ -165,12 +175,16 @@ export function SnippetsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <button className="px-3 py-1.5 border border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all duration-200 text-tiny font-medium flex items-center gap-1.5 rounded-md">
-                    <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    Run
-                  </button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => void handleCopyCommand(snippet.command)}
+                    title="Copy command"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

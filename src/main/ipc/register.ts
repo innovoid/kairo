@@ -164,6 +164,7 @@ export function registerWorkspaceIpcHandlers(): void {
   register('sftp.listLocal', sftpIpcHandlers.listLocal);
   register('sftp.download', sftpIpcHandlers.download);
   register('sftp.upload', sftpIpcHandlers.upload);
+  register('sftp.cancel', sftpIpcHandlers.cancel);
   register('sftp.mkdir', sftpIpcHandlers.mkdir);
   register('sftp.rename', sftpIpcHandlers.rename);
   register('sftp.delete', sftpIpcHandlers.delete);

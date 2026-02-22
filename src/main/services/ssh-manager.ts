@@ -5,6 +5,7 @@ import { privateKeyQueries } from '../db';
 import { keyManager } from './key-manager';
 import { recordingManager } from './recording-manager';
 import { sessionEventBus } from './session-event-bus';
+import { clearAgentVisibilitySession, filterAgentArtifactsForRenderer } from './agent-command-visibility';
 
 const { Client } = ssh2;
 type ConnectConfig = ssh2.ConnectConfig;
@@ -64,8 +65,11 @@ export const sshManager = {
         stream.on('data', (data: Buffer) => {
           const dataStr = data.toString('utf8');
           sessionEventBus.emitData(sessionId, dataStr);
+          const rendererData = filterAgentArtifactsForRenderer(sessionId, dataStr);
           if (!sender.isDestroyed()) {
-            sender.send('ssh:data', sessionId, dataStr);
+            if (rendererData) {
+              sender.send('ssh:data', sessionId, rendererData);
+            }
           }
           if (recordingManager.isRecording(sessionId)) {
             recordingManager.appendData(sessionId, dataStr);
@@ -75,8 +79,11 @@ export const sshManager = {
         stream.stderr.on('data', (data: Buffer) => {
           const dataStr = data.toString('utf8');
           sessionEventBus.emitData(sessionId, dataStr);
+          const rendererData = filterAgentArtifactsForRenderer(sessionId, dataStr);
           if (!sender.isDestroyed()) {
-            sender.send('ssh:data', sessionId, dataStr);
+            if (rendererData) {
+              sender.send('ssh:data', sessionId, rendererData);
+            }
           }
           if (recordingManager.isRecording(sessionId)) {
             recordingManager.appendData(sessionId, dataStr);
@@ -85,6 +92,7 @@ export const sshManager = {
 
         stream.on('close', () => {
           sessions.delete(sessionId);
+          clearAgentVisibilitySession(sessionId);
           sessionEventBus.emitClosed(sessionId);
           if (!sender.isDestroyed()) {
             sender.send('ssh:closed', sessionId);
@@ -97,6 +105,7 @@ export const sshManager = {
 
     client.on('error', (err) => {
       sessions.delete(sessionId);
+      clearAgentVisibilitySession(sessionId);
       sessionEventBus.emitError(sessionId, err.message);
       if (!sender.isDestroyed()) {
         let userMessage = err.message;
@@ -117,6 +126,7 @@ export const sshManager = {
 
     client.on('close', () => {
       sessions.delete(sessionId);
+      clearAgentVisibilitySession(sessionId);
       sessionEventBus.emitClosed(sessionId);
       if (!sender.isDestroyed()) {
         sender.send('ssh:closed', sessionId);
@@ -136,6 +146,7 @@ export const sshManager = {
         // ignore
       }
       sessions.delete(sessionId);
+      clearAgentVisibilitySession(sessionId);
     }
   },
 

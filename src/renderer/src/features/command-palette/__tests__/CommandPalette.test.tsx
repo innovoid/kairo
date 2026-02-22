@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event';
 import { CommandPalette } from '../CommandPalette';
 
 // Mock stores
@@ -63,12 +63,6 @@ vi.mock('@/stores/session-store', () => ({
 // Mock window.sshApi
 const mockConnect = vi.fn();
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
-(global as any).window = {
-  sshApi: {
-    connect: mockConnect,
-    disconnect: mockDisconnect,
-  },
-};
 
 describe('CommandPalette', () => {
   const mockOnOpenSettings = vi.fn();
@@ -77,6 +71,10 @@ describe('CommandPalette', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTabs.clear();
+    (window as any).sshApi = {
+      connect: mockConnect,
+      disconnect: mockDisconnect,
+    };
   });
 
   it('renders when open', () => {

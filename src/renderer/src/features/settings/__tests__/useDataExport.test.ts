@@ -26,7 +26,7 @@ describe('useDataExport', () => {
     global.URL.revokeObjectURL = mockRevokeObjectURL as unknown as typeof URL.revokeObjectURL;
 
     // Mock anchor element
-    originalCreateElement = document.createElement.bind(document);
+    originalCreateElement = Document.prototype.createElement.bind(document);
     mockLink = document.createElement('a');
     mockLink.click = vi.fn();
     vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
@@ -36,6 +36,7 @@ describe('useDataExport', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -176,7 +177,15 @@ describe('useDataExport', () => {
 
     const { result } = renderHook(() => useDataExport());
 
-    await expect(result.current.exportData()).rejects.toThrow();
+    let thrown: unknown;
+    await act(async () => {
+      try {
+        await result.current.exportData();
+      } catch (error) {
+        thrown = error;
+      }
+    });
+    expect(thrown).toBeInstanceOf(Error);
   });
 
   it('should return exportData, downloadData, and isExporting', () => {

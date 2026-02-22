@@ -32,7 +32,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const { addTransfer, removeTransfer } = useTransferStore();
+  const { addTransfer } = useTransferStore();
 
   useEffect(() => {
     loadDirectory(currentPath);
@@ -92,6 +92,9 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
       addTransfer({
         transferId,
         filename,
+        sessionId,
+        localPath,
+        remotePath,
         bytesTransferred: 0,
         totalBytes: 0,
         direction: 'upload',
@@ -103,7 +106,10 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
         await window.sftpApi.upload(sessionId, localPath, remotePath, transferId);
         await loadDirectory(currentPath);
       } catch (e) {
-        console.error('Upload failed:', e);
+        const message = e instanceof Error ? e.message : String(e);
+        if (message !== 'Transfer cancelled') {
+          console.error('Upload failed:', e);
+        }
       }
     }
   }
@@ -111,10 +117,19 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   async function handleDownload(entry: SftpEntry) {
     if (entry.type === 'directory') return;
 
+    const defaultLocalPath = `${entry.name}`;
+    const localPath = window.prompt('Save downloaded file as:', defaultLocalPath);
+    if (!localPath?.trim()) {
+      return;
+    }
+
     const transferId = crypto.randomUUID();
     addTransfer({
       transferId,
       filename: entry.name,
+      sessionId,
+      remotePath: entry.path,
+      localPath: localPath.trim(),
       bytesTransferred: 0,
       totalBytes: entry.size,
       direction: 'download',
@@ -123,15 +138,12 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
     });
 
     try {
-      const defaultLocalPath = `${entry.name}`;
-      const localPath = window.prompt('Save downloaded file as:', defaultLocalPath);
-      if (!localPath?.trim()) {
-        removeTransfer(transferId);
-        return;
-      }
       await window.sftpApi.download(sessionId, entry.path, localPath.trim(), transferId);
     } catch (e) {
-      console.error('Download failed:', e);
+      const message = e instanceof Error ? e.message : String(e);
+      if (message !== 'Transfer cancelled') {
+        console.error('Download failed:', e);
+      }
     }
   }
 
@@ -161,6 +173,9 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
       addTransfer({
         transferId,
         filename: file.name,
+        sessionId,
+        localPath,
+        remotePath,
         bytesTransferred: 0,
         totalBytes: file.size,
         direction: 'upload',
@@ -172,7 +187,10 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
         await window.sftpApi.upload(sessionId, localPath, remotePath, transferId);
         await loadDirectory(currentPath);
       } catch (e) {
-        console.error('Upload failed:', e);
+        const message = e instanceof Error ? e.message : String(e);
+        if (message !== 'Transfer cancelled') {
+          console.error('Upload failed:', e);
+        }
       }
     }
   }

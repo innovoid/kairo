@@ -1,21 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
+import userEvent from '@testing-library/user-event'
 import AccountSettingsTab from '../AccountSettingsTab'
 
 // Mock Supabase client
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   auth: {
     getUser: vi.fn()
   }
-}
+}))
 
 vi.mock('@/lib/supabase', () => ({
   supabase: mockSupabase
 }))
 
 // Mock useDataExport hook
-const mockExportData = vi.fn()
+const mockExportData = vi.hoisted(() => vi.fn())
 vi.mock('../hooks/useDataExport', () => ({
   useDataExport: () => ({
     exportData: mockExportData,
@@ -130,7 +130,7 @@ describe('AccountSettingsTab', () => {
     expect(
       screen.getByText(/view and update your profile settings/i)
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /go to profile/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /go to profile/i })).toBeInTheDocument()
   })
 
   it('displays error message when user fetch fails', async () => {

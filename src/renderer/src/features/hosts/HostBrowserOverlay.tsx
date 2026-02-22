@@ -13,6 +13,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Search, Plus, FolderOpen, Folder, ChevronRight, Server, Circle, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Overlay,
   OverlayHeader,
@@ -155,6 +156,10 @@ export function HostBrowserOverlay({
   };
 
   const openCreateFolderDialog = () => {
+    if (!workspaceId) {
+      toast.error('Workspace is not ready yet. Please try again in a moment.');
+      return;
+    }
     setEditingFolder(null);
     setFolderDialogOpen(true);
   };
@@ -170,10 +175,22 @@ export function HostBrowserOverlay({
   };
 
   const handleSaveFolder = async (name: string, folderId?: string) => {
-    if (folderId) {
-      await updateFolder(folderId, name);
-    } else {
-      await createFolder({ workspaceId, name });
+    try {
+      if (!workspaceId) {
+        throw new Error('Workspace is not ready');
+      }
+
+      if (folderId) {
+        await updateFolder(folderId, name);
+        toast.success('Folder renamed');
+      } else {
+        await createFolder({ workspaceId, name });
+        toast.success('Folder created');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save folder';
+      toast.error(message);
+      throw error;
     }
   };
 
@@ -318,7 +335,7 @@ export function HostBrowserOverlay({
       </OverlayContent>
 
       <OverlayFooter>
-        <Button variant="outline" onClick={openCreateFolderDialog} className="gap-2">
+        <Button type="button" variant="outline" onClick={openCreateFolderDialog} className="gap-2">
           <Folder className="h-4 w-4" />
           New Folder
         </Button>

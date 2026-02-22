@@ -56,6 +56,13 @@ test.describe('ArchTerm Electron Visual Smoke', () => {
     await expect(page).toHaveScreenshot('05-new-host-form.png', { fullPage: true });
   });
 
+  test('opens new folder dialog from host browser', async () => {
+    await pressPrimaryShortcut(page, 'H');
+    await expect(page.getByRole('heading', { name: 'Browse Hosts', level: 2 })).toBeVisible();
+    await page.getByRole('button', { name: 'New Folder' }).click();
+    await expect(page.getByRole('heading', { name: 'New Folder' })).toBeVisible();
+  });
+
   test('opens ssh keys manager from command palette', async () => {
     await pressPrimaryShortcut(page, 'K');
     const searchInput = page.getByPlaceholder('Search commands, hosts, and actions...');
@@ -74,5 +81,32 @@ test.describe('ArchTerm Electron Visual Smoke', () => {
     await expect(page.getByTestId('local-file-pane-title')).toBeVisible();
     await expect(page.getByTestId('remote-file-pane-title')).toBeVisible();
     await expect(page).toHaveScreenshot('07-sftp-local-remote-panes.png', { fullPage: true });
+  });
+
+  test('opens ai agent sidebar from command palette', async () => {
+    await pressPrimaryShortcut(page, 'K');
+    const searchInput = page.getByPlaceholder('Search commands, hosts, and actions...');
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill('AI Agent');
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('AI Agent')).toBeVisible();
+  });
+
+  test('opens team overlay from command palette', async () => {
+    await pressPrimaryShortcut(page, 'K');
+    const searchInput = page.getByPlaceholder('Search commands, hosts, and actions...');
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill('Team');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Team', level: 2 })).toBeVisible();
+  });
+
+  test('opens snippets page from command palette', async () => {
+    await pressPrimaryShortcut(page, 'K');
+    const searchInput = page.getByPlaceholder('Search commands, hosts, and actions...');
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill('Snippets');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Snippets' })).toBeVisible();
   });
 });

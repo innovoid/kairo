@@ -39,6 +39,26 @@ interface TerminalCacheEntry {
 // Module-level storage for terminal instances
 const terminalCache = new Map<string, TerminalCacheEntry>();
 
+function suppressNativeInputCaret(terminal: Terminal): void {
+  const textarea = terminal.textarea;
+  if (!textarea) return;
+  textarea.setAttribute('data-no-focus-ring', 'true');
+  textarea.style.caretColor = 'transparent';
+  textarea.style.outline = 'none';
+  textarea.style.boxShadow = 'none';
+  textarea.style.border = 'none';
+  textarea.style.background = 'transparent';
+}
+
+function suppressTerminalFocusChrome(terminal: Terminal): void {
+  const host = terminal.element;
+  if (!host) return;
+  host.setAttribute('data-no-focus-ring', 'true');
+  host.style.outline = 'none';
+  host.style.boxShadow = 'none';
+  host.style.border = 'none';
+}
+
 // Cleanup function to disconnect PTY session and dispose terminal
 export function disposeTerminalSession(sessionId: string): void {
   const cached = terminalCache.get(sessionId);
@@ -112,9 +132,18 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       if (!containerRef.current || disposed) return;
 
       const { terminal, fitAddon, searchAddon } = entry;
-      if (terminal.element) {
+      // ghostty-web stores the parent container itself as terminal.element.
+      // Avoid appending when we're already attached to this exact node.
+      if (
+        terminal.element &&
+        terminal.element !== containerRef.current &&
+        !terminal.element.contains(containerRef.current) &&
+        !containerRef.current.contains(terminal.element)
+      ) {
         containerRef.current.appendChild(terminal.element);
       }
+      suppressNativeInputCaret(terminal);
+      suppressTerminalFocusChrome(terminal);
       terminal.focus();
 
       requestAnimationFrame(() => {
@@ -166,6 +195,8 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       terminal.loadAddon(fitAddon);
 
       terminal.open(containerRef.current);
+      suppressNativeInputCaret(terminal);
+      suppressTerminalFocusChrome(terminal);
       terminal.focus();
 
       requestAnimationFrame(() => {
@@ -210,7 +241,9 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       resizeObserver?.disconnect();
 
       const terminal = terminalRef.current;
-      if (terminal?.element?.parentElement) {
+      // ghostty-web terminal.element is the parent container; never remove
+      // the React-owned container node during cleanup.
+      if (terminal?.element && terminal.element !== containerRef.current && terminal.element.parentElement) {
         terminal.element.remove();
       }
 
@@ -239,4 +272,3 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
 
   return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef };
 }
-

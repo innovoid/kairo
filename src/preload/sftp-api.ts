@@ -10,6 +10,8 @@ const sftpApi = {
     ipcRenderer.invoke('sftp.download', sessionId, remotePath, localPath, transferId),
   upload: (sessionId: string, localPath: string, remotePath: string, transferId: string): Promise<void> =>
     ipcRenderer.invoke('sftp.upload', sessionId, localPath, remotePath, transferId),
+  cancel: (transferId: string): Promise<void> =>
+    ipcRenderer.invoke('sftp.cancel', transferId),
   mkdir: (sessionId: string, remotePath: string): Promise<void> =>
     ipcRenderer.invoke('sftp.mkdir', sessionId, remotePath),
   rename: (sessionId: string, oldPath: string, newPath: string): Promise<void> =>

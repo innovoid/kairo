@@ -132,12 +132,21 @@ export const useHostStore = create<HostState>((set) => ({
     };
     set((state) => ({ folders: [...state.folders, placeholderFolder] }));
 
-    // Create in backend and replace placeholder
-    const folder = await window.foldersApi.create(input);
-    set((state) => ({
-      folders: state.folders.map((f) => (f.id === tempId ? folder : f)),
-    }));
-    return folder;
+    try {
+      // Create in backend and replace placeholder
+      const folder = await window.foldersApi.create(input);
+      set((state) => ({
+        folders: state.folders.map((f) => (f.id === tempId ? folder : f)),
+      }));
+      return folder;
+    } catch (error) {
+      // Roll back optimistic folder on failure.
+      set((state) => ({
+        folders: state.folders.filter((f) => f.id !== tempId),
+        error: error instanceof Error ? error.message : 'Failed to create folder',
+      }));
+      throw error;
+    }
   },
 
   updateFolder: async (id, name) => {

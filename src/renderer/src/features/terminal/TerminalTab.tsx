@@ -104,7 +104,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
         className="relative w-full h-full overflow-hidden p-3"
         style={{ backgroundColor: terminalBg }}
       >
-        <div ref={containerRef} className="w-full h-full" />
+        <div ref={containerRef} className="relative w-full h-full overflow-hidden" />
 
         {/* Command Hint Overlay */}
         <CommandHintOverlay

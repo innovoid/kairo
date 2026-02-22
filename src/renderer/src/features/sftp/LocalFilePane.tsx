@@ -90,6 +90,9 @@ export function LocalFilePane({ sessionId, remotePath }: LocalFilePaneProps) {
     addTransfer({
       transferId,
       filename,
+      sessionId,
+      localPath,
+      remotePath: remoteFilePath,
       bytesTransferred: 0,
       totalBytes,
       direction: 'upload',
@@ -100,7 +103,10 @@ export function LocalFilePane({ sessionId, remotePath }: LocalFilePaneProps) {
     try {
       await window.sftpApi.upload(sessionId, localPath, remoteFilePath, transferId);
     } catch (e) {
-      toast.error(`Upload failed: ${(e as Error).message}`);
+      const message = e instanceof Error ? e.message : String(e);
+      if (message !== 'Transfer cancelled') {
+        toast.error(`Upload failed: ${message}`);
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import { existsSync } from 'fs';
 import { logger } from '../lib/logger';
 import { recordingManager } from './recording-manager';
 import { sessionEventBus } from './session-event-bus';
+import { clearAgentVisibilitySession, filterAgentArtifactsForRenderer } from './agent-command-visibility';
 
 interface LocalSession {
   pty: pty.IPty;
@@ -184,8 +185,11 @@ export const localShellManager = {
 
     ptyProcess.onData((data) => {
       sessionEventBus.emitData(sessionId, data);
+      const rendererData = filterAgentArtifactsForRenderer(sessionId, data);
       if (!sender.isDestroyed()) {
-        sender.send('ssh:data', sessionId, data);
+        if (rendererData) {
+          sender.send('ssh:data', sessionId, rendererData);
+        }
       }
       if (recordingManager.isRecording(sessionId)) {
         recordingManager.appendData(sessionId, data);
@@ -194,6 +198,7 @@ export const localShellManager = {
 
     ptyProcess.onExit(({ exitCode }) => {
       sessions.delete(sessionId);
+      clearAgentVisibilitySession(sessionId);
       sessionEventBus.emitClosed(sessionId);
       if (!sender.isDestroyed()) {
         sender.send('ssh:closed', sessionId);
@@ -212,6 +217,7 @@ export const localShellManager = {
     if (session) {
       try { session.pty.kill(); } catch { /* already dead */ }
       sessions.delete(sessionId);
+      clearAgentVisibilitySession(sessionId);
     }
   },
 

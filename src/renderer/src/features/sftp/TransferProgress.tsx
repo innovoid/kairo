@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTransferStore } from '@/stores/transfer-store';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, Download, X, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TransferProgressProps {
@@ -27,6 +27,8 @@ function formatBytes(bytes: number): string {
 export function TransferProgress({ variant = 'pane' }: TransferProgressProps) {
   const transfers = useTransferStore((s) => s.transfers);
   const removeTransfer = useTransferStore((s) => s.removeTransfer);
+  const cancelTransfer = useTransferStore((s) => s.cancelTransfer);
+  const retryTransfer = useTransferStore((s) => s.retryTransfer);
 
   const allTransfers = useMemo(
     () =>
@@ -64,6 +66,8 @@ export function TransferProgress({ variant = 'pane' }: TransferProgressProps) {
             <div key={transfer.transferId} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">
               {transfer.status === 'done' ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+              ) : transfer.status === 'cancelled' ? (
+                <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
               ) : transfer.status === 'error' ? (
                 <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
               ) : transfer.direction === 'upload' ? (
@@ -79,6 +83,7 @@ export function TransferProgress({ variant = 'pane' }: TransferProgressProps) {
                     className={cn(
                       'text-[10px] uppercase tracking-wide',
                       transfer.status === 'done' && 'text-green-500',
+                      transfer.status === 'cancelled' && 'text-amber-500',
                       transfer.status === 'error' && 'text-red-500',
                       transfer.status === 'active' && 'text-muted-foreground'
                     )}
@@ -98,15 +103,35 @@ export function TransferProgress({ variant = 'pane' }: TransferProgressProps) {
                 )}
               </div>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 shrink-0"
-                onClick={() => removeTransfer(transfer.transferId)}
-                aria-label="Dismiss transfer"
-              >
-                <X className="h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {(transfer.status === 'error' || transfer.status === 'cancelled') && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 shrink-0"
+                    onClick={() => void retryTransfer(transfer.transferId)}
+                    aria-label="Retry transfer"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                  </Button>
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 shrink-0"
+                  onClick={() => {
+                    if (transfer.status === 'active') {
+                      void cancelTransfer(transfer.transferId);
+                      return;
+                    }
+                    removeTransfer(transfer.transferId);
+                  }}
+                  aria-label={transfer.status === 'active' ? 'Cancel transfer' : 'Dismiss transfer'}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           );
         })}

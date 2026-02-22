@@ -69,6 +69,13 @@ export const sftpIpcHandlers = {
     await sftpManager.upload(sessionId, localPath, remotePath, transferId, event.sender);
   },
 
+  async cancel(event: IpcMainInvokeEvent, transferId: string) {
+    const cancelled = sftpManager.cancel(transferId);
+    if (!cancelled) {
+      throw new Error(`Transfer not found or already completed: ${transferId}`);
+    }
+  },
+
   async mkdir(event: IpcMainInvokeEvent, sessionId: string, remotePath: string) {
     await sftpManager.mkdir(sessionId, remotePath);
   },

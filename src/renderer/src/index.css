@@ -216,24 +216,24 @@
   }
 
   /* Focus Ring Styles */
-  *:focus-visible {
+  *:focus-visible:not([data-no-focus-ring="true"]) {
     outline: none;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     border-color: var(--primary);
   }
 
-  button:focus-visible,
-  a:focus-visible,
-  [role="button"]:focus-visible {
+  button:focus-visible:not([data-no-focus-ring="true"]),
+  a:focus-visible:not([data-no-focus-ring="true"]),
+  [role="button"]:focus-visible:not([data-no-focus-ring="true"]) {
     outline: none;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     transform: translateY(-1px);
     transition: transform 200ms ease-out;
   }
 
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible {
+  input:focus-visible:not([data-no-focus-ring="true"]),
+  textarea:focus-visible:not([data-no-focus-ring="true"]),
+  select:focus-visible:not([data-no-focus-ring="true"]) {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
