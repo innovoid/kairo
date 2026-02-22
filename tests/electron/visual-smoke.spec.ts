@@ -28,14 +28,13 @@ test.describe('ArchTerm Electron Visual Smoke', () => {
 
   test('opens host browser via keyboard', async () => {
     await pressPrimaryShortcut(page, 'H');
-    await expect(page.getByText('Browse Hosts')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Browse Hosts', level: 2 })).toBeVisible();
     await expect(page).toHaveScreenshot('03-host-browser.png', { fullPage: true });
   });
 
   test('opens settings overlay via keyboard', async () => {
     await pressPrimaryShortcut(page, ',');
-    await expect(page.getByText('Settings')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', level: 2 })).toBeVisible();
     await expect(page).toHaveScreenshot('04-settings-overlay.png', { fullPage: true });
   });
 });
-
