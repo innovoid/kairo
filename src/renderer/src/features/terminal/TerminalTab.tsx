@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { useHotkeys } from '@tanstack/react-hotkeys';
+import { getHotkey } from '@/lib/hotkeys-registry';
 import { toast } from 'sonner';
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
@@ -78,19 +80,16 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     };
   }, [tab.sessionId, tab.status]);
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-        e.preventDefault();
-        setShowSearch(true);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
-        e.preventDefault();
-        setShowSnippetPicker(true);
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  // Search
+  useHotkeys(getHotkey('search')!.key, (e) => {
+    e.preventDefault();
+    setShowSearch(true);
+  }, []);
+
+  // Snippet Picker
+  useHotkeys(getHotkey('snippet-picker')!.key, (e) => {
+    e.preventDefault();
+    setShowSnippetPicker(true);
   }, []);
 
   return (
