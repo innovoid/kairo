@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useHotkeys } from '@tanstack/react-hotkeys';
+import { useHotkey } from '@tanstack/react-hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { toast } from 'sonner';
 import type { Tab } from '@/stores/session-store';
@@ -82,13 +82,13 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   }, [tab.sessionId, tab.status]);
 
   // Search
-  useHotkeys(getHotkey('search')!.key, (e) => {
+  useHotkey(getHotkey('search')!.key, (e) => {
     e.preventDefault();
     setShowSearch(true);
   }, []);
 
   // Snippet Picker
-  useHotkeys(getHotkey('snippet-picker')!.key, (e) => {
+  useHotkey(getHotkey('snippet-picker')!.key, (e) => {
     e.preventDefault();
     setShowSnippetPicker(true);
   }, []);

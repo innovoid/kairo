@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useHotkeys } from '@tanstack/react-hotkeys';
+import { useHotkey } from '@tanstack/react-hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -18,7 +18,7 @@ export function MainArea() {
   const [focusedPaneSessionId, setFocusedPaneSessionId] = useState<string | null>(null);
 
   // Split Horizontal
-  useHotkeys(getHotkey('split-horizontal')!.key, (e) => {
+  useHotkey(getHotkey('split-horizontal')!.key, (e) => {
     e.preventDefault();
     if (activeTab && activeTab.tabType === 'terminal') {
       const newSessionId = `local-${Date.now()}`;
@@ -29,7 +29,7 @@ export function MainArea() {
   }, [activeTab, splitPane, settings?.promptStyle]);
 
   // Split Vertical
-  useHotkeys(getHotkey('split-vertical')!.key, (e) => {
+  useHotkey(getHotkey('split-vertical')!.key, (e) => {
     e.preventDefault();
     if (activeTab && activeTab.tabType === 'terminal') {
       const newSessionId = `local-${Date.now()}`;

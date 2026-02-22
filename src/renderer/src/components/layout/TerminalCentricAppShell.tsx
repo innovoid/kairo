@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useHotkeys } from '@tanstack/react-hotkeys';
+import { useHotkey } from '@tanstack/react-hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { TerminalLayout } from './TerminalLayout';
 import { FloatingTabBar } from './FloatingTabBar';
@@ -218,37 +218,37 @@ export function TerminalCentricAppShell() {
   };
 
   // Command Palette
-  useHotkeys(getHotkey('command-palette')!.key, (e) => {
+  useHotkey(getHotkey('command-palette')!.key, (e) => {
     e.preventDefault();
     setCommandPaletteOpen(true);
   }, [setCommandPaletteOpen]);
 
   // Browse Hosts
-  useHotkeys(getHotkey('browse-hosts')!.key, (e) => {
+  useHotkey(getHotkey('browse-hosts')!.key, (e) => {
     e.preventDefault();
     setHostBrowserOpen(true);
   }, [setHostBrowserOpen]);
 
   // New Connection
-  useHotkeys(getHotkey('new-tab')!.key, (e) => {
+  useHotkey(getHotkey('new-tab')!.key, (e) => {
     e.preventDefault();
     setHostBrowserOpen(true);
   }, [setHostBrowserOpen]);
 
   // Local Terminal
-  useHotkeys(getHotkey('local-terminal')!.key, (e) => {
+  useHotkey(getHotkey('local-terminal')!.key, (e) => {
     e.preventDefault();
     handleOpenLocalTerminal();
   }, [handleOpenLocalTerminal]);
 
   // Snippets
-  useHotkeys(getHotkey('snippets')!.key, (e) => {
+  useHotkey(getHotkey('snippets')!.key, (e) => {
     e.preventDefault();
     setSnippetsOpen(true);
   }, [setSnippetsOpen]);
 
   // Settings
-  useHotkeys(getHotkey('settings')!.key, (e) => {
+  useHotkey(getHotkey('settings')!.key, (e) => {
     e.preventDefault();
     openTab({
       tabId: 'settings',
@@ -260,13 +260,13 @@ export function TerminalCentricAppShell() {
   }, [openTab]);
 
   // Open SFTP
-  useHotkeys(getHotkey('open-sftp')!.key, (e) => {
+  useHotkey(getHotkey('open-sftp')!.key, (e) => {
     e.preventDefault();
     if (activeTabId) handleOpenSftp(activeTabId);
   }, [activeTabId, handleOpenSftp]);
 
   // Toggle Recording
-  useHotkeys(getHotkey('toggle-recording')!.key, (e) => {
+  useHotkey(getHotkey('toggle-recording')!.key, (e) => {
     e.preventDefault();
     if (activeTabId) {
       const tab = tabs.get(activeTabId);
@@ -281,13 +281,13 @@ export function TerminalCentricAppShell() {
   }, [activeTabId, tabs, isRecording, handleStartRecording, handleStopRecording]);
 
   // Toggle Broadcast
-  useHotkeys(getHotkey('toggle-broadcast')!.key, (e) => {
+  useHotkey(getHotkey('toggle-broadcast')!.key, (e) => {
     e.preventDefault();
     if (activeTabId) handleToggleBroadcast(activeTabId);
   }, [activeTabId, handleToggleBroadcast]);
 
   // Close Tab
-  useHotkeys(getHotkey('close-tab')!.key, (e) => {
+  useHotkey(getHotkey('close-tab')!.key, (e) => {
     e.preventDefault();
     if (activeTabId) {
       const tab = tabs.get(activeTabId);
