@@ -10,6 +10,7 @@ import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useTerminal } from './useTerminal';
 import { TerminalSearchBar } from './TerminalSearchBar';
 import { SnippetPickerOverlay } from '@/features/snippets/SnippetPickerOverlay';
+import { CommandHintOverlay } from './CommandHintOverlay';
 import { cn } from '@/lib/utils';
 import '@xterm/xterm/css/xterm.css';
 
@@ -99,6 +100,14 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
         style={{ backgroundColor: terminalBg }}
       >
         <div ref={containerRef} className="w-full h-full" />
+
+        {/* Command Hint Overlay */}
+        <CommandHintOverlay
+          terminal={terminal}
+          sessionId={tab.sessionId!}
+          currentRemotePath="/home"
+        />
+
         {showSearch && (
           <TerminalSearchBar
             searchAddon={searchAddon.current}
