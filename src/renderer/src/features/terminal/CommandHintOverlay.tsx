@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Terminal } from '@xterm/xterm';
+import type { Terminal } from 'ghostty-web';
 import type { Snippet } from '@shared/types/snippets';
 import type { SftpEntry } from '@shared/types/sftp';
 import { useSnippetStore } from '@/stores/snippet-store';

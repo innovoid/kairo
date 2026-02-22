@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Terminal } from '@xterm/xterm';
+import type { Terminal } from 'ghostty-web';
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';

@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import type { SearchAddon } from '@xterm/addon-search';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, X, CaseSensitive, Regex } from 'lucide-react';
+import type { TerminalSearchApi } from './terminal-search';
 
 interface TerminalSearchBarProps {
-  searchAddon: SearchAddon | null;
+  searchAddon: TerminalSearchApi | null;
   onClose: () => void;
 }
 

@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import { Terminal, FitAddon } from 'ghostty-web';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Play, Pause, RotateCcw, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import '@xterm/xterm/css/xterm.css';
+import { ensureGhosttyInitialized } from './ghostty-runtime';
 
 interface ReplayPlayerProps {
   recordingPath: string;
@@ -44,24 +43,34 @@ export function ReplayPlayer({ recordingPath, onClose }: ReplayPlayerProps) {
 
   useEffect(() => {
     if (!containerRef.current || !header) return;
+    let disposed = false;
+    let terminal: Terminal | null = null;
 
-    const terminal = new Terminal({
-      cols: header.width,
-      rows: header.height,
-      cursorBlink: false,
-      disableStdin: true,
-    });
+    const setup = async () => {
+      await ensureGhosttyInitialized();
+      if (disposed || !containerRef.current) return;
 
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(containerRef.current);
-    fitAddon.fit();
+      terminal = new Terminal({
+        cols: header.width,
+        rows: header.height,
+        cursorBlink: false,
+        disableStdin: true,
+      });
 
-    terminalRef.current = terminal;
-    fitAddonRef.current = fitAddon;
+      const fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+      terminal.open(containerRef.current);
+      fitAddon.fit();
+
+      terminalRef.current = terminal;
+      fitAddonRef.current = fitAddon;
+    };
+
+    void setup();
 
     return () => {
-      terminal.dispose();
+      disposed = true;
+      terminal?.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };

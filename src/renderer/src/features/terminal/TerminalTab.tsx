@@ -13,7 +13,6 @@ import { TerminalSearchBar } from './TerminalSearchBar';
 import { SnippetPickerOverlay } from '@/features/snippets/SnippetPickerOverlay';
 import { CommandHintOverlay } from './CommandHintOverlay';
 import { cn } from '@/lib/utils';
-import '@xterm/xterm/css/xterm.css';
 
 interface TerminalTabProps {
   tab: Tab;
