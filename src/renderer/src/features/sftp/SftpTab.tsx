@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { Tab } from '@/stores/session-store';
 import { FilePane } from './FilePane';
+import { LocalFilePane } from './LocalFilePane';
 import { TransferProgress } from './TransferProgress';
 import {
   ResizablePanelGroup,
@@ -14,6 +16,7 @@ interface SftpTabProps {
 export function SftpTab({ tab }: SftpTabProps) {
   // Use the underlying SSH session ID (strip the 'sftp-' prefix)
   const sshSessionId = tab.sessionId!.replace(/^sftp-/, '');
+  const [remotePath, setRemotePath] = useState('/');
 
   return (
     <div className="flex flex-col h-full">
@@ -24,14 +27,12 @@ export function SftpTab({ tab }: SftpTabProps) {
       </div>
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup orientation="horizontal">
-          <ResizablePanel defaultSize={100}>
-            <FilePane sessionId={sshSessionId} title="Remote" />
+          <ResizablePanel defaultSize={58} minSize={30}>
+            <FilePane sessionId={sshSessionId} title="Remote" onPathChange={setRemotePath} />
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize={0} minSize={0}>
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              Local filesystem
-            </div>
+          <ResizablePanel defaultSize={42} minSize={25}>
+            <LocalFilePane sessionId={sshSessionId} remotePath={remotePath} />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

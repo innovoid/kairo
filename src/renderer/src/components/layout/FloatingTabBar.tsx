@@ -35,8 +35,8 @@ interface Tab {
 
 interface FloatingTabBarProps {
   tabs: Tab[];
-  currentWorkspace?: string;
-  workspaces?: string[];
+  currentWorkspaceId?: string;
+  workspaces?: Array<{ id: string; name: string }>;
   onTabClick?: (tabId: string) => void;
   onTabClose?: (tabId: string) => void;
   onNewTab?: () => void;
@@ -64,7 +64,7 @@ const statusColors = {
 
 export function FloatingTabBar({
   tabs,
-  currentWorkspace,
+  currentWorkspaceId,
   workspaces = [],
   onTabClick,
   onTabClose,
@@ -84,6 +84,9 @@ export function FloatingTabBar({
   onToggleBroadcast,
   className,
 }: FloatingTabBarProps) {
+  const currentWorkspaceLabel =
+    workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name ?? 'Workspace';
+
   return (
     <TooltipProvider delay={200}>
       <div
@@ -183,7 +186,7 @@ export function FloatingTabBar({
                     'font-mono text-xs tracking-tight'
                   )}
                 >
-                  {currentWorkspace || 'Default'}
+                  {currentWorkspaceLabel}
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               )}
@@ -191,14 +194,14 @@ export function FloatingTabBar({
             <DropdownMenuContent align="end" className="w-48">
               {workspaces.map((workspace) => (
                 <DropdownMenuItem
-                  key={workspace}
-                  onClick={() => onWorkspaceChange?.(workspace)}
+                  key={workspace.id}
+                  onClick={() => onWorkspaceChange?.(workspace.id)}
                   className={cn(
                     'font-mono text-xs',
-                    workspace === currentWorkspace && 'bg-[var(--surface-3)]'
+                    workspace.id === currentWorkspaceId && 'bg-[var(--surface-3)]'
                   )}
                 >
-                  {workspace}
+                  {workspace.name}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAiStore } from '@/stores/ai-store';
+import { useSessionStore } from '@/stores/session-store';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Bot } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   Sheet,
   SheetContent,
@@ -11,6 +13,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ChatMessage } from './ChatMessage';
+import { resolveActiveTerminalSessionId, sanitizeCommandForInsert } from './command-insert';
 
 interface AiPanelProps {
   open: boolean;
@@ -19,6 +22,8 @@ interface AiPanelProps {
 
 export function AiPanel({ open, onOpenChange }: AiPanelProps) {
   const { messages, isStreaming, sendMessage, clearHistory } = useAiStore();
+  const tabs = useSessionStore((s) => s.tabs);
+  const activeTabId = useSessionStore((s) => s.activeTabId);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +70,17 @@ export function AiPanel({ open, onOpenChange }: AiPanelProps) {
     }
   }
 
+  function handleInsertCommand(command: string) {
+    const activeSessionId = resolveActiveTerminalSessionId(tabs, activeTabId);
+    if (!activeSessionId) {
+      toast.error('Open a terminal tab first to insert commands');
+      return;
+    }
+
+    void window.sshApi.send(activeSessionId, sanitizeCommandForInsert(command));
+    toast.success('Command inserted into terminal');
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-96 flex flex-col p-0">
@@ -93,7 +109,7 @@ export function AiPanel({ open, onOpenChange }: AiPanelProps) {
                     role={msg.role === 'system' ? 'assistant' : msg.role}
                     content={msg.content}
                     timestamp={msg.createdAt}
-                    onInsertCommand={(cmd) => console.log('Insert command:', cmd)}
+                    onInsertCommand={handleInsertCommand}
                   />
                 ))}
               </div>

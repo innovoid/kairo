@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 interface FilePaneProps {
   sessionId: string;
   title: string;
+  onPathChange?: (path: string) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -25,7 +26,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function FilePane({ sessionId, title }: FilePaneProps) {
+export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   const [currentPath, setCurrentPath] = useState('/');
   const [entries, setEntries] = useState<SftpEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,10 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
   useEffect(() => {
     loadDirectory(currentPath);
   }, [sessionId, currentPath]);
+
+  useEffect(() => {
+    onPathChange?.(currentPath);
+  }, [currentPath, onPathChange]);
 
   async function loadDirectory(path: string) {
     setLoading(true);
@@ -178,7 +183,9 @@ export function FilePane({ sessionId, title }: FilePaneProps) {
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-2 h-8 border-b bg-muted/10 shrink-0">
-        <span className="text-xs font-medium text-muted-foreground mr-2">{title}</span>
+        <span className="text-xs font-medium text-muted-foreground mr-2" data-testid={`${title.toLowerCase()}-file-pane-title`}>
+          {title}
+        </span>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={goUp} disabled={currentPath === '/'}>
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>

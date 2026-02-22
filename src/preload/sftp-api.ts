@@ -4,6 +4,8 @@ import type { SftpEntry, TransferProgress } from '../shared/types/sftp';
 const sftpApi = {
   list: (sessionId: string, remotePath: string): Promise<SftpEntry[]> =>
     ipcRenderer.invoke('sftp.list', sessionId, remotePath),
+  listLocal: (localPath?: string): Promise<SftpEntry[]> =>
+    ipcRenderer.invoke('sftp.listLocal', localPath),
   download: (sessionId: string, remotePath: string, localPath: string, transferId: string): Promise<void> =>
     ipcRenderer.invoke('sftp.download', sessionId, remotePath, localPath, transferId),
   upload: (sessionId: string, localPath: string, remotePath: string, transferId: string): Promise<void> =>

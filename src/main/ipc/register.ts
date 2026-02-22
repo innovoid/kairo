@@ -160,6 +160,7 @@ export function registerWorkspaceIpcHandlers(): void {
 
   // SFTP
   register('sftp.list', sftpIpcHandlers.list);
+  register('sftp.listLocal', sftpIpcHandlers.listLocal);
   register('sftp.download', sftpIpcHandlers.download);
   register('sftp.upload', sftpIpcHandlers.upload);
   register('sftp.mkdir', sftpIpcHandlers.mkdir);

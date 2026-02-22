@@ -22,9 +22,12 @@ import { TerminalLayout } from './TerminalLayout';
 import { FloatingTabBar } from './FloatingTabBar';
 import { CommandPalette } from './CommandPalette';
 import { HostBrowserOverlay } from '@/features/hosts/HostBrowserOverlay';
+import { HostForm } from '@/features/hosts/HostForm';
+import { KeysPage } from '@/features/keys/KeysPage';
 import { TeamOverlay } from '@/features/team/TeamOverlay';
 import { SettingsOverlay } from '@/features/settings/SettingsOverlay';
 import { TransferProgress } from '@/features/sftp/TransferProgress';
+import { Overlay, OverlayContent, OverlayHeader } from '@/components/ui/overlay';
 import { MainArea } from './MainArea';
 import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
@@ -32,10 +35,12 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { useTransferStore } from '@/stores/transfer-store';
 import { useRecordingStore } from '@/stores/recording-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { ArchTermLogoIcon } from '@/components/ui/logo';
 import type { Workspace } from '@shared/types/workspace';
+import type { Host } from '@shared/types/hosts';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
 
 export function TerminalCentricAppShell() {
@@ -43,6 +48,10 @@ export function TerminalCentricAppShell() {
   const [workspaceId, setWorkspaceId] = useState<string>('');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [hostBrowserOpen, setHostBrowserOpen] = useState(false);
+  const [hostFormOpen, setHostFormOpen] = useState(false);
+  const [editingHost, setEditingHost] = useState<Host | null>(null);
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [keysImportOpen, setKeysImportOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('terminal');
@@ -50,6 +59,7 @@ export function TerminalCentricAppShell() {
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
   const { hosts, fetchHosts } = useHostStore();
+  const { workspaces, activeWorkspace, fetchWorkspaces } = useWorkspaceStore();
   const { isRecording, startRecording, stopRecording } = useRecordingStore();
   const { enabled: broadcastEnabled, toggle: toggleBroadcastEnabled, addTarget } = useBroadcastStore();
 
@@ -74,12 +84,13 @@ export function TerminalCentricAppShell() {
       window.workspaceApi.getActiveContext().then((ctx) => {
         if (ctx) setWorkspaceId((ctx as { workspace: Workspace }).workspace.id);
       });
+      void fetchWorkspaces();
     }
 
     const offProgress = window.sftpApi.onProgress(updateProgress);
     fetchSettings();
     return offProgress;
-  }, [e2eMode, updateProgress, fetchSettings]);
+  }, [e2eMode, updateProgress, fetchSettings, fetchWorkspaces]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -190,6 +201,43 @@ export function TerminalCentricAppShell() {
   const handleOpenSettings = (tab: SettingsTab = 'terminal') => {
     setSettingsInitialTab(tab);
     setSettingsOpen(true);
+  };
+
+  const handleOpenHostForm = () => {
+    setEditingHost(null);
+    setHostFormOpen(true);
+  };
+
+  const handleCloseHostForm = () => {
+    setHostFormOpen(false);
+    setEditingHost(null);
+  };
+
+  const handleOpenKeys = () => {
+    setKeysImportOpen(false);
+    setKeysOpen(true);
+  };
+
+  const handleWorkspaceSwitch = async (nextWorkspaceId: string) => {
+    if (!nextWorkspaceId || nextWorkspaceId === workspaceId) return;
+
+    try {
+      await window.workspaceApi.switchActive(nextWorkspaceId);
+      setWorkspaceId(nextWorkspaceId);
+      await Promise.all([fetchHosts(nextWorkspaceId), fetchSettings(), fetchWorkspaces()]);
+
+      setHostBrowserOpen(false);
+      setHostFormOpen(false);
+      setKeysOpen(false);
+      setTeamOpen(false);
+      setSettingsOpen(false);
+
+      const workspaceName =
+        workspaces.find((workspace) => workspace.id === nextWorkspaceId)?.name ?? 'workspace';
+      toast.success(`Switched to ${workspaceName}`);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to switch workspace');
+    }
   };
 
   const handleStopRecording = async (tabId: string) => {
@@ -331,6 +379,11 @@ export function TerminalCentricAppShell() {
       isRecording: tab.sessionId ? isRecording(tab.sessionId) : false,
     }));
 
+  const workspaceOptions =
+    e2eMode
+      ? [{ id: 'e2e-workspace', name: 'E2E Workspace' }]
+      : workspaces;
+
   // Command palette commands
   const commands = [
     // Hosts
@@ -389,9 +442,7 @@ export function TerminalCentricAppShell() {
       description: 'Manage SSH keys',
       category: 'actions',
       keywords: ['keys', 'ssh', 'authentication'],
-      onExecute: () => {
-        toast.info('SSH key manager is currently in workspace flow.');
-      },
+      onExecute: handleOpenKeys,
     },
     {
       id: 'team',
@@ -484,15 +535,12 @@ export function TerminalCentricAppShell() {
         floatingTabs.length > 0 ? (
           <FloatingTabBar
             tabs={floatingTabs}
-            currentWorkspace="Default"
-            workspaces={['Default', 'Production', 'Development']}
+            currentWorkspaceId={e2eMode ? 'e2e-workspace' : activeWorkspace?.id ?? workspaceId}
+            workspaces={workspaceOptions}
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
             onNewTab={handleNewTab}
-            onWorkspaceChange={(workspace) => {
-              // TODO: Implement workspace switching
-              console.log('Switch workspace:', workspace);
-            }}
+            onWorkspaceChange={(workspace) => void handleWorkspaceSwitch(workspace)}
             onBrowseHosts={() => setHostBrowserOpen(true)}
             onBrowseFiles={() => {
               if (!activeTabId) {
@@ -509,9 +557,7 @@ export function TerminalCentricAppShell() {
                 closable: false,
               })
             }
-            onKeys={() => {
-              toast.info('SSH key manager is currently in workspace flow.');
-            }}
+            onKeys={handleOpenKeys}
             onCommandPalette={() => setCommandPaletteOpen(true)}
             onSettings={() => handleOpenSettings('terminal')}
             onOpenSftp={handleOpenSftp}
@@ -536,10 +582,51 @@ export function TerminalCentricAppShell() {
             workspaceId={workspaceId}
             onConnect={handleConnectHost}
             onNewHost={() => {
-              // TODO: Open new host form
               setHostBrowserOpen(false);
+              handleOpenHostForm();
             }}
           />
+          {hostFormOpen && (
+            <>
+              <div
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={handleCloseHostForm}
+                aria-hidden="true"
+              />
+              <div className="fixed inset-y-0 right-0 h-screen">
+                <HostForm
+                  host={editingHost}
+                  workspaceId={workspaceId}
+                  onClose={handleCloseHostForm}
+                />
+              </div>
+            </>
+          )}
+          <Overlay
+            open={keysOpen}
+            onOpenChange={(open) => {
+              setKeysOpen(open);
+              if (!open) setKeysImportOpen(false);
+            }}
+            className="max-w-[1320px] max-h-[92vh]"
+          >
+            <OverlayHeader
+              title="SSH Keys"
+              description="Import, rotate, and remove private keys for your hosts"
+              onClose={() => {
+                setKeysOpen(false);
+                setKeysImportOpen(false);
+              }}
+            />
+            <OverlayContent className="p-0 max-h-[calc(92vh-88px)]">
+              <KeysPage
+                workspaceId={workspaceId}
+                showImportPanel={keysImportOpen}
+                onOpenImport={() => setKeysImportOpen(true)}
+                onCloseImport={() => setKeysImportOpen(false)}
+              />
+            </OverlayContent>
+          </Overlay>
           <TeamOverlay
             open={teamOpen}
             onOpenChange={setTeamOpen}
