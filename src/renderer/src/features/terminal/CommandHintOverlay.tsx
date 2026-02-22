@@ -52,55 +52,65 @@ export function CommandHintOverlay({
   const disposableRef = useRef<{ dispose: () => void } | null>(null);
   const { settings } = useSettingsStore();
 
-  // Listen to terminal input
+  // Intercept keyboard events to handle @ commands
   useEffect(() => {
     if (!terminal) return;
 
-    const disposable = terminal.onData((data) => {
-      // Only detect typed @ (not pasted)
-      if (data === '@') {
+    const handler = terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      // Only handle keydown events
+      if (event.type !== 'keydown') return true;
+
+      // Check for @ key to start menu
+      if (event.key === '@' && !showMenu && !event.ctrlKey && !event.metaKey && !event.altKey) {
         setInputBuffer('@');
         setShowMenu(true);
         setFilteredCommands(COMMANDS);
         setSelectedIndex(0);
-      } else if (showMenu) {
-        // Handle input after @
-        if (data === '\r') {
-          // Enter pressed - select command
-          handleSelectCommand(filteredCommands[selectedIndex]);
-        } else if (data === '\x1b') {
-          // ESC pressed - close menu
+        return false; // Prevent @ from being sent to terminal
+      }
+
+      // If menu is not showing, allow default behavior
+      if (!showMenu) return true;
+
+      // Handle keys when menu is active
+      if (event.key === 'Enter') {
+        handleSelectCommand(filteredCommands[selectedIndex]);
+        return false; // Prevent Enter from being sent
+      } else if (event.key === 'Escape') {
+        setShowMenu(false);
+        setInputBuffer('');
+        return false;
+      } else if (event.key === 'ArrowUp') {
+        setSelectedIndex((prev) => Math.max(0, prev - 1));
+        return false;
+      } else if (event.key === 'ArrowDown') {
+        setSelectedIndex((prev) => Math.min(filteredCommands.length - 1, prev + 1));
+        return false;
+      } else if (event.key === 'Backspace') {
+        const newBuffer = inputBuffer.slice(0, -1);
+        if (newBuffer.length === 0 || !newBuffer.startsWith('@')) {
           setShowMenu(false);
           setInputBuffer('');
-        } else if (data === '\x1b[A') {
-          // Up arrow
-          setSelectedIndex((prev) => Math.max(0, prev - 1));
-        } else if (data === '\x1b[B') {
-          // Down arrow
-          setSelectedIndex((prev) => Math.min(filteredCommands.length - 1, prev + 1));
-        } else if (data === '\x7f') {
-          // Backspace
-          const newBuffer = inputBuffer.slice(0, -1);
-          if (newBuffer.length === 0 || !newBuffer.startsWith('@')) {
-            setShowMenu(false);
-            setInputBuffer('');
-          } else {
-            setInputBuffer(newBuffer);
-            filterCommands(newBuffer);
-          }
-        } else if (data.length === 1 && data >= ' ') {
-          // Regular character
-          const newBuffer = inputBuffer + data;
+        } else {
           setInputBuffer(newBuffer);
           filterCommands(newBuffer);
         }
+        return false;
+      } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        // Regular character
+        const newBuffer = inputBuffer + event.key;
+        setInputBuffer(newBuffer);
+        filterCommands(newBuffer);
+        return false; // Prevent character from being sent
       }
+
+      return true; // Allow other keys
     });
 
-    disposableRef.current = disposable;
-
     return () => {
-      disposable.dispose();
+      if (handler) {
+        terminal.attachCustomKeyEventHandler(() => true);
+      }
     };
   }, [terminal, showMenu, inputBuffer, filteredCommands, selectedIndex]);
 
@@ -114,10 +124,7 @@ export function CommandHintOverlay({
   async function handleSelectCommand(command: CommandHint | undefined) {
     if (!command || !terminal) return;
 
-    // Clear the @ command from terminal
-    const backspaces = '\x7f'.repeat(inputBuffer.length);
-    terminal.write(backspaces);
-
+    // Execute the command handler
     if (command.command === '@upload') {
       await handleUpload();
     } else if (command.command === '@download') {
