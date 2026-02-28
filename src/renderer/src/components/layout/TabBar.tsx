@@ -13,7 +13,9 @@ export function TabBar() {
   function handleClose(e: React.MouseEvent, tabId: string) {
     e.stopPropagation();
     const tab = tabs.get(tabId);
-    if (tab?.sessionId) {
+    // SFTP tabs share the sessionId with their parent terminal tab — do NOT
+    // disconnect the SSH session when closing an SFTP tab, only for terminal tabs.
+    if (tab?.sessionId && tab.tabType !== 'sftp') {
       window.sshApi.disconnect(tab.sessionId).catch(() => {});
     }
     closeTab(tabId);

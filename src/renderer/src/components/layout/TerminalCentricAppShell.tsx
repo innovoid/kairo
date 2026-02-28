@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
+import { isTerminalFocused } from '@/lib/terminal-focus';
 import { isE2EMode } from '@/lib/e2e';
 import { TerminalLayout } from './TerminalLayout';
 import { FloatingTabBar } from './FloatingTabBar';
@@ -26,7 +27,7 @@ import { HostForm } from '@/features/hosts/HostForm';
 import { KeysPage } from '@/features/keys/KeysPage';
 import { TeamOverlay } from '@/features/team/TeamOverlay';
 import { SettingsOverlay } from '@/features/settings/SettingsOverlay';
-import { AgentSidebar } from '@/features/agent/AgentSidebar';
+import { SnippetsPage } from '@/features/snippets/SnippetsPage';
 import { TransferProgress } from '@/features/sftp/TransferProgress';
 import { Overlay, OverlayContent, OverlayHeader } from '@/components/ui/overlay';
 import { MainArea } from './MainArea';
@@ -37,9 +38,11 @@ import { useTransferStore } from '@/stores/transfer-store';
 import { useRecordingStore } from '@/stores/recording-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useAutoUpdater } from '@/features/updater/useAutoUpdater';
+import { UpdateBanner, UpdateReadyModal } from '@/features/updater/UpdateNotification';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-import { ArchTermLogoIcon } from '@/components/ui/logo';
+import { ArchTermLogo } from '@/components/ui/ArchTermLogo';
 import type { Workspace } from '@shared/types/workspace';
 import type { Host } from '@shared/types/hosts';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
@@ -53,10 +56,14 @@ export function TerminalCentricAppShell() {
   const [editingHost, setEditingHost] = useState<Host | null>(null);
   const [keysOpen, setKeysOpen] = useState(false);
   const [keysImportOpen, setKeysImportOpen] = useState(false);
+  const [snippetsOpen, setSnippetsOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(true);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('terminal');
+
+  // Wire up auto-updater toast notifications
+  const [updateState, updateActions] = useAutoUpdater();
 
   const { updateProgress } = useTransferStore();
   const { settings, fetchSettings } = useSettingsStore();
@@ -109,14 +116,16 @@ export function TerminalCentricAppShell() {
   // Handler functions (defined before use)
   const handleOpenLocalTerminal = () => {
     const sessionId = `local-${Date.now()}`;
+    const connectConfig = { type: 'local' as const, promptStyle: settings?.promptStyle };
     openTab({
       tabId: sessionId,
       tabType: 'terminal',
       label: 'Local Terminal',
       sessionId,
       status: 'connecting',
+      reconnectConfig: connectConfig,
     });
-    void window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
+    void window.sshApi.connect(sessionId, connectConfig);
   };
 
   const handleConnectHost = (hostId: string) => {
@@ -132,6 +141,17 @@ export function TerminalCentricAppShell() {
       setActiveTab(existingTab.tabId);
     } else {
       const sessionId = crypto.randomUUID();
+      const connectConfig = {
+        type: 'ssh' as const,
+        host: host.hostname,
+        port: host.port,
+        username: host.username,
+        authType: host.authType,
+        // password intentionally omitted — fetched from host store at connect/reconnect time
+        privateKeyId: host.keyId ?? undefined,
+        hostId: host.id,
+        promptStyle: settings?.promptStyle,
+      };
       openTab({
         tabId: sessionId,
         tabType: 'terminal',
@@ -140,18 +160,9 @@ export function TerminalCentricAppShell() {
         hostname: host.hostname,
         sessionId,
         status: 'connecting',
+        reconnectConfig: connectConfig,
       });
-      window.sshApi.connect(sessionId, {
-        type: 'ssh',
-        host: host.hostname,
-        port: host.port,
-        username: host.username,
-        authType: host.authType,
-        password: host.password ?? undefined,
-        privateKeyId: host.keyId ?? undefined,
-        hostId: host.id,
-        promptStyle: settings?.promptStyle,
-      });
+      window.sshApi.connect(sessionId, { ...connectConfig, password: host.password ?? undefined });
     }
   };
 
@@ -165,7 +176,9 @@ export function TerminalCentricAppShell() {
 
   const handleTabClose = (tabId: string) => {
     const tab = tabs.get(tabId);
-    if (tab?.sessionId) {
+    // SFTP tabs share the sessionId with their parent terminal tab — do NOT
+    // disconnect the SSH session when closing an SFTP tab, only for terminal tabs.
+    if (tab?.sessionId && tab.tabType !== 'sftp') {
       window.sshApi.disconnect(tab.sessionId);
     }
     closeTab(tabId);
@@ -291,59 +304,63 @@ export function TerminalCentricAppShell() {
 
   // Command Palette
   useHotkey(resolveHotkey('command-palette'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     setCommandPaletteOpen(true);
   });
 
   // Browse Hosts
   useHotkey(resolveHotkey('browse-hosts'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     setHostBrowserOpen(true);
   });
 
   // New Connection
   useHotkey(resolveHotkey('new-tab'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     setHostBrowserOpen(true);
   });
 
   // Local Terminal
   useHotkey(resolveHotkey('local-terminal'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     handleOpenLocalTerminal();
   });
 
   // Snippets
   useHotkey(resolveHotkey('snippets'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
-    openTab({
-      tabId: 'snippets',
-      tabType: 'snippets',
-      label: 'Snippets',
-      closable: false,
-    });
+    setSnippetsOpen(true);
   });
 
   // Settings
   useHotkey(resolveHotkey('settings'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     handleOpenSettings('terminal');
   });
 
   // AI Agent
   useHotkey(resolveHotkey('ai-agent'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     setAgentOpen(true);
   });
 
   // Open SFTP
   useHotkey(resolveHotkey('open-sftp'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     if (activeTabId) handleOpenSftp(activeTabId);
   });
 
   // Toggle Recording
   useHotkey(resolveHotkey('toggle-recording'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     if (activeTabId) {
       const tab = tabs.get(activeTabId);
@@ -359,12 +376,14 @@ export function TerminalCentricAppShell() {
 
   // Toggle Broadcast
   useHotkey(resolveHotkey('toggle-broadcast'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     if (activeTabId) handleToggleBroadcast(activeTabId);
   });
 
   // Close Tab
   useHotkey(resolveHotkey('close-tab'), (e) => {
+    if (isTerminalFocused()) return;
     e.preventDefault();
     if (activeTabId) {
       const tab = tabs.get(activeTabId);
@@ -435,14 +454,7 @@ export function TerminalCentricAppShell() {
       category: 'actions',
       shortcut: 'Cmd+;',
       keywords: ['snippets', 'commands', 'saved'],
-      onExecute: () => {
-        openTab({
-          tabId: 'snippets',
-          tabType: 'snippets',
-          label: 'Snippets',
-          closable: false,
-        });
-      },
+      onExecute: () => setSnippetsOpen(true),
     },
     {
       id: 'ssh-keys',
@@ -536,9 +548,9 @@ export function TerminalCentricAppShell() {
         <div className="text-center">
           <div
             className="inline-block animate-pulse mb-4"
-            style={{ filter: 'drop-shadow(0 0 40px rgba(59, 130, 246, 0.4))' }}
+            style={{ filter: 'drop-shadow(0 0 40px var(--primary-glow, rgba(16,185,129,0.4)))' }}
           >
-            <ArchTermLogoIcon size={64} />
+            <ArchTermLogo iconOnly size="md" />
           </div>
           <p className="text-sm text-text-secondary">Loading workspace...</p>
         </div>
@@ -566,14 +578,7 @@ export function TerminalCentricAppShell() {
               }
               handleOpenSftp(activeTabId);
             }}
-            onSnippets={() =>
-              openTab({
-                tabId: 'snippets',
-                tabType: 'snippets',
-                label: 'Snippets',
-                closable: false,
-              })
-            }
+            onSnippets={() => setSnippetsOpen(true)}
             onKeys={handleOpenKeys}
             onCommandPalette={() => setCommandPaletteOpen(true)}
             onAiAgent={() => setAgentOpen(true)}
@@ -645,6 +650,16 @@ export function TerminalCentricAppShell() {
               />
             </OverlayContent>
           </Overlay>
+          <Overlay open={snippetsOpen} onOpenChange={setSnippetsOpen} className="max-w-[1320px] max-h-[92vh]">
+            <OverlayHeader
+              title="Snippets"
+              description="Save and execute frequently used commands"
+              onClose={() => setSnippetsOpen(false)}
+            />
+            <OverlayContent className="p-0 max-h-[calc(92vh-88px)]">
+              <SnippetsPage />
+            </OverlayContent>
+          </Overlay>
           <TeamOverlay
             open={teamOpen}
             onOpenChange={setTeamOpen}
@@ -656,35 +671,23 @@ export function TerminalCentricAppShell() {
             workspaceId={workspaceId}
             initialTab={settingsInitialTab}
           />
-          <AgentSidebar
-            open={agentOpen}
-            onOpenChange={setAgentOpen}
-            workspaceId={workspaceId}
-          />
+          {/* Agent panel is embedded inline in MainArea */}
         </>
       }
     >
       {/* Terminal area */}
-      {floatingTabs.length === 0 && activeTab?.tabType !== 'snippets' ? (
+      {floatingTabs.length === 0 ? (
         // Empty state - no terminals
         <div className="relative h-full w-full bg-background flex items-center justify-center">
           <div className="text-center space-y-6 p-8 max-w-md">
             <div
-              className="inline-block"
+              className="flex justify-center"
               style={{
                 animation: 'scaleInElastic 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                filter: 'drop-shadow(0 0 40px rgba(59, 130, 246, 0.4))',
+                filter: 'drop-shadow(0 0 40px rgba(16,185,129,0.35))',
               }}
             >
-              <ArchTermLogoIcon size={80} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">
-                ArchTerm
-              </h1>
-              <p className="text-text-secondary">
-                Terminal-centric SSH client with refined brutalist design
-              </p>
+              <ArchTermLogo stacked size="lg" />
             </div>
             <div className="flex flex-col gap-2 text-sm font-mono">
               <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all cursor-default">
@@ -719,11 +722,15 @@ export function TerminalCentricAppShell() {
         </div>
       ) : (
         // Render terminals
-        <MainArea />
+        <MainArea agentOpen={agentOpen} onAgentClose={() => setAgentOpen(false)} workspaceId={workspaceId} />
       )}
 
       <TransferProgress variant="floating" />
       <Toaster />
+
+      {/* Update notifications */}
+      <UpdateBanner state={updateState} actions={updateActions} />
+      <UpdateReadyModal state={updateState} actions={updateActions} />
     </TerminalLayout>
   );
 }

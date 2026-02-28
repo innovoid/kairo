@@ -35,6 +35,8 @@ export interface AgentStep {
   id: string;
   index: number;
   title: string;
+  /** One-sentence plain-English explanation of what this command does and why */
+  explain?: string;
   command: string;
   verifyCommand?: string;
   status: AgentStepStatus;
@@ -56,6 +58,8 @@ export interface AgentRun {
   task: string;
   status: AgentRunStatus;
   steps: AgentStep[];
+  /** Full conversation thread — user messages + AI analysis messages */
+  messages: AgentMessage[];
   facts?: HostFacts;
   createdAt: string;
   updatedAt: string;
@@ -124,6 +128,7 @@ export interface AgentPlaybook {
   sourceRunId?: string;
   steps: Array<{
     title: string;
+    explain?: string;
     command: string;
     verifyCommand?: string;
   }>;
@@ -134,4 +139,47 @@ export interface AgentStepOutputEvent {
   runId: string;
   stepId: string;
   chunk: string;
+}
+
+// ── Conversational agent message types ────────────────────────────────────────
+
+/** A single message in the agent conversation thread */
+export type AgentMessageRole = 'user' | 'assistant';
+
+export interface AgentMessage {
+  id: string;
+  role: AgentMessageRole;
+  /** Plain text / markdown content for user and assistant messages */
+  content: string;
+  /** If this message carries a proposed plan (assistant only) */
+  plan?: AgentStep[];
+  /** Which step this message is the post-execution analysis for */
+  stepResultId?: string;
+  /** Whether the AI is still streaming this message */
+  streaming?: boolean;
+  /** If set, the message represents a failed AI call — rendered as a red error card */
+  error?: string;
+  createdAt: string;
+}
+
+/** Sent from main → renderer while the AI is streaming an assistant message */
+export interface AgentMessageChunkEvent {
+  runId: string;
+  messageId: string;
+  chunk: string;
+}
+
+/** Sent from main → renderer when an assistant message finishes streaming */
+export interface AgentMessageDoneEvent {
+  runId: string;
+  messageId: string;
+}
+
+/** Input for a user follow-up message mid-run */
+export interface AgentChatInput {
+  runId: string;
+  content: string;
+  provider: AiProvider;
+  model: string;
+  apiKey: string;
 }

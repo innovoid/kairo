@@ -14,6 +14,8 @@ import { agentFactsService } from './agent-facts';
 import { aiProxy } from './ai-proxy';
 import { executeShellCommand } from './session-command-executor';
 import type {
+  AgentChatInput,
+  AgentMessage,
   AgentPlaybook,
   AgentRun,
   AgentRiskLevel,
@@ -27,12 +29,17 @@ import type {
 
 interface PlannedStep {
   title: string;
+  explain?: string;
   command: string;
   verifyCommand?: string;
 }
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function makeMessageId(): string {
+  return crypto.randomUUID();
 }
 
 function jsonSafeParse<T>(raw: string): T | null {
@@ -49,10 +56,8 @@ function extractJsonObject(raw: string): string {
     .replace(/^```\s*/i, '')
     .replace(/```$/i, '')
     .trim();
-
   const firstBrace = stripped.indexOf('{');
   const lastBrace = stripped.lastIndexOf('}');
-
   if (firstBrace >= 0 && lastBrace >= 0 && lastBrace > firstBrace) {
     return stripped.slice(firstBrace, lastBrace + 1);
   }
@@ -64,90 +69,219 @@ function toSummary(text: string): string {
   return compact.length > 1200 ? `${compact.slice(0, 1200)}...` : compact;
 }
 
+// ── System prompts ─────────────────────────────────────────────────────────────
+
 function buildPlannerSystemPrompt(facts: HostFacts): string {
-  return [
-    'You are an infrastructure operations planner for SSH tasks.',
-    'Create a concise step-by-step shell plan that is safe and verifiable.',
-    'Return strict JSON only. No markdown, no prose.',
-    'JSON schema: {"steps":[{"title":"...","command":"...","verifyCommand":"..."}]}',
-    `Host facts: os=${facts.os}, distro=${facts.distro}, version=${facts.version}, packageManager=${facts.packageManager}, isRoot=${facts.isRoot}, sudoAvailable=${facts.sudoAvailable}, systemdAvailable=${facts.systemdAvailable}`,
-    'Prefer idempotent commands where possible.',
-    'For package installs include a verifyCommand.',
-    'Do not include dangerous destructive commands unless explicitly requested by user intent.',
-  ].join('\n');
+  const pmHints: Record<string, string> = {
+    apt: 'Use apt-get. Always run apt-get update before installing packages.',
+    'apt-get': 'Use apt-get. Always run apt-get update before installing packages.',
+    dnf: 'Use dnf. Use -y flag for non-interactive installs.',
+    yum: 'Use yum. Use -y flag for non-interactive installs.',
+    pacman: 'Use pacman. Use -Sy --noconfirm for non-interactive installs.',
+    zypper: 'Use zypper. Use --non-interactive flag.',
+    apk: 'Use apk. Use --no-cache for installs.',
+  };
+  const pmHint = pmHints[facts.packageManager] ?? `Package manager: ${facts.packageManager}`;
+  const rootNote = facts.isRoot
+    ? 'Running as root — do NOT prefix commands with sudo.'
+    : facts.sudoAvailable
+      ? 'Not root but sudo is available. Prefix privileged commands with sudo.'
+      : 'Not root and sudo is NOT available. Do not use sudo.';
+  const systemdNote = facts.systemdAvailable
+    ? 'systemctl is available for service management.'
+    : 'systemctl is NOT available. Use service or rc commands instead.';
+
+  return `You are an expert Linux/Unix infrastructure engineer embedded in ArchTerm, an AI-powered SSH client.
+You operate in a conversational mode — like Claude Code or OpenCode — where you plan tasks, present them for user approval one step at a time, and analyze results after each step to decide what to do next.
+
+HOST ENVIRONMENT:
+- OS: ${facts.os} / ${facts.distro} ${facts.version}
+- ${pmHint}
+- ${rootNote}
+- ${systemdNote}
+
+YOUR RESPONSE FORMAT:
+You MUST respond with a JSON object (no markdown, no commentary outside the JSON):
+
+For a PLAN response (when the user gives you a task to accomplish):
+{
+  "message": "A short conversational explanation of your plan and approach (1-3 sentences)",
+  "steps": [
+    {
+      "title": "Short imperative title",
+      "explain": "One sentence: what this does and why it's needed",
+      "command": "shell command",
+      "verifyCommand": "optional verification command"
+    }
+  ]
 }
+
+For an ANALYSIS response (after a step completes — whether success or failure):
+{
+  "message": "Conversational analysis: what the output means, whether it succeeded, what was learned. If failed, diagnose the error and explain what went wrong.",
+  "next": "continue" | "replan" | "done" | "ask",
+  "steps": [ /* NEW steps if next=replan — otherwise omit */ ]
+}
+- next=continue: proceed to the next pending step (present it for approval)
+- next=replan: the situation changed — provide a new list of steps to replace remaining pending steps
+- next=done: the task is fully accomplished
+- next=ask: something is unclear or requires user input before continuing (explain in message)
+
+For a CHAT response (when the user asks a follow-up question or gives instructions):
+{
+  "message": "Your conversational response",
+  "next": "continue" | "replan" | "done" | "ask",
+  "steps": [ /* if replanning */ ]
+}
+
+PLANNING RULES:
+1. Each step must be ONE atomic shell command.
+2. Prefer idempotent commands.
+3. Always include a verifyCommand for install/config steps.
+4. Maximum 12 steps. If the task is simple, use fewer.
+5. Do not include cd as a step unless required for subsequent steps.
+6. For config file writes, verify the config after writing (nginx -t, sshd -t, etc.).
+7. Use POSIX-compatible syntax unless the host is macOS (Darwin).
+
+ANALYSIS RULES:
+1. Always read the actual command output — don't assume success from exit code alone.
+2. If a service isn't running, check logs before claiming it's fixed.
+3. For Docker/Traefik/nginx issues: check container status, logs, port bindings, and network configuration systematically.
+4. If the output shows the task is already done (e.g. package already installed), say so and skip remaining steps.
+5. When diagnosing failures, be specific about what the error message means.`;
+}
+
+function buildAnalysisContext(run: AgentRun, step: AgentStep, output: string, exitCode: number): string {
+  const priorMessages = run.messages
+    .filter((m) => !m.streaming)
+    .map((m) => {
+      if (m.plan) {
+        const planSummary = m.plan.map((s, i) => `  ${i + 1}. ${s.title}: \`${s.command}\``).join('\n');
+        return `${m.role.toUpperCase()}: ${m.content}\nPLAN:\n${planSummary}`;
+      }
+      return `${m.role.toUpperCase()}: ${m.content}`;
+    })
+    .join('\n\n');
+
+  const completedSteps = run.steps
+    .filter((s) => s.status === 'done' || s.status === 'skipped')
+    .map((s) => `  ✓ ${s.title}`)
+    .join('\n') || '  (none yet)';
+
+  const remainingSteps = run.steps
+    .filter((s) => s.status === 'pending')
+    .map((s) => `  • ${s.title}: \`${s.command}\``)
+    .join('\n') || '  (none remaining)';
+
+  return `ORIGINAL TASK: ${run.task}
+
+CONVERSATION SO FAR:
+${priorMessages}
+
+COMPLETED STEPS:
+${completedSteps}
+
+JUST EXECUTED:
+  Title: ${step.title}
+  Command: \`${step.command}\`
+  Exit code: ${exitCode}
+  Output:
+${output ? output.split('\n').map((l) => `    ${l}`).join('\n') : '    (no output)'}
+
+REMAINING STEPS IN PLAN:
+${remainingSteps}
+
+Now analyze the output and decide what to do next. Respond with JSON.`;
+}
+
+function buildChatContext(run: AgentRun, userMessage: string): string {
+  const pendingStep = run.steps.find((s) => s.status === 'awaiting_approval' || s.status === 'pending');
+
+  const stepsOverview = run.steps.map((s) => {
+    const icon = s.status === 'done' ? '✓' : s.status === 'skipped' ? '–' : s.status === 'failed' ? '✗' : s.status === 'running' ? '▶' : '○';
+    return `  ${icon} [${s.status}] ${s.title}`;
+  }).join('\n');
+
+  return `TASK: ${run.task}
+RUN STATUS: ${run.status}
+
+STEPS:
+${stepsOverview}
+
+${pendingStep ? `NEXT STEP AWAITING APPROVAL:\n  Title: ${pendingStep.title}\n  Command: \`${pendingStep.command}\`\n  Explain: ${pendingStep.explain ?? 'n/a'}` : ''}
+
+USER MESSAGE: ${userMessage}
+
+Respond with JSON. If the user is asking a question, answer it. If the user is giving new instructions, replan accordingly.`;
+}
+
+// ── Fallback plan ──────────────────────────────────────────────────────────────
 
 function fallbackPlan(task: string, facts: HostFacts): PlannedStep[] {
   const lowerTask = task.toLowerCase();
+
   if (lowerTask.includes('docker')) {
+    if (lowerTask.includes('traefik') || lowerTask.includes('not working') || lowerTask.includes('check') || lowerTask.includes('debug')) {
+      return [
+        { title: 'Check running containers', explain: 'Lists all running containers to see their status, image, and uptime.', command: 'docker ps', verifyCommand: undefined },
+        { title: 'Check all containers including stopped', explain: 'Shows all containers including stopped ones that may have crashed.', command: 'docker ps -a', verifyCommand: undefined },
+        { title: 'Check Docker networks', explain: 'Lists Docker networks to verify the containers are on the correct network.', command: 'docker network ls', verifyCommand: undefined },
+        { title: 'Check Traefik container logs', explain: 'Streams the last 50 lines of Traefik logs to find routing or TLS errors.', command: 'docker logs --tail 50 $(docker ps -q --filter name=traefik) 2>&1 || docker logs --tail 50 traefik 2>&1', verifyCommand: undefined },
+        { title: 'Inspect Traefik port bindings', explain: 'Shows which ports Traefik is actually bound to on the host.', command: 'docker inspect --format "{{range .NetworkSettings.Ports}}{{.}} {{end}}" $(docker ps -q --filter name=traefik) 2>/dev/null || echo "Traefik container not found"', verifyCommand: undefined },
+      ];
+    }
     if (facts.packageManager === 'apt' || facts.packageManager === 'apt-get') {
       return [
-        {
-          title: 'Update apt package index',
-          command: 'apt-get update',
-        },
-        {
-          title: 'Install Docker engine',
-          command: 'apt-get install -y docker.io',
-          verifyCommand: 'docker --version',
-        },
-        {
-          title: 'Enable and start Docker service',
-          command: 'systemctl enable --now docker',
-          verifyCommand: 'systemctl is-active docker',
-        },
-      ];
-    }
-
-    if (facts.packageManager === 'dnf' || facts.packageManager === 'yum') {
-      return [
-        {
-          title: 'Install Docker package',
-          command: `${facts.packageManager} install -y docker`,
-          verifyCommand: 'docker --version',
-        },
-        {
-          title: 'Enable and start Docker service',
-          command: 'systemctl enable --now docker',
-          verifyCommand: 'systemctl is-active docker',
-        },
-      ];
-    }
-
-    if (facts.packageManager === 'pacman') {
-      return [
-        {
-          title: 'Install Docker package',
-          command: 'pacman -Sy --noconfirm docker',
-          verifyCommand: 'docker --version',
-        },
-        {
-          title: 'Enable and start Docker service',
-          command: 'systemctl enable --now docker',
-          verifyCommand: 'systemctl is-active docker',
-        },
+        { title: 'Update apt package index', explain: 'Refreshes the local package list so apt knows about the latest versions.', command: 'apt-get update' },
+        { title: 'Install Docker engine', explain: 'Installs the docker.io package which includes the Docker daemon and CLI.', command: 'apt-get install -y docker.io', verifyCommand: 'docker --version' },
+        { title: 'Enable and start Docker service', explain: 'Enables Docker to start on boot and starts it immediately.', command: 'systemctl enable --now docker', verifyCommand: 'systemctl is-active docker' },
       ];
     }
   }
 
+  if (lowerTask.includes('nginx')) {
+    if (facts.packageManager === 'apt' || facts.packageManager === 'apt-get') {
+      return [
+        { title: 'Update package index', explain: 'Refreshes the apt cache.', command: 'apt-get update' },
+        { title: 'Install nginx', explain: 'Installs the nginx web server.', command: 'apt-get install -y nginx', verifyCommand: 'nginx -v' },
+        { title: 'Enable and start nginx', explain: 'Enables nginx at boot and starts it now.', command: 'systemctl enable --now nginx', verifyCommand: 'systemctl is-active nginx' },
+      ];
+    }
+  }
+
+  if (lowerTask.includes('disk') || lowerTask.includes('space') || lowerTask.includes('storage')) {
+    return [
+      { title: 'Check disk usage by filesystem', explain: 'Shows available and used space on all mounted filesystems.', command: 'df -h' },
+      { title: 'Find largest directories', explain: 'Lists the top 10 largest directories to help identify space consumers.', command: 'du -sh /* 2>/dev/null | sort -rh | head -10' },
+    ];
+  }
+
+  if (lowerTask.includes('cpu') || lowerTask.includes('memory') || lowerTask.includes('performance') || lowerTask.includes('load')) {
+    return [
+      { title: 'Check current load average', explain: 'Displays system uptime and load averages for the past 1, 5, and 15 minutes.', command: 'uptime' },
+      { title: 'Show top CPU-consuming processes', explain: 'Lists the processes using the most CPU, sorted descending.', command: 'ps aux --sort=-%cpu | head -15' },
+      { title: 'Show memory usage', explain: 'Shows total, used, and free memory in human-readable format.', command: 'free -h' },
+    ];
+  }
+
   return [
-    {
-      title: 'Run requested task',
-      command: task,
-    },
+    { title: 'Run requested task', explain: 'Executes the requested command directly.', command: task },
   ];
 }
+
+// ── Step / run helpers ─────────────────────────────────────────────────────────
 
 function sanitizePlannedSteps(rawSteps: PlannedStep[], facts: HostFacts): AgentStep[] {
   const steps = rawSteps
     .filter((step) => step.command?.trim())
-    .slice(0, 12)
+    .slice(0, 15)
     .map((step, index) => {
       const risk = classifyCommandRisk(step.command, facts);
       return {
         id: crypto.randomUUID(),
         index,
         title: step.title?.trim() || `Step ${index + 1}`,
+        explain: step.explain?.trim() || undefined,
         command: step.command.trim(),
         verifyCommand: step.verifyCommand?.trim() || undefined,
         status: 'pending',
@@ -157,29 +291,26 @@ function sanitizePlannedSteps(rawSteps: PlannedStep[], facts: HostFacts): AgentS
     });
 
   if (steps.length === 0) {
-    return [
-      {
-        id: crypto.randomUUID(),
-        index: 0,
-        title: 'Run requested task',
-        command: 'echo "No plan generated"',
-        status: 'pending',
-        risk: 'unknown',
-        requiresDoubleConfirm: false,
-      },
-    ];
+    return [{
+      id: crypto.randomUUID(),
+      index: 0,
+      title: 'Run requested task',
+      explain: 'No plan could be generated — running the task directly.',
+      command: 'echo "No plan generated"',
+      status: 'pending',
+      risk: 'unknown',
+      requiresDoubleConfirm: false,
+    }];
   }
 
   return steps;
 }
 
 function sanitizePlaybookSteps(rawSteps: AgentPlaybook['steps'], facts: HostFacts): AgentStep[] {
-  const normalized: PlannedStep[] = rawSteps.map((step) => ({
-    title: step.title,
-    command: step.command,
-    verifyCommand: step.verifyCommand,
-  }));
-  return sanitizePlannedSteps(normalized, facts);
+  return sanitizePlannedSteps(
+    rawSteps.map((s) => ({ title: s.title, explain: s.explain, command: s.command, verifyCommand: s.verifyCommand })),
+    facts
+  );
 }
 
 function createRunSkeleton(input: {
@@ -198,22 +329,31 @@ function createRunSkeleton(input: {
     task: input.task,
     status: 'planning',
     steps: [],
+    messages: [],
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
 }
 
+// ── IPC emitters ───────────────────────────────────────────────────────────────
+
 function emitRun(sender: WebContents, run: AgentRun): void {
-  if (!sender.isDestroyed()) {
-    sender.send('agent:run-updated', run);
-  }
+  if (!sender.isDestroyed()) sender.send('agent:run-updated', run);
 }
 
 function emitStepOutput(sender: WebContents, runId: string, stepId: string, chunk: string): void {
-  if (!sender.isDestroyed()) {
-    sender.send('agent:step-output', { runId, stepId, chunk });
-  }
+  if (!sender.isDestroyed()) sender.send('agent:step-output', { runId, stepId, chunk });
 }
+
+function emitMessageChunk(sender: WebContents, runId: string, messageId: string, chunk: string): void {
+  if (!sender.isDestroyed()) sender.send('agent:message-chunk', { runId, messageId, chunk });
+}
+
+function emitMessageDone(sender: WebContents, runId: string, messageId: string): void {
+  if (!sender.isDestroyed()) sender.send('agent:message-done', { runId, messageId });
+}
+
+// ── Persistence ────────────────────────────────────────────────────────────────
 
 function persistRun(run: AgentRun): void {
   agentRunQueries.upsert({
@@ -238,6 +378,7 @@ function persistRun(run: AgentRun): void {
       run_id: run.id,
       step_index: step.index,
       title: step.title,
+      explain: step.explain ?? null,
       command: step.command,
       verify_command: step.verifyCommand ?? null,
       status: step.status,
@@ -264,6 +405,8 @@ function appendEvent(runId: string, type: string, message: string, stepId?: stri
   });
 }
 
+// ── Run cache ──────────────────────────────────────────────────────────────────
+
 const runCache = new Map<string, AgentRun>();
 
 function ensureRun(runId: string): AgentRun {
@@ -271,9 +414,7 @@ function ensureRun(runId: string): AgentRun {
   if (cached) return cached;
 
   const runRow = agentRunQueries.getById(runId);
-  if (!runRow) {
-    throw new Error(`Run not found: ${runId}`);
-  }
+  if (!runRow) throw new Error(`Run not found: ${runId}`);
 
   const stepRows = agentStepQueries.listByRun(runId);
   const run: AgentRun = {
@@ -290,6 +431,7 @@ function ensureRun(runId: string): AgentRun {
         id: row.id,
         index: row.step_index,
         title: row.title,
+        explain: row.explain ?? undefined,
         command: row.command,
         verifyCommand: row.verify_command ?? undefined,
         status: row.status as AgentStep['status'],
@@ -301,6 +443,7 @@ function ensureRun(runId: string): AgentRun {
         startedAt: row.started_at ? new Date(row.started_at).toISOString() : undefined,
         endedAt: row.ended_at ? new Date(row.ended_at).toISOString() : undefined,
       })),
+    messages: [],   // messages are in-memory only for now
     facts: runRow.facts ? (JSON.parse(runRow.facts) as HostFacts) : undefined,
     createdAt: new Date(runRow.created_at).toISOString(),
     updatedAt: new Date(runRow.updated_at).toISOString(),
@@ -312,7 +455,109 @@ function ensureRun(runId: string): AgentRun {
   return run;
 }
 
+// ── AI streaming helper ────────────────────────────────────────────────────────
+
+/**
+ * Streams an AI response, emitting message-chunk events to the renderer
+ * and returning the fully assembled text when done.
+ */
+async function streamAssistantMessage(
+  provider: string,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  contextContent: string,
+  run: AgentRun,
+  sender: WebContents
+): Promise<string> {
+  const messageId = makeMessageId();
+
+  // Add a streaming placeholder message to the run
+  const streamingMsg: AgentMessage = {
+    id: messageId,
+    role: 'assistant',
+    content: '',
+    streaming: true,
+    createdAt: nowIso(),
+  };
+  run.messages.push(streamingMsg);
+  emitRun(sender, run);
+
+  try {
+    const { streamText } = await import('ai');
+    const resolvedModel = await aiProxy.resolveModel(provider, apiKey, model);
+
+    let fullText = '';
+    const result = streamText({
+      model: resolvedModel,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: contextContent },
+      ],
+    });
+
+    // Use fullStream so error parts are visible — textStream silently drops them
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') {
+        fullText += part.text;
+        streamingMsg.content = fullText;
+        emitMessageChunk(sender, run.id, messageId, part.text);
+      } else if (part.type === 'error') {
+        const raw = (part.error as Error)?.message ?? String(part.error);
+        throw new Error(raw);
+      }
+    }
+
+    streamingMsg.streaming = false;
+    emitMessageDone(sender, run.id, messageId);
+    return fullText;
+
+  } catch (err) {
+    // Extract a clean user-facing message from AI SDK errors
+    const raw = (err as Error).message ?? String(err);
+    const friendly = raw.replace(/^AI_\w+:\s*/, '').trim();
+
+    streamingMsg.streaming = false;
+    streamingMsg.error = friendly;
+    // Keep any partial content that was streamed before the failure
+    if (!streamingMsg.content) streamingMsg.content = friendly;
+    // Signal the renderer that this message is done (with error)
+    emitMessageDone(sender, run.id, messageId);
+    // Re-throw so the caller can set run status to failed
+    throw new Error(friendly);
+  }
+}
+
+// ── Parse AI response ──────────────────────────────────────────────────────────
+
+interface AiPlanResponse {
+  message: string;
+  steps: PlannedStep[];
+}
+
+interface AiAnalysisResponse {
+  message: string;
+  next: 'continue' | 'replan' | 'done' | 'ask';
+  steps?: PlannedStep[];
+}
+
+function parseAiResponse(raw: string): AiAnalysisResponse & { steps?: PlannedStep[] } {
+  const json = jsonSafeParse<AiAnalysisResponse>(extractJsonObject(raw));
+  if (json?.message) return json;
+  // Fallback if AI returned plain text
+  return { message: raw.trim(), next: 'continue' };
+}
+
+function parsePlanResponse(raw: string): AiPlanResponse {
+  const json = jsonSafeParse<AiPlanResponse>(extractJsonObject(raw));
+  if (json?.steps?.length) return json;
+  return { message: 'Here is my plan.', steps: [] };
+}
+
+// ── Main orchestrator ──────────────────────────────────────────────────────────
+
 export const agentOrchestrator = {
+
   async startRun(input: StartAgentRunInput, sender: WebContents): Promise<AgentRun> {
     const run = createRunSkeleton({
       sessionId: input.sessionId,
@@ -322,30 +567,52 @@ export const agentOrchestrator = {
       hostLabel: input.hostLabel,
     });
 
+    // Add user's initial message
+    const userMsg: AgentMessage = {
+      id: makeMessageId(),
+      role: 'user',
+      content: input.task,
+      createdAt: nowIso(),
+    };
+    run.messages.push(userMsg);
+
     runCache.set(run.id, run);
     persistRun(run);
     appendEvent(run.id, 'info', 'Run started');
     emitRun(sender, run);
 
     try {
+      // 1. Discover host facts
       const facts = await agentFactsService.getOrDiscover(input.sessionId, input.hostId);
       run.facts = facts;
       run.updatedAt = nowIso();
-      persistRun(run);
-      emitRun(sender, run);
 
-      const plannerText = await aiProxy.completeText(input.provider, input.apiKey, input.model, [
-        { role: 'system', content: buildPlannerSystemPrompt(facts) },
-        { role: 'user', content: input.task },
-      ]);
+      // 2. Call AI to plan — stream the response back as an assistant message
+      const systemPrompt = buildPlannerSystemPrompt(facts);
+      const rawResponse = await streamAssistantMessage(
+        input.provider, input.apiKey, input.model,
+        systemPrompt, input.task, run, sender
+      );
 
-      const parsed = jsonSafeParse<{ steps?: PlannedStep[] }>(extractJsonObject(plannerText));
-      const plannedSteps = parsed?.steps?.length ? parsed.steps : fallbackPlan(input.task, facts);
+      // 3. Parse plan from streamed response
+      const planResponse = parsePlanResponse(rawResponse);
+      const plannedSteps = planResponse.steps.length
+        ? planResponse.steps
+        : fallbackPlan(input.task, facts);
 
       run.steps = sanitizePlannedSteps(plannedSteps, facts);
+
+      // Mark first step awaiting approval
       run.steps[0].status = 'awaiting_approval';
       run.status = 'awaiting_approval';
       run.updatedAt = nowIso();
+
+      // Attach the plan to the assistant message so the UI can render step cards
+      const lastMsg = run.messages[run.messages.length - 1];
+      if (lastMsg?.role === 'assistant') {
+        lastMsg.plan = run.steps;
+        lastMsg.content = planResponse.message || lastMsg.content;
+      }
 
       appendEvent(run.id, 'info', 'Plan generated', undefined, {
         steps: run.steps.map((s) => ({ title: s.title, risk: s.risk })),
@@ -354,34 +621,29 @@ export const agentOrchestrator = {
       persistRun(run);
       emitRun(sender, run);
       return run;
+
     } catch (error) {
       run.status = 'failed';
       run.lastError = (error as Error).message;
       run.updatedAt = nowIso();
-      appendEvent(run.id, 'error', 'Planning failed', undefined, {
-        error: run.lastError,
-      });
+      appendEvent(run.id, 'error', 'Planning failed', undefined, { error: run.lastError });
       persistRun(run);
-      if (!sender.isDestroyed()) {
-        sender.send('agent:error', run.id, run.lastError);
-      }
+      if (!sender.isDestroyed()) sender.send('agent:error', run.id, run.lastError);
       emitRun(sender, run);
       return run;
     }
   },
 
-  async approveStep(input: ApproveAgentStepInput, sender: WebContents): Promise<AgentRun> {
+  async approveStep(input: ApproveAgentStepInput, sender: WebContents, aiInput: { provider: string; apiKey: string; model: string }): Promise<AgentRun> {
     const run = ensureRun(input.runId);
-    const step = run.steps.find((candidate) => candidate.id === input.stepId);
+    const step = run.steps.find((s) => s.id === input.stepId);
 
-    if (!step) {
-      throw new Error(`Step not found: ${input.stepId}`);
-    }
-
+    if (!step) throw new Error(`Step not found: ${input.stepId}`);
     if (step.status !== 'awaiting_approval' && step.status !== 'blocked') {
       throw new Error('Step is not awaiting approval');
     }
 
+    // Double-confirm guard for destructive commands
     if (step.risk === 'destructive' && !input.doubleConfirm) {
       step.status = 'blocked';
       run.status = 'blocked';
@@ -389,13 +651,12 @@ export const agentOrchestrator = {
       run.updatedAt = nowIso();
       appendEvent(run.id, 'warning', run.lastError, step.id);
       persistRun(run);
-      if (!sender.isDestroyed()) {
-        sender.send('agent:blocked', run.id, run.lastError);
-      }
+      if (!sender.isDestroyed()) sender.send('agent:blocked', run.id, run.lastError);
       emitRun(sender, run);
       return run;
     }
 
+    // Privilege guard
     if (step.risk === 'needs_privilege' && !run.facts?.isRoot && !input.elevate) {
       step.status = 'blocked';
       run.status = 'blocked';
@@ -403,13 +664,12 @@ export const agentOrchestrator = {
       run.updatedAt = nowIso();
       appendEvent(run.id, 'warning', run.lastError, step.id);
       persistRun(run);
-      if (!sender.isDestroyed()) {
-        sender.send('agent:blocked', run.id, run.lastError);
-      }
+      if (!sender.isDestroyed()) sender.send('agent:blocked', run.id, run.lastError);
       emitRun(sender, run);
       return run;
     }
 
+    // Mark step running
     step.status = 'running';
     step.startedAt = nowIso();
     run.status = 'running';
@@ -419,13 +679,22 @@ export const agentOrchestrator = {
     persistRun(run);
     emitRun(sender, run);
 
+    let execOutput = '';
+    let execExitCode = 0;
+
     try {
       const command = applyElevation(step.command, Boolean(input.elevate), run.facts);
       const execResult = await executeShellCommand(run.sessionId, command, {
         timeoutMs: 5 * 60 * 1000,
-        onOutput: (chunk) => emitStepOutput(sender, run.id, step.id, chunk),
+        onOutput: (chunk) => {
+          execOutput += chunk;
+          emitStepOutput(sender, run.id, step.id, chunk);
+        },
       });
+      execExitCode = execResult.exitCode;
+      execOutput = execResult.output;
 
+      // Run verify command if present
       let verifyExitCode = 0;
       let verifyOutput = '';
       if (step.verifyCommand) {
@@ -439,90 +708,254 @@ export const agentOrchestrator = {
         );
         verifyExitCode = verifyResult.exitCode;
         verifyOutput = verifyResult.output;
+        execOutput = [execOutput, verifyOutput].filter(Boolean).join('\n');
+        if (verifyExitCode !== 0) execExitCode = verifyExitCode;
       }
 
-      const combinedOutput = [execResult.output, verifyOutput].filter(Boolean).join('\n');
-
-      step.exitCode = verifyExitCode !== 0 ? verifyExitCode : execResult.exitCode;
-      step.outputSummary = toSummary(combinedOutput);
+      step.exitCode = execExitCode;
+      step.outputSummary = toSummary(execOutput);
       step.endedAt = nowIso();
-
-      if (execResult.exitCode === 0 && verifyExitCode === 0) {
-        step.status = 'done';
-      } else {
-        step.status = 'failed';
-        step.error = verifyExitCode !== 0
-          ? `Verification failed with exit code ${verifyExitCode}`
-          : `Command failed with exit code ${execResult.exitCode}`;
+      step.status = execExitCode === 0 ? 'done' : 'failed';
+      if (step.status === 'failed') {
+        step.error = `Command failed with exit code ${execExitCode}`;
       }
 
+    } catch (error) {
+      const message = (error as Error).message;
+      step.endedAt = nowIso();
+      execExitCode = 1;
+      execOutput = message;
+
+      const wasInterrupted = message.includes('interrupted') || message.includes('Ctrl+C');
+      if (wasInterrupted) {
+        step.status = 'awaiting_approval';
+        step.error = 'Interrupted by user — re-run or skip this step.';
+        run.status = 'awaiting_approval';
+        run.lastError = step.error;
+        run.summary = `Step ${step.index + 1} interrupted: ${step.title}`;
+        run.updatedAt = nowIso();
+        appendEvent(run.id, 'error', step.error, step.id);
+        persistRun(run);
+        if (!sender.isDestroyed()) sender.send('agent:error', run.id, step.error);
+        emitRun(sender, run);
+        return run;
+      }
+
+      step.status = 'failed';
+      step.error = message;
+    }
+
+    appendEvent(run.id, step.status === 'done' ? 'verification' : 'error',
+      step.status === 'done' ? `Step succeeded: ${step.title}` : `Step failed: ${step.title}`,
+      step.id, { exitCode: step.exitCode });
+    run.updatedAt = nowIso();
+    persistRun(run);
+    emitRun(sender, run);
+
+    // ── AI analyzes the output ────────────────────────────────────────────────
+    try {
+      const systemPrompt = buildPlannerSystemPrompt(run.facts ?? {
+        os: 'Linux', distro: 'unknown', version: 'unknown',
+        packageManager: 'apt', isRoot: false, sudoAvailable: true, systemdAvailable: true, updatedAt: nowIso(),
+      });
+      const contextContent = buildAnalysisContext(run, step, execOutput, execExitCode);
+
+      const rawAnalysis = await streamAssistantMessage(
+        aiInput.provider, aiInput.apiKey, aiInput.model,
+        systemPrompt, contextContent, run, sender
+      );
+
+      const analysis = parseAiResponse(rawAnalysis);
+
+      // Attach stepResultId so UI can link this message back to the step
+      const lastMsg = run.messages[run.messages.length - 1];
+      if (lastMsg?.role === 'assistant') {
+        lastMsg.stepResultId = step.id;
+        lastMsg.content = analysis.message || lastMsg.content;
+      }
+
+      // Handle AI decision
+      if (analysis.next === 'done') {
+        run.status = 'completed';
+        run.summary = analysis.message || 'Task completed successfully.';
+
+      } else if (analysis.next === 'replan' && analysis.steps?.length) {
+        // Replace all remaining pending steps with a new plan
+        const remainingPending = run.steps.filter((s) => s.status === 'pending');
+        for (const s of remainingPending) {
+          const idx = run.steps.indexOf(s);
+          if (idx !== -1) run.steps.splice(idx, 1);
+        }
+        const newSteps = sanitizePlannedSteps(analysis.steps, run.facts ?? {
+          os: 'Linux', distro: 'unknown', version: 'unknown',
+          packageManager: 'apt', isRoot: false, sudoAvailable: true, systemdAvailable: true, updatedAt: nowIso(),
+        });
+        // Re-index
+        const baseIndex = run.steps.length;
+        for (const s of newSteps) {
+          s.index = baseIndex + newSteps.indexOf(s);
+          run.steps.push(s);
+        }
+        // Mark first new step awaiting approval
+        const firstNew = run.steps.find((s) => s.status === 'pending');
+        if (firstNew) {
+          firstNew.status = 'awaiting_approval';
+          run.status = 'awaiting_approval';
+          run.summary = `Replanned: ${firstNew.title}`;
+        }
+        // Attach plan to assistant message
+        if (lastMsg?.role === 'assistant') lastMsg.plan = newSteps;
+
+      } else if (analysis.next === 'ask') {
+        // AI needs user input — leave run as awaiting_approval
+        run.status = 'awaiting_approval';
+        run.summary = analysis.message;
+
+      } else {
+        // continue: advance to next pending step
+        if (step.status === 'failed') {
+          run.status = 'failed';
+          run.lastError = step.error;
+          run.summary = `Run failed at step ${step.index + 1}: ${step.title}`;
+        } else {
+          const nextStep = run.steps.find((s) => s.status === 'pending');
+          if (nextStep) {
+            nextStep.status = 'awaiting_approval';
+            run.status = 'awaiting_approval';
+            run.summary = `Awaiting approval for step ${nextStep.index + 1}: ${nextStep.title}`;
+          } else {
+            run.status = 'completed';
+            run.summary = 'All steps completed.';
+          }
+        }
+      }
+
+    } catch (analysisError) {
+      // Analysis failed — fall back to simple continue/fail logic
       if (step.status === 'failed') {
         run.status = 'failed';
         run.lastError = step.error;
         run.summary = `Run failed at step ${step.index + 1}: ${step.title}`;
       } else {
-        const nextStep = run.steps.find((candidate) => candidate.status === 'pending');
+        const nextStep = run.steps.find((s) => s.status === 'pending');
         if (nextStep) {
           nextStep.status = 'awaiting_approval';
           run.status = 'awaiting_approval';
-          run.summary = `Awaiting approval for step ${nextStep.index + 1}: ${nextStep.title}`;
         } else {
           run.status = 'completed';
-          run.summary = 'Run completed successfully.';
+          run.summary = 'All steps completed.';
         }
       }
-
-      run.updatedAt = nowIso();
-      appendEvent(
-        run.id,
-        step.status === 'done' ? 'verification' : 'error',
-        step.status === 'done' ? `Step succeeded: ${step.title}` : `Step failed: ${step.title}`,
-        step.id,
-        { exitCode: step.exitCode }
-      );
-      persistRun(run);
-      if (run.status === 'completed' && !sender.isDestroyed()) {
-        sender.send('agent:done', run.id);
-      }
-      emitRun(sender, run);
-      return run;
-    } catch (error) {
-      step.status = 'failed';
-      step.error = (error as Error).message;
-      step.endedAt = nowIso();
-
-      run.status = 'failed';
-      run.lastError = step.error;
-      run.summary = `Run failed at step ${step.index + 1}: ${step.title}`;
-      run.updatedAt = nowIso();
-
-      appendEvent(run.id, 'error', step.error, step.id);
-      persistRun(run);
-      if (!sender.isDestroyed()) {
-        sender.send('agent:error', run.id, step.error);
-      }
-      emitRun(sender, run);
-      return run;
     }
+
+    run.updatedAt = nowIso();
+    persistRun(run);
+    if (run.status === 'completed' && !sender.isDestroyed()) sender.send('agent:done', run.id);
+    emitRun(sender, run);
+    return run;
+  },
+
+  async chat(input: AgentChatInput, sender: WebContents): Promise<AgentRun> {
+    const run = ensureRun(input.runId);
+
+    // Add user message to conversation
+    const userMsg: AgentMessage = {
+      id: makeMessageId(),
+      role: 'user',
+      content: input.content,
+      createdAt: nowIso(),
+    };
+    run.messages.push(userMsg);
+    run.updatedAt = nowIso();
+    emitRun(sender, run);
+
+    try {
+      const systemPrompt = buildPlannerSystemPrompt(run.facts ?? {
+        os: 'Linux', distro: 'unknown', version: 'unknown',
+        packageManager: 'apt', isRoot: false, sudoAvailable: true, systemdAvailable: true, updatedAt: nowIso(),
+      });
+      const contextContent = buildChatContext(run, input.content);
+
+      const rawResponse = await streamAssistantMessage(
+        input.provider, input.apiKey, input.model,
+        systemPrompt, contextContent, run, sender
+      );
+
+      const parsed = parseAiResponse(rawResponse);
+      const lastMsg = run.messages[run.messages.length - 1];
+      if (lastMsg?.role === 'assistant') {
+        lastMsg.content = parsed.message || lastMsg.content;
+      }
+
+      if (parsed.next === 'replan' && parsed.steps?.length) {
+        const newSteps = sanitizePlannedSteps(parsed.steps, run.facts ?? {
+          os: 'Linux', distro: 'unknown', version: 'unknown',
+          packageManager: 'apt', isRoot: false, sudoAvailable: true, systemdAvailable: true, updatedAt: nowIso(),
+        });
+        // Replace pending steps
+        run.steps = run.steps.filter((s) => s.status !== 'pending');
+        const baseIndex = run.steps.length;
+        for (const s of newSteps) {
+          s.index = baseIndex + newSteps.indexOf(s);
+          run.steps.push(s);
+        }
+        const firstNew = run.steps.find((s) => s.status === 'pending');
+        if (firstNew) {
+          firstNew.status = 'awaiting_approval';
+          run.status = 'awaiting_approval';
+        }
+        if (lastMsg?.role === 'assistant') lastMsg.plan = newSteps;
+      } else if (parsed.next === 'done') {
+        run.status = 'completed';
+        run.summary = parsed.message;
+      }
+
+      run.updatedAt = nowIso();
+      persistRun(run);
+      emitRun(sender, run);
+    } catch (error) {
+      const errorMsg = (error as Error).message;
+      // Surface the error as a visible assistant message in the thread
+      const errorAssistantMsg: AgentMessage = {
+        id: makeMessageId(),
+        role: 'assistant',
+        content: errorMsg,
+        error: errorMsg,
+        createdAt: nowIso(),
+      };
+      run.messages.push(errorAssistantMsg);
+      run.lastError = errorMsg;
+      run.updatedAt = nowIso();
+      appendEvent(run.id, 'error', 'Chat AI call failed', undefined, { error: errorMsg });
+      persistRun(run);
+      emitRun(sender, run);
+    }
+
+    return run;
   },
 
   rejectStep(runId: string, stepId: string, reason: string | undefined, sender: WebContents): AgentRun {
     const run = ensureRun(runId);
-    const step = run.steps.find((candidate) => candidate.id === stepId);
-
-    if (!step) {
-      throw new Error(`Step not found: ${stepId}`);
-    }
+    const step = run.steps.find((s) => s.id === stepId);
+    if (!step) throw new Error(`Step not found: ${stepId}`);
 
     step.status = 'skipped';
     step.endedAt = nowIso();
 
-    run.status = 'cancelled';
-    run.summary = `Run cancelled at step ${step.index + 1}`;
-    run.lastError = reason || 'Step rejected by user';
-    run.updatedAt = nowIso();
+    // Advance to next step rather than cancelling the whole run
+    const nextStep = run.steps.find((s) => s.status === 'pending');
+    if (nextStep) {
+      nextStep.status = 'awaiting_approval';
+      run.status = 'awaiting_approval';
+      run.summary = `Skipped step ${step.index + 1}. Awaiting approval for step ${nextStep.index + 1}: ${nextStep.title}`;
+    } else {
+      run.status = 'completed';
+      run.summary = `Completed (step ${step.index + 1} skipped).`;
+    }
 
-    appendEvent(run.id, 'approval', 'Step rejected', step.id, { reason });
+    run.lastError = undefined;
+    run.updatedAt = nowIso();
+    appendEvent(run.id, 'approval', 'Step skipped', step.id, { reason });
     persistRun(run);
     emitRun(sender, run);
     return run;
@@ -547,7 +980,6 @@ export const agentOrchestrator = {
     const rows = sessionId
       ? agentRunQueries.listBySession(sessionId)
       : agentRunQueries.listRecent(50);
-
     return rows.map((row) => ensureRun(row.id));
   },
 
@@ -558,24 +990,19 @@ export const agentOrchestrator = {
         ? agentPlaybookQueries.getByName(input.playbookName, input.workspaceId)
         : undefined;
 
-    if (!playbookRow) {
-      throw new Error('Playbook not found');
-    }
+    if (!playbookRow) throw new Error('Playbook not found');
 
     const parsedSteps = jsonSafeParse<AgentPlaybook['steps']>(playbookRow.steps);
-    if (!parsedSteps || parsedSteps.length === 0) {
-      throw new Error('Playbook has no runnable steps');
-    }
+    if (!parsedSteps || parsedSteps.length === 0) throw new Error('Playbook has no runnable steps');
 
     const run = createRunSkeleton({
       sessionId: input.sessionId,
-      task: playbookRow.task,
+      task: `Playbook: ${playbookRow.name}`,
       workspaceId: input.workspaceId ?? playbookRow.workspace_id ?? undefined,
       hostId: input.hostId,
       hostLabel: input.hostLabel,
     });
 
-    run.task = `Playbook: ${playbookRow.name}`;
     runCache.set(run.id, run);
     persistRun(run);
     appendEvent(run.id, 'info', `Playbook run started: ${playbookRow.name}`);
@@ -589,6 +1016,16 @@ export const agentOrchestrator = {
       run.status = 'awaiting_approval';
       run.updatedAt = nowIso();
       run.summary = `Playbook loaded: ${playbookRow.name}`;
+
+      // Add a synthetic assistant message explaining the playbook
+      run.messages.push({
+        id: makeMessageId(),
+        role: 'assistant',
+        content: `Loaded playbook **${playbookRow.name}** with ${run.steps.length} step${run.steps.length !== 1 ? 's' : ''}. Review each step and approve to execute.`,
+        plan: run.steps,
+        createdAt: nowIso(),
+      });
+
       appendEvent(run.id, 'info', 'Playbook steps loaded', undefined, { name: playbookRow.name });
       persistRun(run);
       emitRun(sender, run);
@@ -597,13 +1034,9 @@ export const agentOrchestrator = {
       run.status = 'failed';
       run.lastError = (error as Error).message;
       run.updatedAt = nowIso();
-      appendEvent(run.id, 'error', 'Failed to load playbook run context', undefined, {
-        error: run.lastError,
-      });
+      appendEvent(run.id, 'error', 'Failed to load playbook run context', undefined, { error: run.lastError });
       persistRun(run);
-      if (!sender.isDestroyed()) {
-        sender.send('agent:error', run.id, run.lastError);
-      }
+      if (!sender.isDestroyed()) sender.send('agent:error', run.id, run.lastError);
       emitRun(sender, run);
       return run;
     }
@@ -617,10 +1050,11 @@ export const agentOrchestrator = {
       name: input.name,
       task: run.task,
       sourceRunId: run.id,
-      steps: run.steps.map((step) => ({
-        title: step.title,
-        command: step.command,
-        verifyCommand: step.verifyCommand,
+      steps: run.steps.map((s) => ({
+        title: s.title,
+        explain: s.explain,
+        command: s.command,
+        verifyCommand: s.verifyCommand,
       })),
       createdAt: nowIso(),
     };
