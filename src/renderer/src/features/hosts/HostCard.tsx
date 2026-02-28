@@ -25,7 +25,7 @@ export function HostCard({ host, onEdit, onDelete }: HostCardProps) {
     (s) => s.hostId === host.id && s.tabType === 'terminal'
   );
 
-  function connect() {
+  async function connect() {
     if (existingSession) {
       setActiveTab(existingSession.tabId);
       return;
@@ -42,19 +42,26 @@ export function HostCard({ host, onEdit, onDelete }: HostCardProps) {
       status: 'connecting',
     });
 
+    let password: string | undefined;
+    if (host.authType === 'password') {
+      try {
+        password = await window.hostsApi.getPassword(host.id) ?? undefined;
+      } catch {}
+    }
+
     window.sshApi.connect(sessionId, {
       type: 'ssh',
       host: host.hostname,
       port: host.port,
       username: host.username,
       authType: host.authType,
-      password: host.password ?? undefined,
+      password,
       privateKeyId: host.keyId ?? undefined,
       hostId: host.id,
     });
   }
 
-  function openSftp() {
+  async function openSftp() {
     const sessionId = existingSession?.sessionId ?? crypto.randomUUID();
 
     if (!existingSession) {
@@ -68,13 +75,20 @@ export function HostCard({ host, onEdit, onDelete }: HostCardProps) {
         status: 'connecting',
       });
 
+      let password: string | undefined;
+      if (host.authType === 'password') {
+        try {
+          password = await window.hostsApi.getPassword(host.id) ?? undefined;
+        } catch {}
+      }
+
       window.sshApi.connect(sessionId, {
         type: 'ssh',
         host: host.hostname,
         port: host.port,
         username: host.username,
         authType: host.authType,
-        password: host.password ?? undefined,
+        password,
         privateKeyId: host.keyId ?? undefined,
         hostId: host.id,
       });

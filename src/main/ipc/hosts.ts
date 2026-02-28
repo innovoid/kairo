@@ -21,6 +21,18 @@ export const hostsIpcHandlers = {
     }
   },
 
+  async getPassword(event: IpcMainInvokeEvent, hostId: string) {
+    try {
+      const supabase = getClient(event);
+      const { data, error } = await supabase.from('hosts').select('password').eq('id', hostId).single();
+      if (error) throw error;
+      return data?.password ?? null;
+    } catch (error) {
+      logger.error('Error in getPassword:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to get host password');
+    }
+  },
+
   async createHost(event: IpcMainInvokeEvent, input: CreateHostInput) {
     try {
       const supabase = getClient(event);

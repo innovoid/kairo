@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
@@ -44,6 +44,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   const { hosts } = useHostStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showSnippetPicker, setShowSnippetPicker] = useState(false);
+  const [currentRemotePath, setCurrentRemotePath] = useState('/');
 
   const resolveHotkey = (id: string): RegisterableHotkey => {
     const definition = getHotkey(id);
@@ -60,6 +61,11 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     isVisible,
   });
 
+  // Track CWD via OSC 7 escape sequence
+  const handleCwdChange = useCallback((cwd: string) => {
+    setCurrentRemotePath(cwd);
+  }, []);
+
   // Wire up SSH IPC events → terminal + disconnect tracking
   useSshSessionEvents({
     sessionId: tab.sessionId!,
@@ -67,6 +73,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     tabStatus: tab.status ?? undefined,
     terminalRef: terminal,
     reconnectConfig: tab.reconnectConfig,
+    onCwdChange: handleCwdChange,
   });
 
   // Get terminal theme background color
@@ -74,7 +81,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   const terminalBg = TERMINAL_THEMES[themeName]?.theme?.background ?? TERMINAL_THEMES['dracula'].theme.background;
 
   // ── Reconnect: keep same tabId, assign new sessionId, bump attempt count ──
-  const handleReconnect = useCallback(() => {
+  const handleReconnect = useCallback(async () => {
     if (!tab.reconnectConfig) return;
 
     const newSessionId = crypto.randomUUID();
@@ -96,15 +103,19 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
 
     terminal.current?.write('\r\n\x1b[2m— reconnecting… —\x1b[0m\r\n');
 
-    // Fetch password from host store at reconnect time — never persisted in tab state (C-1)
-    const hostRecord = tab.reconnectConfig.hostId
-      ? hosts.find((h) => h.id === tab.reconnectConfig!.hostId)
-      : undefined;
+    // Fetch password on-demand from Supabase — never stored in renderer memory
+    let password: string | undefined;
+    if (tab.reconnectConfig?.authType === 'password' && tab.reconnectConfig.hostId) {
+      try {
+        password = await window.hostsApi.getPassword(tab.reconnectConfig.hostId) ?? undefined;
+      } catch {
+        // Password fetch failed - continue without it, SSH will fail with auth error
+      }
+    }
+
     const connectPayload = {
       ...tab.reconnectConfig,
-      ...(tab.reconnectConfig.authType === 'password' && hostRecord?.password
-        ? { password: hostRecord.password }
-        : {}),
+      ...(password ? { password } : {}),
     };
 
     void window.sshApi.connect(newSessionId, connectPayload);
@@ -136,7 +147,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
         <CommandHintOverlay
           terminal={terminal.current}
           sessionId={tab.sessionId!}
-          currentRemotePath="/home"
+          currentRemotePath={currentRemotePath}
           hostId={tab.hostId}
           hostLabel={tab.label}
         />

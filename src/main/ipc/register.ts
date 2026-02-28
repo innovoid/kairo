@@ -169,6 +169,7 @@ export function registerWorkspaceIpcHandlers(): void {
 
   // Hosts & Folders
   register('hosts.list', withSupabase(hostsIpcHandlers.listHosts));
+  register('hosts.getPassword', withSupabase(hostsIpcHandlers.getPassword));
   register('hosts.create', withSupabase(hostsIpcHandlers.createHost));
   register('hosts.update', withSupabase(hostsIpcHandlers.updateHost));
   register('hosts.delete', withSupabase(hostsIpcHandlers.deleteHost));

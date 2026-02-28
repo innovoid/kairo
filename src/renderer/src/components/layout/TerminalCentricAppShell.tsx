@@ -128,7 +128,7 @@ export function TerminalCentricAppShell() {
     void window.sshApi.connect(sessionId, connectConfig);
   };
 
-  const handleConnectHost = (hostId: string) => {
+  const handleConnectHost = async (hostId: string) => {
     const host = hosts.find((h) => h.id === hostId);
     if (!host) return;
 
@@ -147,7 +147,6 @@ export function TerminalCentricAppShell() {
         port: host.port,
         username: host.username,
         authType: host.authType,
-        // password intentionally omitted — fetched from host store at connect/reconnect time
         privateKeyId: host.keyId ?? undefined,
         hostId: host.id,
         promptStyle: settings?.promptStyle,
@@ -162,7 +161,17 @@ export function TerminalCentricAppShell() {
         status: 'connecting',
         reconnectConfig: connectConfig,
       });
-      window.sshApi.connect(sessionId, { ...connectConfig, password: host.password ?? undefined });
+
+      // Fetch password on-demand from Supabase — never stored in renderer
+      let password: string | undefined;
+      if (host.authType === 'password') {
+        try {
+          password = await window.hostsApi.getPassword(host.id) ?? undefined;
+        } catch {
+          // Continue without password - SSH will fail with auth error
+        }
+      }
+      window.sshApi.connect(sessionId, { ...connectConfig, password });
     }
   };
 
@@ -270,7 +279,7 @@ export function TerminalCentricAppShell() {
     }
   };
 
-  const handleSplitHorizontal = (tabId: string) => {
+  const handleSplitHorizontal = async (tabId: string) => {
     const tab = tabs.get(tabId);
     if (!tab || tab.tabType !== 'terminal') return;
 
@@ -278,17 +287,22 @@ export function TerminalCentricAppShell() {
     splitPane(tab.tabId, 'horizontal', newSessionId);
 
     if (tab.reconnectConfig?.type === 'ssh' && tab.reconnectConfig.hostId) {
-      const host = hosts.find(h => h.id === tab.reconnectConfig!.hostId);
+      let password: string | undefined;
+      if (tab.reconnectConfig.authType === 'password') {
+        try {
+          password = await window.hostsApi.getPassword(tab.reconnectConfig.hostId) ?? undefined;
+        } catch {}
+      }
       window.sshApi.connect(newSessionId, {
         ...tab.reconnectConfig,
-        password: host?.password ?? undefined,
+        password,
       });
     } else {
       window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
     }
   };
 
-  const handleSplitVertical = (tabId: string) => {
+  const handleSplitVertical = async (tabId: string) => {
     const tab = tabs.get(tabId);
     if (!tab || tab.tabType !== 'terminal') return;
 
@@ -296,10 +310,15 @@ export function TerminalCentricAppShell() {
     splitPane(tab.tabId, 'vertical', newSessionId);
 
     if (tab.reconnectConfig?.type === 'ssh' && tab.reconnectConfig.hostId) {
-      const host = hosts.find(h => h.id === tab.reconnectConfig!.hostId);
+      let password: string | undefined;
+      if (tab.reconnectConfig.authType === 'password') {
+        try {
+          password = await window.hostsApi.getPassword(tab.reconnectConfig.hostId) ?? undefined;
+        } catch {}
+      }
       window.sshApi.connect(newSessionId, {
         ...tab.reconnectConfig,
-        password: host?.password ?? undefined,
+        password,
       });
     } else {
       window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });

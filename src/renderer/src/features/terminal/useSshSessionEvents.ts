@@ -10,6 +10,8 @@ interface UseSshSessionEventsOptions {
   terminalRef: React.RefObject<Terminal | null>;
   /** Original connect config — stored so the tab can reconnect later */
   reconnectConfig?: SessionConnectConfig;
+  /** Callback when CWD is detected from OSC 7 escape sequence */
+  onCwdChange?: (cwd: string) => void;
 }
 
 /** How long to wait before declaring a connecting session timed out in the UI */
@@ -26,6 +28,7 @@ export function useSshSessionEvents({
   tabStatus,
   terminalRef,
   reconnectConfig,
+  onCwdChange,
 }: UseSshSessionEventsOptions): void {
   const { updateTabStatus, updateTabDisconnect } = useSessionStore();
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,6 +72,16 @@ export function useSshSessionEvents({
 
       // Write data to terminal
       terminalRef.current.write(data);
+
+      // Parse OSC 7 for CWD detection
+      if (onCwdChange) {
+        const osc7Match = data.match(/\x1b\]7;file:\/\/([^\x07\x1b\\]+)\x07/);
+        if (osc7Match) {
+          const path = osc7Match[1];
+          const cleanPath = path.includes('/') ? '/' + path.split('/').slice(2).join('/') : path;
+          onCwdChange(cleanPath || '/');
+        }
+      }
 
       // Mark as connected on first data packet (only once)
       if (tabStatus === 'connecting' && !hasConnectedRef.current) {

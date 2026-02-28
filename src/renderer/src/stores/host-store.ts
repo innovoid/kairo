@@ -30,7 +30,9 @@ export const useHostStore = create<HostState>((set) => ({
         window.hostsApi.list(workspaceId),
         window.foldersApi.list(workspaceId),
       ]);
-      set({ hosts, folders, isLoading: false });
+      // Strip passwords before storing in renderer memory - fetch on-demand at connect time
+      const sanitizedHosts = hosts.map(h => ({ ...h, password: null }));
+      set({ hosts: sanitizedHosts, folders, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
