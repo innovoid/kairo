@@ -115,12 +115,6 @@ export function SnippetsPage() {
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="flex-1 overflow-y-auto py-6 px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-display mb-2">Snippets</h1>
-          <p className="text-body text-[var(--text-secondary)]">Save and execute frequently used commands</p>
-        </div>
-
         {/* Search and Add */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2 h-10 px-3 border border-[var(--border)] rounded-md bg-[var(--input)] w-[200px]">

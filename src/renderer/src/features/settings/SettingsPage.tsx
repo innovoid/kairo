@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/stores/settings-store';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Eye, EyeOff } from 'lucide-react';
+import {
+  Monitor,
+  Palette,
+  Bot,
+  User,
+  Keyboard,
+  Eye,
+  EyeOff,
+  Check,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { AiProvider, CursorStyle, BellStyle, TerminalTheme } from '@shared/types/settings';
@@ -30,91 +38,88 @@ interface SettingsPageProps {
   workspaceId: string;
 }
 
+const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+  { id: 'terminal', label: 'Terminal', icon: Monitor },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'ai', label: 'AI', icon: Bot },
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+];
+
 export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPageProps) {
+  const { fetchSettings } = useSettingsStore();
+
+  // Fetch settings once when the settings page opens
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
   return (
-    <div className="flex flex-col flex-1 h-full bg-background overflow-hidden">
-      <div className="py-6 px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-display mb-2">Settings</h1>
-          <p className="text-body text-[var(--text-secondary)]">Configure your terminal preferences</p>
-        </div>
+    <div className="flex h-full overflow-hidden">
+      {/* Left nav */}
+      <nav className="w-52 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-1)]/50 py-3 px-2 flex flex-col gap-0.5">
+        {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onTabChange(id)}
+            className={cn(
+              'flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-all duration-150',
+              activeTab === id
+                ? 'bg-emerald-500/10 text-emerald-400 font-medium'
+                : 'text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-2)]'
+            )}
+          >
+            <Icon className={cn('h-4 w-4 shrink-0', activeTab === id ? 'text-emerald-400' : '')} />
+            {label}
+          </button>
+        ))}
+      </nav>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={onTabChange} className="flex flex-col flex-1 overflow-hidden">
-          <TabsList className="w-fit bg-transparent p-0 gap-1 mb-8 h-auto border-b border-[var(--border-subtle)]">
-            <TabsTrigger
-              value="terminal"
-              className={cn(
-                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
-                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
-                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
-              )}
-            >
-              Terminal
-            </TabsTrigger>
-            <TabsTrigger
-              value="appearance"
-              className={cn(
-                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
-                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
-                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
-              )}
-            >
-              Theme
-            </TabsTrigger>
-            <TabsTrigger
-              value="ai"
-              className={cn(
-                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
-                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
-                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
-              )}
-            >
-              AI
-            </TabsTrigger>
-            <TabsTrigger
-              value="account"
-              className={cn(
-                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
-                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
-                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
-              )}
-            >
-              Account
-            </TabsTrigger>
-            <TabsTrigger
-              value="shortcuts"
-              className={cn(
-                "px-4 py-2 text-sm rounded-t-md border-b-2 transition-all duration-300",
-                "data-[state=active]:border-[var(--primary)] data-[state=active]:text-[var(--primary)] data-[state=active]:bg-[var(--surface-2)]",
-                "data-[state=inactive]:border-transparent data-[state=inactive]:text-[var(--text-secondary)] data-[state=inactive]:hover:text-foreground"
-              )}
-            >
-              Shortcuts
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Tab content */}
-          <div className="flex-1 overflow-y-auto">
-            <TabsContent value="terminal" className="mt-0">
-              <TerminalTab />
-            </TabsContent>
-            <TabsContent value="appearance" className="mt-0">
-              <AppearanceTab />
-            </TabsContent>
-            <TabsContent value="ai" className="mt-0">
-              <AiTab />
-            </TabsContent>
-            <TabsContent value="account" className="mt-0">
-              <AccountSettingsTab />
-            </TabsContent>
-            <TabsContent value="shortcuts" className="mt-0">
-              <ShortcutsSettingsTab />
-            </TabsContent>
-          </div>
-        </Tabs>
+      {/* Content area */}
+      <div className="flex-1 overflow-y-auto px-8 py-6">
+        {activeTab === 'terminal' && <TerminalTab />}
+        {activeTab === 'appearance' && <AppearanceTab />}
+        {activeTab === 'ai' && <AiTab />}
+        {activeTab === 'account' && <AccountSettingsTab />}
+        {activeTab === 'shortcuts' && <ShortcutsSettingsTab />}
       </div>
+    </div>
+  );
+}
+
+// ─── Shared UI ─────────────────────────────────────────────────────────────────
+
+function SectionHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="mb-5">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {description && (
+        <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
+      )}
+    </div>
+  );
+}
+
+function SettingRow({
+  label,
+  description,
+  children,
+  inline = false,
+}: {
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+  inline?: boolean;
+}) {
+  return (
+    <div className={cn('flex gap-4', inline ? 'items-center justify-between' : 'flex-col gap-1.5')}>
+      <div className={inline ? 'flex-1' : ''}>
+        <Label className="text-sm font-medium text-foreground">{label}</Label>
+        {description && (
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
     </div>
   );
 }
@@ -122,21 +127,17 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
 // ─── Terminal Tab ─────────────────────────────────────────────────────────────
 
 function TerminalTab() {
-  const { settings, fetchSettings, updateSettings } = useSettingsStore();
+  const { settings, updateSettings } = useSettingsStore();
   const [terminalFont, setTerminalFont] = useState('JetBrains Mono');
   const [terminalFontSize, setTerminalFontSize] = useState('13');
   const [terminalTheme, setTerminalTheme] = useState<TerminalTheme>('dracula');
   const [promptStyle, setPromptStyle] = useState<'default' | 'minimal' | 'directory'>('default');
-  const [scrollback, setScrollback] = useState('1000');
-  const [cursorStyle, setCursorStyle] = useState<CursorStyle>('bar');
+  const [scrollback, setScrollback] = useState('10000');
+  const [cursorStyle, setCursorStyle] = useState<CursorStyle>('block');
   const [bellStyle, setBellStyle] = useState<BellStyle>('none');
-  const [lineHeight, setLineHeight] = useState('1.2');
+  const [lineHeight, setLineHeight] = useState('1.0');
   const [copyOnSelect, setCopyOnSelect] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
 
   useEffect(() => {
     if (settings) {
@@ -144,10 +145,10 @@ function TerminalTab() {
       setTerminalFontSize(String(settings.terminalFontSize));
       setTerminalTheme(settings.terminalTheme ?? 'dracula');
       setPromptStyle(settings.promptStyle ?? 'default');
-      setScrollback(String(settings.scrollbackLines ?? 1000));
-      setCursorStyle(settings.cursorStyle ?? 'bar');
+      setScrollback(String(settings.scrollbackLines ?? 10000));
+      setCursorStyle(settings.cursorStyle ?? 'block');
       setBellStyle(settings.bellStyle ?? 'none');
-      setLineHeight(String(settings.lineHeight ?? 1.2));
+      setLineHeight(String(settings.lineHeight ?? 1.0));
       setCopyOnSelect(settings.copyOnSelect ?? false);
     }
   }, [settings]);
@@ -166,228 +167,214 @@ function TerminalTab() {
         lineHeight: parseFloat(lineHeight),
         copyOnSelect,
       });
+      toast.success('Terminal settings saved');
+    } catch {
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <Separator />
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-medium">Font Family</Label>
-            <p className="text-small text-[var(--text-secondary)] mt-1">Bundled fonts work without installation</p>
-          </div>
-          <Select value={terminalFont} onValueChange={(v) => { if (v) setTerminalFont(v); }}>
-            <SelectTrigger className="w-64">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="JetBrains Mono">
-                <div className="flex items-center gap-2">
-                  <span>JetBrains Mono</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="Fira Code">
-                <div className="flex items-center gap-2">
-                  <span>Fira Code</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="Cascadia Code">
-                <div className="flex items-center gap-2">
-                  <span>Cascadia Code</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="Source Code Pro">
-                <div className="flex items-center gap-2">
-                  <span>Source Code Pro</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="Menlo">Menlo (System)</SelectItem>
-              <SelectItem value="Monaco">Monaco (System)</SelectItem>
-              <SelectItem value="SF Mono">SF Mono (System)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-medium">Font Size</Label>
-          </div>
-          <Input type="number" value={terminalFontSize} onChange={(e) => setTerminalFontSize(e.target.value)} min={8} max={32} className="w-24" />
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-medium">Color Theme</Label>
-            <p className="text-small text-[var(--text-secondary)] mt-1">Choose a color scheme for your terminal</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {TERMINAL_THEME_NAMES.map((name) => {
-              const themeConfig = TERMINAL_THEMES[name];
-              const theme = themeConfig.theme;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setTerminalTheme(name as TerminalTheme)}
-                  className={cn(
-                    'relative rounded-lg border-2 p-3 text-left transition-all duration-300 hover:scale-[1.02]',
-                    terminalTheme === name
-                      ? 'border-[var(--primary)] bg-[var(--surface-2)]'
-                      : 'border-[var(--border)] hover:border-[var(--border-hover)]'
-                  )}
-                >
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{themeConfig.name}</span>
-                      {terminalTheme === name && (
-                        <Badge variant="default" className="h-4 px-1.5 text-[10px] bg-[var(--primary)] text-white">Active</Badge>
-                      )}
+    <div className="max-w-2xl space-y-8">
+      {/* Font */}
+      <div>
+        <SectionHeader title="Font" />
+        <div className="space-y-4">
+          <SettingRow label="Font Family" description="Bundled fonts work without installation">
+            <Select value={terminalFont} onValueChange={(v) => { if (v) setTerminalFont(v); }}>
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Source Code Pro'].map((f) => (
+                  <SelectItem key={f} value={f}>
+                    <div className="flex items-center gap-2">
+                      <span>{f}</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bundled</Badge>
                     </div>
-                    <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1">{themeConfig.description}</p>
-                    {/* Color preview */}
-                    <div
-                      className="h-16 rounded border overflow-hidden font-mono text-[10px] p-2 leading-tight"
-                      style={{
-                        backgroundColor: theme.background as string,
-                        color: theme.foreground as string,
-                      }}
-                    >
-                      <div style={{ color: theme.green as string }}>$ npm run dev</div>
-                      <div style={{ color: theme.blue as string }}>Server running</div>
-                      <div style={{ color: theme.yellow as string }}>Port: 3000</div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="line-height" className="text-sm font-medium">Line Height</Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              id="line-height"
-              type="range"
-              min="1.0"
-              max="2.0"
-              step="0.1"
-              value={lineHeight}
-              onChange={(e) => setLineHeight(e.target.value)}
-              className="flex-1"
+                  </SelectItem>
+                ))}
+                {['Menlo', 'Monaco', 'SF Mono'].map((f) => (
+                  <SelectItem key={f} value={f}>{f} (System)</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Font Size">
+            <Input
+              type="number"
+              value={terminalFontSize}
+              onChange={(e) => setTerminalFontSize(e.target.value)}
+              min={8}
+              max={32}
+              className="w-20"
             />
-            <span className="text-sm text-[var(--text-secondary)] w-12 text-right">
-              {lineHeight}
-            </span>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="scrollback" className="text-sm font-medium">Scrollback Lines</Label>
-          </div>
-          <Input
-            id="scrollback"
-            type="number"
-            value={scrollback}
-            onChange={(e) => setScrollback(e.target.value)}
-            min={500}
-            max={10000}
-            className="w-32"
-          />
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-medium">Cursor Style</Label>
-          </div>
-          <div className="flex gap-2">
-            {(['block', 'underline', 'bar'] as const).map((style) => (
-              <button
-                key={style}
-                type="button"
-                onClick={() => setCursorStyle(style)}
-                className={cn(
-                  'flex-1 h-20 rounded-md border-2 flex flex-col items-center justify-center gap-2 transition-all duration-300',
-                  cursorStyle === style
-                    ? 'border-[var(--primary)] bg-[var(--surface-2)] text-[var(--primary)]'
-                    : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-foreground'
-                )}
-              >
-                <div className="font-mono text-2xl">
-                  {style === 'block' && '█'}
-                  {style === 'underline' && '_'}
-                  {style === 'bar' && '|'}
-                </div>
-                <span className="text-xs capitalize">{style}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-medium">Prompt Style</Label>
-            <p className="text-sm text-muted-foreground mt-1">Choose how your terminal prompt appears</p>
-          </div>
-          <div className="flex gap-3">
-            {([
-              { value: 'default', label: 'Default', example: 'user@host ~ %' },
-              { value: 'minimal', label: 'Minimal', example: '$' },
-              { value: 'directory', label: 'Directory', example: '~ $' }
-            ] as const).map(({ value, label, example }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setPromptStyle(value)}
-                className={cn(
-                  'px-5 py-3 border rounded-md transition-all duration-300',
-                  promptStyle === value
-                    ? 'border-[var(--primary)] bg-[var(--surface-2)] text-[var(--primary)]'
-                    : 'border-[var(--border)] text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-1)]'
-                )}
-              >
-                <span className="text-sm">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="bell-style" className="text-sm font-medium">Bell</Label>
-          </div>
-          <Select value={bellStyle} onValueChange={(v) => setBellStyle(v as BellStyle)}>
-            <SelectTrigger id="bell-style" className="w-56">
-              <SelectValue>
-                {bellStyle === 'none' ? 'None (silent)' : bellStyle === 'sound' ? 'Sound (system beep)' : 'Visual (flash)'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None (silent)</SelectItem>
-              <SelectItem value="sound">Sound (system beep)</SelectItem>
-              <SelectItem value="visual">Visual (flash)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="copy-on-select" className="text-sm font-medium">Copy on select</Label>
-              <p className="text-small text-[var(--text-secondary)]">Automatically copy selected text to clipboard</p>
+          </SettingRow>
+          <SettingRow label="Line Height">
+            <div className="flex items-center gap-3 w-56">
+              <input
+                type="range"
+                min="1.0"
+                max="2.0"
+                step="0.1"
+                value={lineHeight}
+                onChange={(e) => setLineHeight(e.target.value)}
+                className="flex-1 accent-emerald-500"
+              />
+              <span className="text-sm tabular-nums w-8 text-right text-[var(--text-secondary)]">
+                {lineHeight}
+              </span>
             </div>
-            <Switch
-              id="copy-on-select"
-              checked={copyOnSelect}
-              onCheckedChange={setCopyOnSelect}
-            />
-          </div>
+          </SettingRow>
         </div>
       </div>
-      <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
+
+      <Separator />
+
+      {/* Cursor */}
+      <div>
+        <SectionHeader title="Cursor" />
+        <div className="space-y-4">
+          <SettingRow label="Cursor Style">
+            <div className="flex gap-2">
+              {(['block', 'underline', 'bar'] as const).map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  onClick={() => setCursorStyle(style)}
+                  className={cn(
+                    'w-20 h-16 rounded-md border-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-200',
+                    cursorStyle === style
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                      : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-foreground'
+                  )}
+                >
+                  <span className="font-mono text-xl leading-none">
+                    {style === 'block' && '█'}
+                    {style === 'underline' && '_'}
+                    {style === 'bar' && '|'}
+                  </span>
+                  <span className="text-[11px] capitalize">{style}</span>
+                </button>
+              ))}
+            </div>
+          </SettingRow>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Theme */}
+      <div>
+        <SectionHeader title="Color Theme" description="Choose a color scheme for your terminal" />
+        <div className="grid grid-cols-2 gap-3">
+          {TERMINAL_THEME_NAMES.map((name) => {
+            const themeConfig = TERMINAL_THEMES[name];
+            const theme = themeConfig.theme;
+            const isActive = terminalTheme === name;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setTerminalTheme(name as TerminalTheme)}
+                className={cn(
+                  'relative rounded-lg border-2 p-3 text-left transition-all duration-200',
+                  isActive
+                    ? 'border-emerald-500 bg-emerald-500/5'
+                    : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+                )}
+              >
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{themeConfig.name}</span>
+                    {isActive && (
+                      <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                        <Check className="h-3 w-3" />
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1">{themeConfig.description}</p>
+                  <div
+                    className="h-14 rounded border overflow-hidden font-mono text-[10px] p-2 leading-tight"
+                    style={{ backgroundColor: theme.background as string, color: theme.foreground as string }}
+                  >
+                    <div style={{ color: theme.green as string }}>$ npm run dev</div>
+                    <div style={{ color: theme.blue as string }}>Server running</div>
+                    <div style={{ color: theme.yellow as string }}>Port: 3000</div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Behavior */}
+      <div>
+        <SectionHeader title="Behavior" />
+        <div className="space-y-4">
+          <SettingRow label="Prompt Style" description="How your terminal prompt appears">
+            <div className="flex gap-2">
+              {([
+                { value: 'default', label: 'Default', example: 'user@host ~ %' },
+                { value: 'minimal', label: 'Minimal', example: '$' },
+                { value: 'directory', label: 'Directory', example: '~ $' },
+              ] as const).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPromptStyle(value)}
+                  className={cn(
+                    'px-4 py-2 border rounded-md text-sm transition-all duration-200',
+                    promptStyle === value
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                      : 'border-[var(--border)] text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-1)]'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </SettingRow>
+          <SettingRow label="Scrollback Lines">
+            <Input
+              type="number"
+              value={scrollback}
+              onChange={(e) => setScrollback(e.target.value)}
+              min={500}
+              max={100000}
+              className="w-28"
+            />
+          </SettingRow>
+          <SettingRow label="Bell">
+            <Select value={bellStyle} onValueChange={(v) => setBellStyle(v as BellStyle)}>
+              <SelectTrigger className="w-48">
+                <SelectValue>
+                  {bellStyle === 'none' ? 'None (silent)' : bellStyle === 'sound' ? 'Sound (beep)' : 'Visual (flash)'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None (silent)</SelectItem>
+                <SelectItem value="sound">Sound (system beep)</SelectItem>
+                <SelectItem value="visual">Visual (flash)</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Copy on select" description="Automatically copy selected text to clipboard" inline>
+            <Switch checked={copyOnSelect} onCheckedChange={setCopyOnSelect} />
+          </SettingRow>
+        </div>
+      </div>
+
+      <div className="pt-2">
+        <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+          {saving ? 'Saving…' : 'Save changes'}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -395,264 +382,213 @@ function TerminalTab() {
 // ─── Appearance Tab ───────────────────────────────────────────────────────────
 
 function AppearanceTab() {
-  const { settings, fetchSettings, updateSettings } = useSettingsStore();
+  const { settings, updateSettings } = useSettingsStore();
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchSettings(); }, []);
   useEffect(() => { if (settings) setTheme(settings.theme); }, [settings]);
 
   async function handleSave() {
     setSaving(true);
-    try { await updateSettings({ theme }); } finally { setSaving(false); }
+    try {
+      await updateSettings({ theme });
+      toast.success('Appearance saved');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h2 className="text-base font-semibold mb-1">Appearance</h2>
-        <p className="text-small text-[var(--text-secondary)]">Color theme and visual preferences.</p>
-      </div>
-      <Separator />
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-medium">Theme</Label>
+    <div className="max-w-md space-y-6">
+      <SectionHeader title="Appearance" description="Color theme and visual preferences" />
+      <div className="space-y-4">
+        <SettingRow label="App Theme">
+          <div className="flex gap-3">
+            {(['dark', 'light'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTheme(t)}
+                className={cn(
+                  'w-28 h-20 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200',
+                  theme === t
+                    ? 'border-emerald-500 bg-emerald-500/10'
+                    : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+                )}
+              >
+                <div
+                  className="w-12 h-8 rounded border"
+                  style={{ background: t === 'dark' ? '#1a1a1a' : '#f5f5f5', borderColor: t === 'dark' ? '#333' : '#ddd' }}
+                />
+                <span className={cn('text-sm capitalize', theme === t ? 'text-emerald-400 font-medium' : 'text-[var(--text-secondary)]')}>
+                  {t}
+                </span>
+              </button>
+            ))}
           </div>
-          <Select value={theme} onValueChange={(v) => { if (v) setTheme(v as 'dark' | 'light'); }}>
-            <SelectTrigger className="w-40">
-              <SelectValue>
-                {theme === 'dark' ? 'Dark' : 'Light'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dark">Dark</SelectItem>
-              <SelectItem value="light">Light</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        </SettingRow>
       </div>
-      <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
+      <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+        {saving ? 'Saving…' : 'Save changes'}
+      </Button>
     </div>
   );
 }
 
 // ─── AI Tab ───────────────────────────────────────────────────────────────────
 
+const AI_PROVIDERS = [
+  {
+    id: 'gemini' as AiProvider,
+    name: 'Google Gemini',
+    description: 'Gemini 2.0 Flash · Fast, capable, generous free tier',
+    placeholder: 'AIza...',
+    docsUrl: 'https://aistudio.google.com/app/apikey',
+    badge: 'Default',
+  },
+  {
+    id: 'openai' as AiProvider,
+    name: 'OpenAI',
+    description: 'GPT-4o, GPT-4o mini · Industry-leading models',
+    placeholder: 'sk-...',
+    docsUrl: 'https://platform.openai.com/api-keys',
+    badge: null,
+  },
+  {
+    id: 'anthropic' as AiProvider,
+    name: 'Anthropic',
+    description: 'Claude Sonnet, Haiku · Excellent at reasoning',
+    placeholder: 'sk-ant-...',
+    docsUrl: 'https://console.anthropic.com/settings/keys',
+    badge: null,
+  },
+] as const;
+
 function AiTab() {
-  const { settings, fetchSettings, updateSettings } = useSettingsStore();
-  const [expandedProvider, setExpandedProvider] = useState<string | null>('openai');
+  const { settings, updateSettings } = useSettingsStore();
+  const [aiProvider, setAiProvider] = useState<AiProvider>('gemini');
+  const [keys, setKeys] = useState<Record<string, string>>({ openai: '', anthropic: '', gemini: '' });
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
-  const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
-  const [openaiKey, setOpenaiKey] = useState('');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchSettings();
-    // Load API keys from local encrypted storage
     Promise.all([
       window.apiKeysApi.get('openai'),
       window.apiKeysApi.get('anthropic'),
       window.apiKeysApi.get('gemini'),
     ]).then(([oai, anth, gem]) => {
-      setOpenaiKey(oai || '');
-      setAnthropicKey(anth || '');
-      setGeminiKey(gem || '');
+      setKeys({ openai: oai || '', anthropic: anth || '', gemini: gem || '' });
     }).catch(() => {
       toast.error('Failed to load API keys');
     });
   }, []);
 
   useEffect(() => {
-    if (settings) {
-      setAiProvider(settings.aiProvider);
-    }
+    if (settings) setAiProvider(settings.aiProvider);
   }, [settings]);
 
   async function handleSave() {
     setSaving(true);
     try {
-      // Save provider preference to Supabase via settings
       await updateSettings({ aiProvider });
-
-      // Save API keys to local encrypted storage
-      if (openaiKey) {
-        await window.apiKeysApi.set('openai', openaiKey);
-      } else {
-        await window.apiKeysApi.delete('openai');
+      for (const provider of ['openai', 'anthropic', 'gemini'] as const) {
+        if (keys[provider]) {
+          await window.apiKeysApi.set(provider, keys[provider]);
+        } else {
+          await window.apiKeysApi.delete(provider);
+        }
       }
-      if (anthropicKey) {
-        await window.apiKeysApi.set('anthropic', anthropicKey);
-      } else {
-        await window.apiKeysApi.delete('anthropic');
-      }
-      if (geminiKey) {
-        await window.apiKeysApi.set('gemini', geminiKey);
-      } else {
-        await window.apiKeysApi.delete('gemini');
-      }
-
-      toast.success('AI settings saved successfully');
-    } catch (e) {
+      toast.success('AI settings saved');
+    } catch {
       toast.error('Failed to save AI settings');
     } finally {
       setSaving(false);
     }
   }
 
-  function toggleShowKey(provider: string) {
-    setShowKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
-  }
-
   return (
     <div className="max-w-lg space-y-6">
-      <div>
-        <h2 className="text-base font-semibold mb-1">AI Providers</h2>
-        <p className="text-small text-[var(--text-secondary)]">Configure API keys for AI assistants.</p>
-      </div>
-      <Separator />
+      <SectionHeader
+        title="AI Providers"
+        description="Choose your active provider and enter API keys. Keys are stored encrypted on-device."
+      />
 
-      {/* Active provider selector */}
       <div className="space-y-3">
-        <div>
-          <Label className="text-sm font-medium">Active AI Provider</Label>
-          <p className="text-small text-[var(--text-secondary)] mt-1">The AI provider used in the AI assistant.</p>
-        </div>
-        <Select value={aiProvider} onValueChange={(v) => setAiProvider(v as AiProvider)}>
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="openai">OpenAI</SelectItem>
-            <SelectItem value="anthropic">Anthropic</SelectItem>
-            <SelectItem value="gemini">Google Gemini</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {AI_PROVIDERS.map((p) => {
+          const isActive = aiProvider === p.id;
+          const hasKey = !!keys[p.id];
+          return (
+            <div
+              key={p.id}
+              className={cn(
+                'rounded-xl border-2 transition-all duration-200',
+                isActive
+                  ? 'border-emerald-500 bg-emerald-500/5'
+                  : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+              )}
+            >
+              {/* Provider header */}
+              <button
+                type="button"
+                onClick={() => setAiProvider(p.id)}
+                className="w-full px-4 py-3 flex items-start gap-3 text-left"
+              >
+                {/* Radio indicator */}
+                <div className={cn(
+                  'mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors',
+                  isActive ? 'border-emerald-500 bg-emerald-500' : 'border-[var(--border)]'
+                )}>
+                  {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">{p.name}</span>
+                    {p.badge && (
+                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/20 text-emerald-400 border-0">
+                        {p.badge}
+                      </Badge>
+                    )}
+                    {hasKey && (
+                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-[var(--surface-3)] text-[var(--text-secondary)] border-0">
+                        Key saved
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{p.description}</p>
+                </div>
+              </button>
 
-      {/* OpenAI Section */}
-      <div className="border border-[var(--border)] rounded-lg transition-all duration-300 hover:border-[var(--border-hover)]">
-        <button
-          type="button"
-          className="w-full p-3 flex items-center justify-between hover:bg-[var(--surface-1)] transition-all duration-300 rounded-t-lg"
-          onClick={() => setExpandedProvider(expandedProvider === 'openai' ? null : 'openai')}
-        >
-          <span className="font-medium text-sm">OpenAI</span>
-          <span className="text-xs text-[var(--text-secondary)]">
-            {expandedProvider === 'openai' ? '▼' : '▶'}
-          </span>
-        </button>
-        {expandedProvider === 'openai' && (
-          <div className="p-3 border-t border-[var(--border)] space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="openai-key" className="text-sm font-medium">API Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="openai-key"
-                  type={showKeys['openai'] ? 'text' : 'password'}
-                  value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="h-8 text-xs font-mono"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => toggleShowKey('openai')}
-                >
-                  {showKeys['openai'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
+              {/* API key input */}
+              <div className="px-4 pb-3 border-t border-[var(--border-subtle)]">
+                <div className="flex gap-2 mt-3">
+                  <Input
+                    type={showKeys[p.id] ? 'text' : 'password'}
+                    value={keys[p.id]}
+                    onChange={(e) => setKeys((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                    placeholder={p.placeholder}
+                    className="h-8 text-xs font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setShowKeys((prev) => ({ ...prev, [p.id]: !prev[p.id] }))}
+                  >
+                    {showKeys[p.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })}
       </div>
 
-      {/* Anthropic Section */}
-      <div className="border border-[var(--border)] rounded-lg transition-all duration-300 hover:border-[var(--border-hover)]">
-        <button
-          type="button"
-          className="w-full p-3 flex items-center justify-between hover:bg-[var(--surface-1)] transition-all duration-300 rounded-t-lg"
-          onClick={() => setExpandedProvider(expandedProvider === 'anthropic' ? null : 'anthropic')}
-        >
-          <span className="font-medium text-sm">Anthropic</span>
-          <span className="text-xs text-[var(--text-secondary)]">
-            {expandedProvider === 'anthropic' ? '▼' : '▶'}
-          </span>
-        </button>
-        {expandedProvider === 'anthropic' && (
-          <div className="p-3 border-t border-[var(--border)] space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="anthropic-key" className="text-sm font-medium">API Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="anthropic-key"
-                  type={showKeys['anthropic'] ? 'text' : 'password'}
-                  value={anthropicKey}
-                  onChange={(e) => setAnthropicKey(e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="h-8 text-xs font-mono"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => toggleShowKey('anthropic')}
-                >
-                  {showKeys['anthropic'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Gemini Section */}
-      <div className="border border-[var(--border)] rounded-lg transition-all duration-300 hover:border-[var(--border-hover)]">
-        <button
-          type="button"
-          className="w-full p-3 flex items-center justify-between hover:bg-[var(--surface-1)] transition-all duration-300 rounded-t-lg"
-          onClick={() => setExpandedProvider(expandedProvider === 'gemini' ? null : 'gemini')}
-        >
-          <span className="font-medium text-sm">Google Gemini</span>
-          <span className="text-xs text-[var(--text-secondary)]">
-            {expandedProvider === 'gemini' ? '▼' : '▶'}
-          </span>
-        </button>
-        {expandedProvider === 'gemini' && (
-          <div className="p-3 border-t border-[var(--border)] space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="gemini-key" className="text-sm font-medium">API Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="gemini-key"
-                  type={showKeys['gemini'] ? 'text' : 'password'}
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="AIza..."
-                  className="h-8 text-xs font-mono"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => toggleShowKey('gemini')}
-                >
-                  {showKeys['gemini'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
+      <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+        {saving ? 'Saving…' : 'Save changes'}
+      </Button>
     </div>
   );
 }

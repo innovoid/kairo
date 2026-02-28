@@ -4,6 +4,7 @@ interface SessionEventMap {
   data: [sessionId: string, data: string];
   error: [sessionId: string, error: string];
   closed: [sessionId: string];
+  interrupted: [sessionId: string];
 }
 
 class SessionEventBus {
@@ -19,6 +20,10 @@ class SessionEventBus {
 
   emitClosed(sessionId: string): void {
     this.emitter.emit('closed', sessionId);
+  }
+
+  emitInterrupted(sessionId: string): void {
+    this.emitter.emit('interrupted', sessionId);
   }
 
   onData(listener: (...args: SessionEventMap['data']) => void): () => void {
@@ -39,6 +44,13 @@ class SessionEventBus {
     this.emitter.on('closed', listener);
     return () => {
       this.emitter.off('closed', listener);
+    };
+  }
+
+  onInterrupted(listener: (...args: SessionEventMap['interrupted']) => void): () => void {
+    this.emitter.on('interrupted', listener);
+    return () => {
+      this.emitter.off('interrupted', listener);
     };
   }
 }

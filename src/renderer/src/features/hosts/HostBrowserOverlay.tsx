@@ -348,7 +348,7 @@ export function HostBrowserOverlay({
             className={cn(
               'gap-2',
               'hover:scale-105 active:scale-95 transition-transform',
-              'shadow-[0_0_20px_rgba(59,130,246,0.3)]'
+              'shadow-[0_0_20px_var(--primary-glow,rgba(16,185,129,0.3))]'
             )}
           >
             <Plus className="h-4 w-4" />

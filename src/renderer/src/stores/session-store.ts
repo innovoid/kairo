@@ -4,6 +4,7 @@ import type { SshSessionStatus } from '@shared/types/ssh';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
 import type { PaneNode } from '@shared/types/pane';
 import { disposeTerminalSession } from '@/features/terminal/useTerminal';
+import type { SessionConnectConfig } from '@shared/types/session';
 
 export type TabType = 'hosts' | 'keys' | 'team' | 'workspace' | 'settings' | 'profile' | 'terminal' | 'sftp' | 'snippets';
 
@@ -22,6 +23,11 @@ export interface Tab {
   settingsTab?: SettingsTab;
   // For split pane terminal tabs:
   paneTree?: PaneNode;
+  // Reconnect metadata — set when session drops
+  disconnectReason?: string;          // human-readable reason
+  disconnectedAt?: number;            // Date.now() timestamp
+  reconnectConfig?: SessionConnectConfig; // original connect config for reconnect
+  reconnectAttempts?: number;         // how many auto-reconnect attempts made
 }
 
 interface SessionState {
@@ -31,6 +37,8 @@ interface SessionState {
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string | null) => void;
   updateTabStatus: (tabId: string, status: SshSessionStatus) => void;
+  updateTabDisconnect: (tabId: string, reason: string, reconnectConfig?: SessionConnectConfig) => void;
+  clearTabDisconnect: (tabId: string) => void;
   updateSettingsTab: (activeSettingsTab: SettingsTab) => void;
   splitPane: (tabId: string, direction: 'horizontal' | 'vertical', newSessionId: string) => void;
   closePane: (tabId: string, sessionId: string) => void;
@@ -115,6 +123,39 @@ export const useSessionStore = create<SessionState>((set) => ({
       if (!tab) return state;
       const newTabs = new Map(state.tabs);
       newTabs.set(tabId, { ...tab, status });
+      return { tabs: newTabs };
+    });
+  },
+
+  updateTabDisconnect: (tabId, reason, reconnectConfig) => {
+    set((state) => {
+      const tab = state.tabs.get(tabId);
+      if (!tab) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tabId, {
+        ...tab,
+        status: 'disconnected',
+        disconnectReason: reason,
+        disconnectedAt: Date.now(),
+        reconnectConfig: reconnectConfig ?? tab.reconnectConfig,
+        reconnectAttempts: (tab.reconnectAttempts ?? 0),
+      });
+      return { tabs: newTabs };
+    });
+  },
+
+  clearTabDisconnect: (tabId) => {
+    set((state) => {
+      const tab = state.tabs.get(tabId);
+      if (!tab) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tabId, {
+        ...tab,
+        disconnectReason: undefined,
+        disconnectedAt: undefined,
+        reconnectAttempts: 0,
+        // Keep the status as-is — caller decides whether to change it
+      });
       return { tabs: newTabs };
     });
   },

@@ -38,12 +38,6 @@ export function KeysPage({
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="py-6 px-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-display mb-2">SSH Keys</h1>
-            <p className="text-body text-[var(--text-secondary)]">Manage your SSH private and public keys</p>
-          </div>
-
           {/* Search and Add */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 h-10 px-3 border border-[var(--border)] rounded-md bg-[var(--input)] w-[200px]">

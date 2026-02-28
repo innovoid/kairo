@@ -57,6 +57,8 @@ async function streamText(
 }
 
 export const aiProxy = {
+  resolveModel,
+
   async completeText(
     provider: string,
     apiKey: string,

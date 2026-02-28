@@ -1,17 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
-import { toast } from 'sonner';
+import { isTerminalFocused } from '@/lib/terminal-focus';
 import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
+import { useHostStore } from '@/stores/host-store';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useTerminal } from './useTerminal';
+import { useSshSessionEvents } from './useSshSessionEvents';
+import { SessionStatusOverlay } from './SessionStatusOverlay';
+import { ConnectingOverlay } from './ConnectingOverlay';
 import { TerminalSearchBar } from './TerminalSearchBar';
 import { SnippetPickerOverlay } from '@/features/snippets/SnippetPickerOverlay';
 import { CommandHintOverlay } from './CommandHintOverlay';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 interface TerminalTabProps {
@@ -24,11 +38,13 @@ interface TerminalTabProps {
 
 export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = true }: TerminalTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { updateTabStatus } = useSessionStore();
   const { settings } = useSettingsStore();
   const { targetSessionIds } = useBroadcastStore();
+  const { closeTab } = useSessionStore();
+  const { hosts } = useHostStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showSnippetPicker, setShowSnippetPicker] = useState(false);
+
   const resolveHotkey = (id: string): RegisterableHotkey => {
     const definition = getHotkey(id);
     if (!definition) throw new Error(`Missing hotkey definition: ${id}`);
@@ -37,69 +53,79 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
 
   const isBroadcastTarget = tab.sessionId && targetSessionIds.includes(tab.sessionId);
 
-  const { terminal, searchAddon } = useTerminal({
+  const { terminal, searchAddon, pendingPaste, confirmPaste, cancelPaste } = useTerminal({
     containerRef,
     sessionId: tab.sessionId!,
     settings,
     isVisible,
   });
 
+  // Wire up SSH IPC events → terminal + disconnect tracking
+  useSshSessionEvents({
+    sessionId: tab.sessionId!,
+    tabId: tab.tabId,
+    tabStatus: tab.status ?? undefined,
+    terminalRef: terminal,
+    reconnectConfig: tab.reconnectConfig,
+  });
+
   // Get terminal theme background color
   const themeName = settings?.terminalTheme ?? 'dracula';
   const terminalBg = TERMINAL_THEMES[themeName]?.theme?.background ?? TERMINAL_THEMES['dracula'].theme.background;
 
-  useEffect(() => {
-    // Listen for SSH events for this session
-    const offData = window.sshApi.onData((sessionId, data) => {
-      if (sessionId === tab.sessionId && terminal.current) {
-        terminal.current.write(data);
-      }
+  // ── Reconnect: keep same tabId, assign new sessionId, bump attempt count ──
+  const handleReconnect = useCallback(() => {
+    if (!tab.reconnectConfig) return;
+
+    const newSessionId = crypto.randomUUID();
+
+    useSessionStore.setState((state) => {
+      const existing = state.tabs.get(tab.tabId);
+      if (!existing) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tab.tabId, {
+        ...existing,
+        sessionId: newSessionId,
+        status: 'connecting',
+        disconnectReason: undefined,
+        disconnectedAt: undefined,
+        reconnectAttempts: (existing.reconnectAttempts ?? 0) + 1,
+      });
+      return { tabs: newTabs };
     });
 
-    const offClosed = window.sshApi.onClosed((sessionId) => {
-      if (sessionId === tab.sessionId) {
-        updateTabStatus(tab.tabId, 'disconnected');
-        terminal.current?.write('\r\n\x1b[31mConnection closed.\x1b[0m\r\n');
-      }
-    });
+    terminal.current?.write('\r\n\x1b[2m— reconnecting… —\x1b[0m\r\n');
 
-    const offError = window.sshApi.onError((sessionId, error) => {
-      if (sessionId === tab.sessionId) {
-        updateTabStatus(tab.tabId, 'error');
-        terminal.current?.write(`\r\n\x1b[31mError: ${error}\x1b[0m\r\n`);
-        toast.error(error);
-      }
-    });
-
-    // Mark as connected when we first get data
-    const offDataForStatus = window.sshApi.onData((sessionId) => {
-      if (sessionId === tab.sessionId && tab.status === 'connecting') {
-        updateTabStatus(tab.tabId, 'connected');
-      }
-    });
-
-    return () => {
-      offData();
-      offClosed();
-      offError();
-      offDataForStatus();
+    // Fetch password from host store at reconnect time — never persisted in tab state (C-1)
+    const hostRecord = tab.reconnectConfig.hostId
+      ? hosts.find((h) => h.id === tab.reconnectConfig!.hostId)
+      : undefined;
+    const connectPayload = {
+      ...tab.reconnectConfig,
+      ...(tab.reconnectConfig.authType === 'password' && hostRecord?.password
+        ? { password: hostRecord.password }
+        : {}),
     };
-  }, [tab.sessionId, tab.status]);
 
-  // Search
+    void window.sshApi.connect(newSessionId, connectPayload);
+  }, [tab.tabId, tab.reconnectConfig, terminal, hosts]);
+
+  // Search — only when this terminal is active/focused
   useHotkey(resolveHotkey('search'), (e) => {
+    if (!isTerminalFocused()) return;
     e.preventDefault();
     setShowSearch(true);
   });
 
-  // Snippet Picker
+  // Snippet Picker — only when this terminal is active/focused
   useHotkey(resolveHotkey('snippet-picker'), (e) => {
+    if (!isTerminalFocused()) return;
     e.preventDefault();
     setShowSnippetPicker(true);
   });
 
   return (
-    <div className={cn('h-full', isBroadcastTarget && 'border-l-2 border-blue-500')}>
+    <div className={cn('h-full', isBroadcastTarget && 'border-l-2 border-primary')}>
       <div
         className="relative w-full h-full overflow-hidden p-3"
         style={{ backgroundColor: terminalBg }}
@@ -121,6 +147,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
             onClose={() => setShowSearch(false)}
           />
         )}
+
         {showSnippetPicker && (
           <SnippetPickerOverlay
             onSelect={(cmd) => {
@@ -130,7 +157,38 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
             onClose={() => setShowSnippetPicker(false)}
           />
         )}
+
+        {/* Connecting overlay — covers terminal until session is live */}
+        <ConnectingOverlay
+          visible={tab.status === 'connecting'}
+          label={tab.label}
+          isLocal={tab.reconnectConfig?.type === 'local'}
+        />
+
+        {/* Disconnect / error overlay — renders above the terminal */}
+        <SessionStatusOverlay
+          tab={tab}
+          onReconnect={handleReconnect}
+          onClose={() => closeTab(tab.tabId)}
+        />
       </div>
+
+      {/* Multi-line paste confirmation dialog */}
+      <AlertDialog open={!!pendingPaste} onOpenChange={(open: boolean) => { if (!open) cancelPaste(); }}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Paste {pendingPaste?.lines} lines?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bracketed paste mode is off. Pasting multiple lines will execute commands immediately — one per line.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelPaste}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPaste}>Paste anyway</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+

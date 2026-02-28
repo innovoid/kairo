@@ -10,3 +10,4 @@ import './settings-api';
 import './api-keys-api';
 import './snippets-api';
 import './recording-api';
+import './updater-api';

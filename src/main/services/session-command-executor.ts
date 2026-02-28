@@ -57,6 +57,7 @@ export function executeShellCommand(
       offData();
       offClosed();
       offError();
+      offInterrupted();
       clearTimeout(timeoutHandle);
       unregisterAgentMarker(sessionId, marker);
     };
@@ -99,6 +100,11 @@ export function executeShellCommand(
     const offError = sessionEventBus.onError((eventSessionId, error) => {
       if (eventSessionId !== sessionId) return;
       fail(new Error(error));
+    });
+
+    const offInterrupted = sessionEventBus.onInterrupted((eventSessionId) => {
+      if (eventSessionId !== sessionId) return;
+      fail(new Error('Command interrupted by user (Ctrl+C)'));
     });
 
     const timeoutHandle = setTimeout(() => {

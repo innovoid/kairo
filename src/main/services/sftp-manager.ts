@@ -13,6 +13,7 @@ interface ActiveTransfer {
 }
 
 const activeTransfers = new Map<string, ActiveTransfer>();
+const sftpCache = new Map<string, SFTPWrapper>();
 const TRANSFER_CANCELLED_MESSAGE = 'Transfer cancelled';
 
 function sendTransferProgress(sender: WebContents, progress: TransferProgress): void {
@@ -47,6 +48,12 @@ function statsToEntry(name: string, remotePath: string, s: Stats): SftpEntry {
 }
 
 function getSftp(sessionId: string): Promise<SFTPWrapper> {
+  // Reuse cached SFTP wrapper if available and not closed
+  const cached = sftpCache.get(sessionId);
+  if (cached && !cached.stream?.closed) {
+    return Promise.resolve(cached);
+  }
+
   return new Promise((resolve, reject) => {
     const client = sshManager.getSftpClient(sessionId);
     if (!client) {
@@ -54,10 +61,23 @@ function getSftp(sessionId: string): Promise<SFTPWrapper> {
       return;
     }
     client.sftp((err, sftp) => {
-      if (err) reject(err);
-      else resolve(sftp);
+      if (err) {
+        reject(err);
+        return;
+      }
+      // Cache the wrapper and clean up when it closes
+      sftpCache.set(sessionId, sftp);
+      sftp.stream?.on('close', () => {
+        sftpCache.delete(sessionId);
+      });
+      resolve(sftp);
     });
   });
+}
+
+// Export function to clear SFTP cache when session disconnects
+export function clearSftpCache(sessionId: string): void {
+  sftpCache.delete(sessionId);
 }
 
 export const sftpManager = {

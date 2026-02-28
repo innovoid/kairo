@@ -1,9 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  AgentChatInput,
+  AgentMessage,
+  AgentMessageChunkEvent,
+  AgentMessageDoneEvent,
   AgentPlaybook,
   AgentRun,
   AgentStepOutputEvent,
-  ApproveAgentStepInput,
   CancelAgentRunInput,
   RejectAgentStepInput,
   RunPlaybookInput,
@@ -11,15 +14,28 @@ import type {
   StartAgentRunInput,
 } from '../shared/types/agent';
 
+// approveStep carries AI credentials so the orchestrator can stream analysis
+export interface ApproveStepWithAiInput {
+  runId: string;
+  stepId: string;
+  elevate?: boolean;
+  doubleConfirm?: boolean;
+  provider: string;
+  model: string;
+  apiKey: string;
+}
+
 const agentApi = {
   startRun: (input: StartAgentRunInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.startRun', input),
-  approveStep: (input: ApproveAgentStepInput): Promise<AgentRun> =>
+  approveStep: (input: ApproveStepWithAiInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.approveStep', input),
   rejectStep: (input: RejectAgentStepInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.rejectStep', input),
   cancelRun: (input: CancelAgentRunInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.cancelRun', input),
+  chat: (input: AgentChatInput): Promise<AgentRun> =>
+    ipcRenderer.invoke('agent.chat', input),
   getRun: (runId: string): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.getRun', runId),
   listRuns: (sessionId?: string): Promise<AgentRun[]> =>
@@ -41,6 +57,20 @@ const agentApi = {
     const listener = (_event: Electron.IpcRendererEvent, event: AgentStepOutputEvent) => callback(event);
     ipcRenderer.on('agent:step-output', listener);
     return () => void ipcRenderer.removeListener('agent:step-output', listener);
+  },
+
+  /** Fired for each streamed chunk of an assistant message */
+  onMessageChunk: (callback: (event: AgentMessageChunkEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, event: AgentMessageChunkEvent) => callback(event);
+    ipcRenderer.on('agent:message-chunk', listener);
+    return () => void ipcRenderer.removeListener('agent:message-chunk', listener);
+  },
+
+  /** Fired when an assistant message finishes streaming */
+  onMessageDone: (callback: (event: AgentMessageDoneEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, event: AgentMessageDoneEvent) => callback(event);
+    ipcRenderer.on('agent:message-done', listener);
+    return () => void ipcRenderer.removeListener('agent:message-done', listener);
   },
 
   onBlocked: (callback: (runId: string, reason: string) => void): (() => void) => {

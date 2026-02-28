@@ -29,6 +29,12 @@ export function useSshSessionEvents({
 }: UseSshSessionEventsOptions): void {
   const { updateTabStatus, updateTabDisconnect } = useSessionStore();
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasConnectedRef = useRef(false);
+
+  // Reset hasConnectedRef when sessionId changes
+  useEffect(() => {
+    hasConnectedRef.current = false;
+  }, [sessionId]);
 
   // Connecting-phase timeout watchdog
   useEffect(() => {
@@ -41,7 +47,6 @@ export function useSshSessionEvents({
     }
 
     connectTimerRef.current = setTimeout(() => {
-      // Only fire if still connecting
       const currentStatus = useSessionStore.getState().tabs.get(tabId)?.status;
       if (currentStatus === 'connecting') {
         terminalRef.current?.write('\r\n\x1b[31m✗ Connection timed out.\x1b[0m\r\n');
@@ -57,16 +62,23 @@ export function useSshSessionEvents({
     };
   }, [tabStatus, tabId, reconnectConfig, terminalRef, updateTabDisconnect]);
 
+  // Stable listeners - only re-register when sessionId changes
   useEffect(() => {
     const offData = window.sshApi.onData((id, data) => {
-      if (id === sessionId && terminalRef.current) {
-        terminalRef.current.write(data);
+      if (id !== sessionId || !terminalRef.current) return;
+
+      // Write data to terminal
+      terminalRef.current.write(data);
+
+      // Mark as connected on first data packet (only once)
+      if (tabStatus === 'connecting' && !hasConnectedRef.current) {
+        hasConnectedRef.current = true;
+        updateTabStatus(tabId, 'connected');
       }
     });
 
     const offClosed = window.sshApi.onClosed((id) => {
       if (id !== sessionId) return;
-      // Write a subtle inline message — the overlay takes over from here
       terminalRef.current?.write('\r\n\x1b[2m— connection closed —\x1b[0m\r\n');
       updateTabDisconnect(tabId, '', reconnectConfig);
     });
@@ -77,18 +89,10 @@ export function useSshSessionEvents({
       updateTabDisconnect(tabId, error, reconnectConfig);
     });
 
-    // Mark as connected on first data packet
-    const offDataForStatus = window.sshApi.onData((id) => {
-      if (id === sessionId && tabStatus === 'connecting') {
-        updateTabStatus(tabId, 'connected');
-      }
-    });
-
     return () => {
       offData();
       offClosed();
       offError();
-      offDataForStatus();
     };
   }, [sessionId, tabId, tabStatus, updateTabStatus, updateTabDisconnect, reconnectConfig, terminalRef]);
 }

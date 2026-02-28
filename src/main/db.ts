@@ -51,6 +51,7 @@ function runMigrations(db: Database.Database): void {
       auth_type text not null,
       key_id text,
       tags text default '[]',
+      port_forwards text default '[]',
       synced_at integer
     );
 
@@ -165,12 +166,26 @@ function runMigrations(db: Database.Database): void {
     );
   `);
 
+  // Add port_forwards column to hosts if it doesn't exist
+  const hostCols = db
+    .prepare("pragma table_info('hosts')")
+    .all() as { name: string }[];
+  if (!hostCols.some((c) => c.name === 'port_forwards')) {
+    db.exec("alter table hosts add column port_forwards text default '[]'");
+  }
   // Add salt column to private_keys if it doesn't exist (migration for existing databases)
   const cols = db
     .prepare("pragma table_info('private_keys')")
     .all() as { name: string }[];
   if (!cols.some((c) => c.name === 'salt')) {
     db.exec('alter table private_keys add column salt text');
+  }
+  // Add explain column to agent_steps if it doesn't exist
+  const stepCols = db
+    .prepare("pragma table_info('agent_steps')")
+    .all() as { name: string }[];
+  if (!stepCols.some((c) => c.name === 'explain')) {
+    db.exec('alter table agent_steps add column explain text');
   }
 }
 
@@ -187,6 +202,7 @@ export interface DbHost {
   auth_type: 'password' | 'key';
   key_id: string | null;
   tags: string; // JSON array string
+  port_forwards: string; // JSON array string
   synced_at: number | null;
 }
 
@@ -231,9 +247,9 @@ export const hostQueries = {
     const db = getDb();
     db.prepare(`
       insert or replace into hosts
-        (id, workspace_id, folder_id, label, hostname, port, username, auth_type, key_id, tags, synced_at)
+        (id, workspace_id, folder_id, label, hostname, port, username, auth_type, key_id, tags, port_forwards, synced_at)
       values
-        (@id, @workspace_id, @folder_id, @label, @hostname, @port, @username, @auth_type, @key_id, @tags, @synced_at)
+        (@id, @workspace_id, @folder_id, @label, @hostname, @port, @username, @auth_type, @key_id, @tags, @port_forwards, @synced_at)
     `).run(host);
   },
   delete: (id: string): void => {
@@ -378,6 +394,7 @@ export interface DbAgentStep {
   run_id: string;
   step_index: number;
   title: string;
+  explain: string | null;
   command: string;
   verify_command: string | null;
   status: string;
@@ -450,9 +467,9 @@ export const agentStepQueries = {
     const clearStmt = db.prepare('delete from agent_steps where run_id = ?');
     const insertStmt = db.prepare(`
       insert into agent_steps
-        (id, run_id, step_index, title, command, verify_command, status, risk, requires_double_confirm, output_summary, exit_code, error, started_at, ended_at)
+        (id, run_id, step_index, title, explain, command, verify_command, status, risk, requires_double_confirm, output_summary, exit_code, error, started_at, ended_at)
       values
-        (@id, @run_id, @step_index, @title, @command, @verify_command, @status, @risk, @requires_double_confirm, @output_summary, @exit_code, @error, @started_at, @ended_at)
+        (@id, @run_id, @step_index, @title, @explain, @command, @verify_command, @status, @risk, @requires_double_confirm, @output_summary, @exit_code, @error, @started_at, @ended_at)
     `);
     const tx = db.transaction(() => {
       clearStmt.run(runId);

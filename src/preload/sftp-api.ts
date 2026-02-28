@@ -30,6 +30,9 @@ const sftpApi = {
 
   pickUploadFiles: (): Promise<string[] | null> =>
     ipcRenderer.invoke('sftp.pickUploadFiles'),
+
+  getSaveFilePath: (defaultFilename: string): Promise<string | null> =>
+    ipcRenderer.invoke('sftp.getSaveFilePath', defaultFilename),
 };
 
 contextBridge.exposeInMainWorld('sftpApi', sftpApi);

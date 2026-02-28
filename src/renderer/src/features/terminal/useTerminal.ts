@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { FitAddon, Terminal } from 'ghostty-web';
 import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
@@ -74,6 +74,15 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
   const fitAddonRef = useRef<FitAddon | null>(null);
   const searchAddonRef = useRef<TerminalSearchController | null>(null);
 
+  // Pending multi-line paste — lifted so the parent component can render a dialog
+  const [pendingPaste, setPendingPaste] = useState<{ text: string; lines: number } | null>(null);
+  const confirmPaste = useCallback(() => {
+    if (!pendingPaste) return;
+    terminalRef.current?.paste(pendingPaste.text);
+    setPendingPaste(null);
+  }, [pendingPaste]);
+  const cancelPaste = useCallback(() => setPendingPaste(null), []);
+
   useEffect(() => {
     let disposed = false;
     let selectionDisposable: { dispose: () => void } | null = null;
@@ -98,9 +107,12 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
         const text = event.clipboardData?.getData('text');
         if (text && text.includes('\n')) {
           event.preventDefault();
-          const lines = text.split('\n').length;
-          if (confirm(`You're about to paste ${lines} lines. This will execute commands immediately. Continue?`)) {
+          
+          if (terminal.wasmTerm?.hasBracketedPaste()) {
             terminal.paste(text);
+          } else {
+            const lines = text.split('\n').length;
+            setPendingPaste({ text, lines });
           }
         }
       };
@@ -270,5 +282,5 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
     }
   }, [isVisible, sessionId]);
 
-  return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef };
+  return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef, pendingPaste, confirmPaste, cancelPaste };
 }

@@ -1,4 +1,4 @@
-import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot } from 'lucide-react';
+import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { Button } from '@/components/ui/button';
@@ -57,10 +57,10 @@ interface FloatingTabBarProps {
   className?: string;
 }
 
-const statusColors = {
-  connected: 'text-success',
-  connecting: 'text-warning',
-  disconnected: 'text-text-disabled',
+const statusDot = {
+  connected: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]',
+  connecting: 'bg-amber-400 animate-pulse',
+  disconnected: 'bg-zinc-600',
 };
 
 export function FloatingTabBar({
@@ -87,145 +87,137 @@ export function FloatingTabBar({
   className,
 }: FloatingTabBarProps) {
   const currentWorkspaceLabel =
-    workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name ?? 'Workspace';
+    workspaces.find((w) => w.id === currentWorkspaceId)?.name ?? 'Workspace';
 
   return (
-    <TooltipProvider delay={200}>
+    <TooltipProvider delay={300}>
       <div
         className={cn(
-          // Base styles
-          'relative w-full h-12',
-        // Glass morphism with dramatic blur
-        'bg-[var(--surface-1)]/80 backdrop-blur-xl',
-        // Borders
-        'border-b border-[var(--border-subtle)]',
-        // Shadow for depth
-        'shadow-[0_4px_24px_-4px_rgba(0,0,0,0.4)]',
-        className
-      )}
-    >
-      {/* Subtle noise texture overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='4' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      <div className="relative flex items-center h-full px-3 gap-1">
-        {/* Tabs Container */}
-        <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar">
-          {tabs.map((tab, index) => (
-            <Tab
-              key={tab.id}
-              tab={tab}
-              index={index}
-              onClick={() => onTabClick?.(tab.id)}
-              onClose={() => onTabClose?.(tab.id)}
-              onOpenSftp={() => onOpenSftp?.(tab.id)}
-              onStartRecording={() => onStartRecording?.(tab.id)}
-              onStopRecording={() => onStopRecording?.(tab.id)}
-              onSplitHorizontal={() => onSplitHorizontal?.(tab.id)}
-              onSplitVertical={() => onSplitVertical?.(tab.id)}
-              onToggleBroadcast={() => onToggleBroadcast?.(tab.id)}
-            />
-          ))}
-        </div>
-
-        {/* New Tab Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onNewTab}
-          className={cn(
-            'h-9 w-9 p-0 rounded-lg',
-            'text-text-secondary hover:text-foreground',
-            'hover:bg-[var(--surface-3)]',
-            'transition-all duration-200',
-            'hover:scale-105 active:scale-95',
-            'group'
+          'relative flex items-center w-full h-11',
+          'bg-zinc-950/95 border-b border-zinc-800/60',
+          'shadow-[0_1px_0_0_rgba(255,255,255,0.04)]',
+          className,
+        )}
+      >
+        {/* Left: tabs + new tab */}
+        <div className="flex items-center flex-1 min-w-0 h-full pl-1 pr-1 gap-0.5 overflow-x-auto no-scrollbar">
+          {tabs.length === 0 ? (
+            <div className="flex items-center gap-1.5 px-3 text-zinc-600 text-xs font-mono select-none">
+              <Terminal className="h-3.5 w-3.5" />
+              <span>No sessions</span>
+            </div>
+          ) : (
+            tabs.map((tab, index) => (
+              <Tab
+                key={tab.id}
+                tab={tab}
+                index={index}
+                onClick={() => onTabClick?.(tab.id)}
+                onClose={() => onTabClose?.(tab.id)}
+                onOpenSftp={() => onOpenSftp?.(tab.id)}
+                onStartRecording={() => onStartRecording?.(tab.id)}
+                onStopRecording={() => onStopRecording?.(tab.id)}
+                onSplitHorizontal={() => onSplitHorizontal?.(tab.id)}
+                onSplitVertical={() => onSplitVertical?.(tab.id)}
+                onToggleBroadcast={() => onToggleBroadcast?.(tab.id)}
+              />
+            ))
           )}
-          aria-label="New Connection (Cmd+T)"
-        >
-          <Plus
-            className="h-4 w-4 transition-transform group-hover:rotate-90 duration-300"
-          />
-        </Button>
 
-        {/* Divider */}
-        <div className="h-6 w-px bg-[var(--border)] mx-1" />
-
-        {/* Action Buttons */}
-        <ActionButton icon={Folder} label="Browse Hosts" shortcut="Cmd+H" onClick={onBrowseHosts} />
-        <ActionButton icon={FileText} label="SFTP Browser" shortcut="Cmd+B" onClick={onBrowseFiles} />
-        <ActionButton icon={Sparkles} label="Snippets" shortcut="Cmd+;" onClick={onSnippets} />
-        <ActionButton icon={Key} label="SSH Keys" onClick={onKeys} />
-
-        {/* Divider */}
-        <div className="h-6 w-px bg-[var(--border)] mx-1" />
-
-        <ActionButton icon={Search} label="Command Palette" shortcut="Cmd+K" onClick={onCommandPalette} />
-        <ActionButton icon={Bot} label="AI Agent" shortcut="Cmd+Shift+A" onClick={onAiAgent} />
-        <ActionButton icon={Settings} label="Settings" shortcut="Cmd+," onClick={onSettings} />
-
-        {/* Divider */}
-        <div className="h-6 w-px bg-[var(--border)] mx-1" />
-
-        {/* Workspace Selector */}
-        {workspaces.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
+          {/* New tab */}
+          <Tooltip>
+            <TooltipTrigger
               render={(props) => (
-                <Button
+                <button
                   {...props}
-                  variant="ghost"
-                  size="sm"
+                  onClick={onNewTab}
                   className={cn(
-                    'h-9 px-3 rounded-lg gap-1.5',
-                    'text-text-secondary hover:text-foreground',
-                    'hover:bg-[var(--surface-3)]',
-                    'transition-all duration-200',
-                    'hover:scale-[1.02] active:scale-95',
-                    'font-mono text-xs tracking-tight'
+                    'flex items-center justify-center h-7 w-7 rounded-md ml-0.5 shrink-0',
+                    'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60',
+                    'transition-all duration-150 active:scale-90',
                   )}
+                  aria-label="New connection"
                 >
-                  {currentWorkspaceLabel}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
               )}
             />
-            <DropdownMenuContent align="end" className="w-48">
-              {workspaces.map((workspace) => (
-                <DropdownMenuItem
-                  key={workspace.id}
-                  onClick={() => onWorkspaceChange?.(workspace.id)}
-                  className={cn(
-                    'font-mono text-xs',
-                    workspace.id === currentWorkspaceId && 'bg-[var(--surface-3)]'
-                  )}
-                >
-                  {workspace.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+            <TooltipContent side="bottom" sideOffset={6}>
+              <span className="text-xs">New connection</span>
+              <kbd className="ml-2 text-[10px] text-zinc-400 font-mono">⌘T</kbd>
+            </TooltipContent>
+          </Tooltip>
+        </div>
 
-      {/* Bottom glow effect on active tab */}
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-    </div>
+        {/* Right: toolbar actions */}
+        <div className="flex items-center shrink-0 h-full border-l border-zinc-800/60 px-1.5 gap-0.5">
+          <ActionButton icon={Folder} label="Hosts" shortcut="⌘H" onClick={onBrowseHosts} />
+          <ActionButton icon={FileText} label="SFTP" shortcut="⌘B" onClick={onBrowseFiles} />
+          <ActionButton icon={Sparkles} label="Snippets" shortcut="⌘;" onClick={onSnippets} />
+          <ActionButton icon={Key} label="SSH Keys" onClick={onKeys} />
+
+          <div className="h-5 w-px bg-zinc-800/80 mx-1" />
+
+          <ActionButton icon={Search} label="Command Palette" shortcut="⌘K" onClick={onCommandPalette} />
+          <ActionButton icon={Bot} label="AI Agent" shortcut="⌘⇧A" onClick={onAiAgent} />
+          <ActionButton icon={Settings} label="Settings" shortcut="⌘," onClick={onSettings} />
+
+          {workspaces.length > 0 && (
+            <>
+              <div className="h-5 w-px bg-zinc-800/80 mx-1" />
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={(props) => (
+                    <button
+                      {...props}
+                      className={cn(
+                        'flex items-center gap-1 h-7 px-2.5 rounded-md',
+                        'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60',
+                        'font-mono text-[11px] tracking-tight transition-all duration-150',
+                        'active:scale-95',
+                      )}
+                    >
+                      <span className="max-w-[90px] truncate">{currentWorkspaceLabel}</span>
+                      <ChevronDown className="h-3 w-3 shrink-0 text-zinc-600" />
+                    </button>
+                  )}
+                />
+                <DropdownMenuContent align="end" className="w-48">
+                  {workspaces.map((ws) => (
+                    <DropdownMenuItem
+                      key={ws.id}
+                      onClick={() => onWorkspaceChange?.(ws.id)}
+                      className={cn(
+                        'font-mono text-xs',
+                        ws.id === currentWorkspaceId && 'text-emerald-400 bg-emerald-500/5',
+                      )}
+                    >
+                      {ws.id === currentWorkspaceId && (
+                        <span className="mr-2 h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />
+                      )}
+                      {ws.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+        </div>
+
+        <style>{`
+          .no-scrollbar::-webkit-scrollbar { display: none; }
+          .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+          @keyframes tabIn {
+            from { opacity: 0; transform: translateX(-6px) scale(0.96); }
+            to   { opacity: 1; transform: translateX(0)   scale(1); }
+          }
+        `}</style>
+      </div>
     </TooltipProvider>
   );
 }
+
+// ── Individual Tab ─────────────────────────────────────────────────────────────
 
 interface TabProps {
   tab: Tab;
@@ -252,167 +244,110 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         render={(props) => (
           <div
             {...props}
-            onClick={(event) => {
-              props.onClick?.(event);
-              onClick();
-            }}
+            onClick={(e) => { props.onClick?.(e); onClick(); }}
+            style={{ animation: `tabIn 0.25s cubic-bezier(0.16,1,0.3,1) ${index * 0.04}s both` }}
             className={cn(
-              'relative group flex items-center gap-2 h-9 px-3 rounded-lg',
-              'cursor-pointer select-none',
-              'transition-all duration-200 ease-out',
-              'hover:scale-[1.02] active:scale-[0.98]',
-              tab.isActive && [
-                'bg-[var(--surface-2)]',
-                'shadow-[0_2px_12px_-2px_rgba(59,130,246,0.3)]',
-              ],
-              !tab.isActive && ['hover:bg-[var(--surface-2)]']
+              'group relative flex items-center gap-1.5 h-7 pl-2.5 rounded-md cursor-pointer select-none shrink-0',
+              'transition-all duration-150',
+              tab.isActive
+                ? 'bg-zinc-800 text-zinc-100 pr-1.5'
+                : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 pr-1.5',
             )}
-            style={{
-              animation: `tabEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.05}s both`,
-            }}
           >
+            {/* Active left accent */}
             {tab.isActive && (
-              <div
-                className="absolute -bottom-[1px] left-2 right-2 h-[3px] bg-primary rounded-full"
-                style={{
-                  boxShadow: '0 0 12px 2px rgba(59, 130, 246, 0.4)',
-                  animation: 'glowPulse 2s ease-in-out infinite',
-                }}
-              />
+              <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
             )}
 
-            <Circle
-              className={cn(
-                'h-2 w-2 flex-shrink-0 transition-all duration-300',
-                statusColors[tab.status],
-                tab.status === 'connecting' && 'animate-pulse'
-              )}
-              fill="currentColor"
-            />
+            {/* Status dot */}
+            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', statusDot[tab.status])} />
 
-            <span
-              className={cn(
-                'text-xs font-mono tracking-tight truncate max-w-[120px]',
-                'transition-colors duration-200',
-                tab.isActive ? 'text-primary font-medium' : 'text-foreground'
-              )}
-            >
+            {/* Recording indicator */}
+            {tab.isRecording && (
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+            )}
+
+            {/* Label */}
+            <span className={cn(
+              'text-[11px] font-mono tracking-tight truncate max-w-[110px]',
+              tab.isActive ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300',
+            )}>
               {tab.hostname || tab.title}
             </span>
 
+            {/* Close */}
             <button
               onClick={handleClose}
               className={cn(
-                'flex-shrink-0 rounded-md p-0.5',
-                'text-text-tertiary hover:text-foreground',
-                'hover:bg-[var(--surface-3)]',
-                'transition-all duration-200',
+                'flex items-center justify-center h-4 w-4 rounded shrink-0',
+                'text-zinc-600 hover:text-zinc-300 hover:bg-zinc-700',
+                'transition-all duration-100',
                 'opacity-0 group-hover:opacity-100',
-                tab.isActive && 'opacity-100',
-                'hover:scale-110 active:scale-90'
+                tab.isActive && 'opacity-60',
+                'hover:!opacity-100',
               )}
               aria-label={`Close ${tab.title}`}
             >
-              <X className="h-3 w-3" />
+              <X className="h-2.5 w-2.5" />
             </button>
-
-            <style>{`
-              @keyframes tabEnter {
-                from {
-                  opacity: 0;
-                  transform: translateX(-8px) scale(0.95);
-                }
-                to {
-                  opacity: 1;
-                  transform: translateX(0) scale(1);
-                }
-              }
-
-              @keyframes glowPulse {
-                0%, 100% {
-                  opacity: 1;
-                  box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.4);
-                }
-                50% {
-                  opacity: 0.8;
-                  box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.6);
-                }
-              }
-            `}</style>
           </div>
         )}
       />
 
-      <ContextMenuContent className="w-56">
-        <ContextMenuItem onClick={onOpenSftp} className="gap-2">
-          <FolderOpen className="h-4 w-4" />
-          <span>Open SFTP</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {getHotkey('open-sftp')!.key.replace('mod', '⌘')}
-          </span>
+      <ContextMenuContent className="w-52">
+        <ContextMenuItem onClick={onOpenSftp} className="gap-2 text-xs">
+          <FolderOpen className="h-3.5 w-3.5" />
+          Open SFTP
+          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('open-sftp')?.key.replace('mod', '⌘')}</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
 
         {tab.isRecording ? (
-          <ContextMenuItem onClick={onStopRecording} className="gap-2">
-            <Circle className="h-4 w-4 fill-red-500 text-red-500" />
-            <span>Stop Recording</span>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {getHotkey('toggle-recording')!.key.replace('mod', '⌘')}
-            </span>
+          <ContextMenuItem onClick={onStopRecording} className="gap-2 text-xs">
+            <Circle className="h-3.5 w-3.5 fill-red-500 text-red-500" />
+            Stop Recording
           </ContextMenuItem>
         ) : (
-          <ContextMenuItem onClick={onStartRecording} className="gap-2">
-            <Circle className="h-4 w-4" />
-            <span>Start Recording</span>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {getHotkey('toggle-recording')!.key.replace('mod', '⌘')}
-            </span>
+          <ContextMenuItem onClick={onStartRecording} className="gap-2 text-xs">
+            <Circle className="h-3.5 w-3.5" />
+            Start Recording
           </ContextMenuItem>
         )}
 
         <ContextMenuSeparator />
 
-        <ContextMenuItem onClick={onSplitHorizontal} className="gap-2">
-          <SplitSquareHorizontal className="h-4 w-4" />
-          <span>Split Horizontal</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {getHotkey('split-horizontal')!.key.replace('mod', '⌘')}
-          </span>
+        <ContextMenuItem onClick={onSplitHorizontal} className="gap-2 text-xs">
+          <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          Split Horizontal
+          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('split-horizontal')?.key.replace('mod', '⌘')}</span>
         </ContextMenuItem>
-
-        <ContextMenuItem onClick={onSplitVertical} className="gap-2">
-          <SplitSquareVertical className="h-4 w-4" />
-          <span>Split Vertical</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {getHotkey('split-vertical')!.key.replace('mod', '⌘')}
-          </span>
+        <ContextMenuItem onClick={onSplitVertical} className="gap-2 text-xs">
+          <SplitSquareVertical className="h-3.5 w-3.5" />
+          Split Vertical
+          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('split-vertical')?.key.replace('mod', '⌘')}</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
 
-        <ContextMenuItem onClick={onToggleBroadcast} className="gap-2">
-          <Radio className="h-4 w-4" />
-          <span>Toggle Broadcast</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {getHotkey('toggle-broadcast')!.key.replace('mod', '⌘')}
-          </span>
+        <ContextMenuItem onClick={onToggleBroadcast} className="gap-2 text-xs">
+          <Radio className="h-3.5 w-3.5" />
+          Toggle Broadcast
         </ContextMenuItem>
 
         <ContextMenuSeparator />
 
-        <ContextMenuItem onClick={onClose} className="gap-2 text-destructive focus:text-destructive">
-          <X className="h-4 w-4" />
-          <span>Close Tab</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {getHotkey('close-tab')!.key.replace('mod', '⌘')}
-          </span>
+        <ContextMenuItem onClick={onClose} className="gap-2 text-xs text-red-400 focus:text-red-400">
+          <X className="h-3.5 w-3.5" />
+          Close Tab
+          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('close-tab')?.key.replace('mod', '⌘')}</span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
 }
+
+// ── Action Button ──────────────────────────────────────────────────────────────
 
 interface ActionButtonProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -426,31 +361,25 @@ function ActionButton({ icon: Icon, label, shortcut, onClick }: ActionButtonProp
     <Tooltip>
       <TooltipTrigger
         render={(props) => (
-          <Button
+          <button
             {...props}
-            variant="ghost"
-            size="sm"
             onClick={onClick}
             className={cn(
-              'h-9 w-9 p-0 rounded-lg',
-              'text-text-secondary hover:text-foreground',
-              'hover:bg-[var(--surface-3)]',
-              'transition-all duration-200',
-              'hover:scale-105 active:scale-95'
+              'flex items-center justify-center h-7 w-7 rounded-md',
+              'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60',
+              'transition-all duration-150 active:scale-90',
             )}
             aria-label={label}
           >
-            <Icon className="h-4 w-4" />
-          </Button>
+            <Icon className="h-3.5 w-3.5" />
+          </button>
         )}
       />
-      <TooltipContent side="bottom" sideOffset={8}>
+      <TooltipContent side="bottom" sideOffset={6}>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-foreground">{label}</span>
+          <span className="text-xs">{label}</span>
           {shortcut && (
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">
-              {shortcut}
-            </kbd>
+            <kbd className="text-[10px] text-zinc-400 font-mono">{shortcut}</kbd>
           )}
         </div>
       </TooltipContent>

@@ -1,6 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import { agentOrchestrator } from '../services/agent-orchestrator';
 import type {
+  AgentChatInput,
   ApproveAgentStepInput,
   CancelAgentRunInput,
   RejectAgentStepInput,
@@ -9,13 +10,21 @@ import type {
   StartAgentRunInput,
 } from '../../shared/types/agent';
 
+// approveStep now carries AI credentials so the orchestrator can stream analysis
+interface ApproveStepWithAi extends ApproveAgentStepInput {
+  provider: string;
+  model: string;
+  apiKey: string;
+}
+
 export const agentIpcHandlers = {
   async startRun(event: IpcMainInvokeEvent, input: StartAgentRunInput) {
     return agentOrchestrator.startRun(input, event.sender);
   },
 
-  async approveStep(event: IpcMainInvokeEvent, input: ApproveAgentStepInput) {
-    return agentOrchestrator.approveStep(input, event.sender);
+  async approveStep(event: IpcMainInvokeEvent, input: ApproveStepWithAi) {
+    const { provider, model, apiKey, ...approveInput } = input;
+    return agentOrchestrator.approveStep(approveInput, event.sender, { provider, model, apiKey });
   },
 
   async rejectStep(event: IpcMainInvokeEvent, input: RejectAgentStepInput) {
@@ -24,6 +33,10 @@ export const agentIpcHandlers = {
 
   async cancelRun(event: IpcMainInvokeEvent, input: CancelAgentRunInput) {
     return agentOrchestrator.cancelRun(input.runId, event.sender);
+  },
+
+  async chat(event: IpcMainInvokeEvent, input: AgentChatInput) {
+    return agentOrchestrator.chat(input, event.sender);
   },
 
   async getRun(_event: IpcMainInvokeEvent, runId: string) {

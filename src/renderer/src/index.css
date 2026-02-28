@@ -128,9 +128,9 @@
     --border-subtle: #27272A;       /* Subtle dividers */
 
     /* Accent Colors */
-    --primary: #3B82F6;             /* Blue 500 */
+    --primary: #10B981;             /* Emerald 500 */
     --primary-foreground: #FFFFFF;
-    --primary-hover: #2563EB;       /* Blue 600 */
+    --primary-hover: #059669;       /* Emerald 600 */
 
     --success: #10B981;             /* Emerald 500 */
     --warning: #F59E0B;             /* Amber 500 */
@@ -218,7 +218,7 @@
   /* Focus Ring Styles */
   *:focus-visible:not([data-no-focus-ring="true"]) {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
     border-color: var(--primary);
   }
 
@@ -226,7 +226,7 @@
   a:focus-visible:not([data-no-focus-ring="true"]),
   [role="button"]:focus-visible:not([data-no-focus-ring="true"]) {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
     transform: translateY(-1px);
     transition: transform 200ms ease-out;
   }
@@ -236,7 +236,7 @@
   select:focus-visible:not([data-no-focus-ring="true"]) {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
   }
 
   /* Disable selection on UI elements */

@@ -8,10 +8,16 @@ describe('ChatMessage', () => {
 
   beforeEach(() => {
     mockOnInsertCommand.mockClear();
+    // Mock clipboard API using defineProperty (navigator.clipboard is read-only in jsdom)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe('User Messages', () => {
-    it('should render user message with correct styling', () => {
+    it('should render user message content', () => {
       render(
         <ChatMessage
           role="user"
@@ -19,14 +25,10 @@ describe('ChatMessage', () => {
           timestamp="2024-01-01T00:00:00.000Z"
         />
       );
-
-      const message = screen.getByText('How do I list files?');
-      expect(message).toBeInTheDocument();
-      expect(message.parentElement).toHaveClass('bg-primary');
-      expect(message.parentElement).toHaveClass('text-primary-foreground');
+      expect(screen.getByText('How do I list files?')).toBeInTheDocument();
     });
 
-    it('should apply ml-8 spacing for user messages', () => {
+    it('should align user messages to the right', () => {
       const { container } = render(
         <ChatMessage
           role="user"
@@ -34,28 +36,13 @@ describe('ChatMessage', () => {
           timestamp="2024-01-01T00:00:00.000Z"
         />
       );
-
       const wrapper = container.firstChild as HTMLElement;
-      expect(wrapper).toHaveClass('ml-8');
-    });
-
-    it('should not show CommandSuggestion for user messages', () => {
-      render(
-        <ChatMessage
-          role="user"
-          content="Test message"
-          command="ls -la"
-          timestamp="2024-01-01T00:00:00.000Z"
-        />
-      );
-
-      expect(screen.queryByText('Copy')).not.toBeInTheDocument();
-      expect(screen.queryByText('Insert')).not.toBeInTheDocument();
+      expect(wrapper.className).toContain('justify-end');
     });
   });
 
   describe('Assistant Messages', () => {
-    it('should render assistant message with correct styling', () => {
+    it('should render assistant message content', () => {
       render(
         <ChatMessage
           role="assistant"
@@ -63,189 +50,95 @@ describe('ChatMessage', () => {
           timestamp="2024-01-01T00:00:00.000Z"
         />
       );
-
-      const message = screen.getByText('Use the ls command');
-      expect(message).toBeInTheDocument();
-      expect(message.parentElement).toHaveClass('bg-muted');
+      expect(screen.getByText('Use the ls command')).toBeInTheDocument();
     });
 
-    it('should apply mr-8 spacing for assistant messages', () => {
+    it('should render empty assistant message as a streaming cursor', () => {
       const { container } = render(
         <ChatMessage
           role="assistant"
-          content="Test message"
+          content=""
           timestamp="2024-01-01T00:00:00.000Z"
         />
       );
-
-      const wrapper = container.firstChild as HTMLElement;
-      expect(wrapper).toHaveClass('mr-8');
+      // Should show a pulsing element, not plain text
+      expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
     });
+  });
 
-    it('should show CommandSuggestion when command is provided', () => {
+  describe('Fenced code block rendering', () => {
+    it('should render a shell code block with copy button', () => {
       render(
         <ChatMessage
           role="assistant"
-          content="Use this command"
-          command="ls -la"
+          content={"Use this:\n```bash\nls -la\n```"}
           timestamp="2024-01-01T00:00:00.000Z"
           onInsertCommand={mockOnInsertCommand}
         />
       );
-
       expect(screen.getByText('ls -la')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /insert/i })).toBeInTheDocument();
+      expect(screen.getByText('Copy')).toBeInTheDocument();
     });
 
-    it('should not show CommandSuggestion when command is not provided', () => {
+    it('should render an Insert button for shell code blocks when onInsertCommand is provided', () => {
       render(
         <ChatMessage
           role="assistant"
-          content="Use this command"
-          timestamp="2024-01-01T00:00:00.000Z"
-        />
-      );
-
-      expect(screen.queryByText('Copy')).not.toBeInTheDocument();
-      expect(screen.queryByText('Insert')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Content Rendering', () => {
-    it('should render message content', () => {
-      render(
-        <ChatMessage
-          role="user"
-          content="Test content"
-          timestamp="2024-01-01T00:00:00.000Z"
-        />
-      );
-
-      expect(screen.getByText('Test content')).toBeInTheDocument();
-    });
-
-    it('should render multi-line content', () => {
-      render(
-        <ChatMessage
-          role="assistant"
-          content="Line 1\nLine 2\nLine 3"
-          timestamp="2024-01-01T00:00:00.000Z"
-        />
-      );
-
-      expect(screen.getByText(/Line 1/)).toBeInTheDocument();
-    });
-
-    it('should preserve whitespace in content', () => {
-      const content = 'Line 1\n  Indented\nLine 3';
-      render(
-        <ChatMessage
-          role="assistant"
-          content={content}
-          timestamp="2024-01-01T00:00:00.000Z"
-        />
-      );
-
-      const messageElement = screen.getByText(/Line 1/);
-      expect(messageElement).toHaveClass('whitespace-pre-wrap');
-    });
-  });
-
-  describe('CommandSuggestion Integration', () => {
-    it('should pass command to CommandSuggestion', () => {
-      render(
-        <ChatMessage
-          role="assistant"
-          content="Test"
-          command="echo hello"
+          content={"```bash\necho hello\n```"}
           timestamp="2024-01-01T00:00:00.000Z"
           onInsertCommand={mockOnInsertCommand}
         />
       );
-
-      expect(screen.getByText('echo hello')).toBeInTheDocument();
+      expect(screen.getByText('Insert')).toBeInTheDocument();
     });
 
-    it('should pass onInsert callback to CommandSuggestion', async () => {
+    it('should call onInsertCommand when Insert is clicked', async () => {
       const user = userEvent.setup();
       render(
         <ChatMessage
           role="assistant"
-          content="Test"
-          command="echo hello"
+          content={"```bash\necho hello\n```"}
           timestamp="2024-01-01T00:00:00.000Z"
           onInsertCommand={mockOnInsertCommand}
         />
       );
-
-      const insertButton = screen.getByRole('button', { name: /insert/i });
-      await user.click(insertButton);
-
+      await user.click(screen.getByText('Insert'));
       expect(mockOnInsertCommand).toHaveBeenCalledWith('echo hello');
     });
 
-    it('should show CommandSuggestion below message content', () => {
-      const { container } = render(
+    it('should NOT render an Insert button when onInsertCommand is not provided', () => {
+      render(
         <ChatMessage
           role="assistant"
-          content="Test message"
-          command="ls -la"
+          content={"```bash\necho hello\n```"}
           timestamp="2024-01-01T00:00:00.000Z"
-          onInsertCommand={mockOnInsertCommand}
         />
       );
-
-      const messageText = screen.getByText('Test message');
-      const commandText = screen.getByText('ls -la');
-
-      // CommandSuggestion should appear after the message content
-      const messageParent = messageText.parentElement;
-      const commandParent = commandText.closest('[class*="border-primary"]');
-
-      expect(messageParent).toBeInTheDocument();
-      expect(commandParent).toBeInTheDocument();
+      expect(screen.queryByText('Insert')).not.toBeInTheDocument();
     });
   });
 
-  describe('Message Bubble Styling', () => {
-    it('should have rounded corners', () => {
+  describe('Inline text rendering', () => {
+    it('should render plain text content', () => {
       render(
         <ChatMessage
-          role="user"
-          content="Test"
+          role="assistant"
+          content="Hello world"
           timestamp="2024-01-01T00:00:00.000Z"
         />
       );
-
-      const message = screen.getByText('Test');
-      expect(message.parentElement).toHaveClass('rounded-lg');
+      expect(screen.getByText('Hello world')).toBeInTheDocument();
     });
 
-    it('should have proper padding', () => {
+    it('should render inline code with backticks', () => {
       render(
         <ChatMessage
-          role="user"
-          content="Test"
+          role="assistant"
+          content="Run `ls -la` to list files"
           timestamp="2024-01-01T00:00:00.000Z"
         />
       );
-
-      const message = screen.getByText('Test');
-      expect(message.parentElement).toHaveClass('px-3', 'py-2');
-    });
-
-    it('should have proper text size', () => {
-      render(
-        <ChatMessage
-          role="user"
-          content="Test"
-          timestamp="2024-01-01T00:00:00.000Z"
-        />
-      );
-
-      const message = screen.getByText('Test');
-      expect(message.parentElement).toHaveClass('text-sm');
+      expect(screen.getByText('ls -la')).toBeInTheDocument();
     });
   });
 });

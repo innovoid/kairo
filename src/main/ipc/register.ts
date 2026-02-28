@@ -64,16 +64,33 @@ function getSupabaseClientForSender(senderId: number): SupabaseClient {
   return client;
 }
 
+// ── Sensitive field sanitizer ─────────────────────────────────────────────────
+// Strip known-sensitive keys from any plain-object in the args list before
+// they reach the debug logger.  We never strip from the actual handler args —
+// only from the copy used for logging.
+const SENSITIVE_KEYS = new Set(['password', 'passphrase', 'key', 'apiKey', 'accessToken', 'privateKey', 'secret']);
+
+function sanitizeForLog(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(sanitizeForLog);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = SENSITIVE_KEYS.has(k) ? '[REDACTED]' : sanitizeForLog(v);
+  }
+  return out;
+}
+
+function sanitizeArgs(args: unknown[]): unknown[] {
+  return args.map(sanitizeForLog);
+}
+
+// ── withSupabase middleware ───────────────────────────────────────────────────
 function withSupabase<TArgs extends unknown[], TResult>(handler: IpcHandler<TArgs, TResult>) {
   return async (event: IpcMainInvokeEvent, ...args: TArgs): Promise<TResult> => {
     try {
-      logger.debug('[withSupabase] Middleware called, sender:', event.sender.id, 'args:', args);
       const scopedEvent = event as IpcMainInvokeEvent & { supabase: SupabaseClient };
       scopedEvent.supabase = getSupabaseClientForSender(event.sender.id);
-      logger.debug('[withSupabase] Supabase client obtained, calling handler...');
-      const result = await handler(scopedEvent, ...args);
-      logger.debug('[withSupabase] Handler returned successfully');
-      return result;
+      return await handler(scopedEvent, ...args);
     } catch (error) {
       logger.error('[withSupabase] ERROR in middleware:', {
         error,
@@ -87,14 +104,22 @@ function withSupabase<TArgs extends unknown[], TResult>(handler: IpcHandler<TArg
   };
 }
 
-function register(channel: string, handler: (...args: any[]) => Promise<any>) {
-  logger.debug('[register] Registering IPC handler for channel:', channel);
+const HOT_CHANNELS = new Set(['ssh.send', 'ssh.resize', 'sftp.list']);
+
+function register(channel: string, handler: (...args: any[]) => Promise<any> | any) {
+  if (!HOT_CHANNELS.has(channel)) {
+    logger.debug('[register] Registering IPC handler for channel:', channel);
+  }
   ipcMain.removeHandler(channel);
   ipcMain.handle(channel, async (event, ...args) => {
-    logger.debug(`[IPC:${channel}] Handler invoked with args:`, args);
+    if (!HOT_CHANNELS.has(channel)) {
+      logger.debug(`[IPC:${channel}] Handler invoked with args:`, sanitizeArgs(args));
+    }
     try {
       const result = await handler(event, ...args);
-      logger.debug(`[IPC:${channel}] Handler completed successfully`);
+      if (!HOT_CHANNELS.has(channel)) {
+        logger.debug(`[IPC:${channel}] Handler completed successfully`);
+      }
       return result;
     } catch (error) {
       logger.error(`[IPC:${channel}] Handler error:`, {
@@ -170,6 +195,7 @@ export function registerWorkspaceIpcHandlers(): void {
   register('sftp.delete', sftpIpcHandlers.delete);
   register('sftp.chmod', sftpIpcHandlers.chmod);
   register('sftp.pickUploadFiles', sftpIpcHandlers.pickUploadFiles);
+  register('sftp.getSaveFilePath', sftpIpcHandlers.getSaveFilePath);
 
   // SSH Keys
   register('keys.list', withSupabase(keysIpcHandlers.list));
@@ -178,6 +204,15 @@ export function registerWorkspaceIpcHandlers(): void {
   register('keys.exportPublic', keysIpcHandlers.exportPublic);
   register('keys.syncEncrypted', withSupabase(keysIpcHandlers.syncEncrypted));
 
+  // Workspace encryption (all require Supabase — passphrase logged as REDACTED)
+  register('keys.isWorkspaceEncryptionInitialized', withSupabase(keysIpcHandlers.isWorkspaceEncryptionInitialized));
+  register('keys.initializeWorkspaceEncryption',    withSupabase(keysIpcHandlers.initializeWorkspaceEncryption));
+  register('keys.verifyWorkspacePassphrase',         withSupabase(keysIpcHandlers.verifyWorkspacePassphrase));
+  register('keys.syncKeyToCloud',                    withSupabase(keysIpcHandlers.syncKeyToCloud));
+  register('keys.downloadKeyFromCloud',              withSupabase(keysIpcHandlers.downloadKeyFromCloud));
+  register('keys.deleteKeyFromCloud',                withSupabase(keysIpcHandlers.deleteKeyFromCloud));
+  register('keys.changeWorkspacePassphrase',         withSupabase(keysIpcHandlers.changeWorkspacePassphrase));
+
   // AI
   register('ai.complete', aiIpcHandlers.complete);
   register('ai.translateCommand', aiIpcHandlers.translateCommand);
@@ -185,6 +220,7 @@ export function registerWorkspaceIpcHandlers(): void {
   register('agent.approveStep', agentIpcHandlers.approveStep);
   register('agent.rejectStep', agentIpcHandlers.rejectStep);
   register('agent.cancelRun', agentIpcHandlers.cancelRun);
+  register('agent.chat', agentIpcHandlers.chat);
   register('agent.getRun', agentIpcHandlers.getRun);
   register('agent.listRuns', agentIpcHandlers.listRuns);
   register('agent.runPlaybook', agentIpcHandlers.runPlaybook);

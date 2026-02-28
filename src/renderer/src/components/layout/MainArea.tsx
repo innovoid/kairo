@@ -7,10 +7,16 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { TerminalTab } from '@/features/terminal/TerminalTab';
 import { SplitPaneLayout } from '@/features/terminal/SplitPaneLayout';
 import { SftpTab } from '@/features/sftp/SftpTab';
-import { SnippetsPage } from '@/features/snippets/SnippetsPage';
+import { AgentPanel } from '@/features/agent/AgentPanel';
 import { ErrorBoundary } from '../ErrorBoundary';
 
-export function MainArea() {
+interface MainAreaProps {
+  agentOpen?: boolean;
+  onAgentClose?: () => void;
+  workspaceId?: string;
+}
+
+export function MainArea({ agentOpen, onAgentClose, workspaceId }: MainAreaProps) {
   const tabs = useSessionStore((s) => s.tabs);
   const activeTabId = useSessionStore((s) => s.activeTabId);
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
@@ -47,14 +53,6 @@ export function MainArea() {
 
   if (!activeTab) return null;
 
-  if (activeTab.tabType === 'snippets') {
-    return (
-      <div className="w-full h-full overflow-hidden">
-        <SnippetsPage />
-      </div>
-    );
-  }
-
   if (activeTab.tabType !== 'terminal' && activeTab.tabType !== 'sftp') {
     return null;
   }
@@ -64,45 +62,65 @@ export function MainArea() {
   );
 
   return (
-    <div className="w-full h-full overflow-hidden relative">
-      {terminalAndSftpTabs.map((tab) => {
-        const isVisible = tab.tabId === activeTabId;
-        return (
-          <div
-            key={tab.tabId}
-            className={isVisible ? 'absolute inset-0' : 'hidden'}
-          >
-            {tab.tabType === 'terminal' ? (
-              <ErrorBoundary fallbackLabel="Terminal crashed">
-                {tab.paneTree ? (
-                  <SplitPaneLayout
-                    pane={tab.paneTree}
-                    parentTab={tab}
-                    onSplit={(sessionId, direction) => {
-                      const newSessionId = `local-${Date.now()}`;
-                      splitPane(tab.tabId, direction, newSessionId);
-                      window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
-                      setFocusedPaneSessionId(newSessionId);
-                    }}
-                    onClosePane={(sessionId) => {
-                      closePane(tab.tabId, sessionId);
-                      if (focusedPaneSessionId === sessionId) setFocusedPaneSessionId(null);
-                    }}
-                    focusedSessionId={focusedPaneSessionId ?? undefined}
-                    onFocus={setFocusedPaneSessionId}
-                  />
-                ) : (
-                  <TerminalTab tab={tab} isVisible={isVisible} />
-                )}
-              </ErrorBoundary>
-            ) : (
-              <ErrorBoundary fallbackLabel="SFTP crashed">
-                <SftpTab tab={tab} />
-              </ErrorBoundary>
-            )}
-          </div>
-        );
-      })}
+    <div className="w-full h-full overflow-hidden flex">
+      {/* Terminal / SFTP area */}
+      <div className="flex-1 relative overflow-hidden">
+        {terminalAndSftpTabs.map((tab) => {
+          const isVisible = tab.tabId === activeTabId;
+          return (
+            <div
+              key={tab.tabId}
+              className={isVisible ? 'absolute inset-0' : 'hidden'}
+            >
+              {tab.tabType === 'terminal' ? (
+                <ErrorBoundary fallbackLabel="Terminal crashed">
+                  {tab.paneTree ? (
+                    <SplitPaneLayout
+                      pane={tab.paneTree}
+                      parentTab={tab}
+                      onSplit={(sessionId, direction) => {
+                        const newSessionId = `local-${Date.now()}`;
+                        splitPane(tab.tabId, direction, newSessionId);
+                        window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+                        setFocusedPaneSessionId(newSessionId);
+                      }}
+                      onClosePane={(sessionId) => {
+                        closePane(tab.tabId, sessionId);
+                        if (focusedPaneSessionId === sessionId) setFocusedPaneSessionId(null);
+                      }}
+                      focusedSessionId={focusedPaneSessionId ?? undefined}
+                      onFocus={setFocusedPaneSessionId}
+                    />
+                  ) : (
+                    <TerminalTab tab={tab} isVisible={isVisible} />
+                  )}
+                </ErrorBoundary>
+              ) : (
+                <ErrorBoundary fallbackLabel="SFTP crashed">
+                  <SftpTab tab={tab} />
+                </ErrorBoundary>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Agent panel — inline right column, no overlay */}
+      {agentOpen && (
+        <div
+          className="w-[340px] shrink-0 h-full overflow-hidden"
+          style={{ animation: 'slideInRight 0.2s cubic-bezier(0.16,1,0.3,1) both' }}
+        >
+          <AgentPanel onClose={onAgentClose ?? (() => {})} workspaceId={workspaceId} />
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(20px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

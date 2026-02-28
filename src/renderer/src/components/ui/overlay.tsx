@@ -50,7 +50,7 @@ export function Overlay({ open, onOpenChange, children, className }: OverlayProp
             // Styling
             'bg-[var(--surface-2)] rounded-2xl',
             'border border-[var(--border)]',
-            'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8),0_0_0_1px_rgba(59,130,246,0.1)]',
+            'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8),0_0_0_1px_rgba(16,185,129,0.08)]',
             // Animations
             'animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500',
             'pointer-events-auto',
@@ -191,7 +191,6 @@ export function OverlayContent({ children, className }: OverlayContentProps) {
     <div
       className={cn(
         'overflow-y-auto p-6',
-        'max-h-[calc(80vh-140px)]', // Account for header and footer
         className
       )}
     >

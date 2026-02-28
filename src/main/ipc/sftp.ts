@@ -100,4 +100,13 @@ export const sftpIpcHandlers = {
 
     return result.canceled ? null : result.filePaths;
   },
+
+  async getSaveFilePath(event: IpcMainInvokeEvent, defaultFilename: string): Promise<string | null> {
+    const result = await dialog.showSaveDialog({
+      title: 'Save file as',
+      defaultPath: defaultFilename,
+    });
+
+    return result.canceled ? null : result.filePath;
+  },
 };

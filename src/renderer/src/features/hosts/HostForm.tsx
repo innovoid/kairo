@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Host, CreateHostInput, UpdateHostInput } from '@shared/types/hosts';
+import type { PortForwardConfig } from '@shared/types/port-forward';
 import { useHostStore } from '@/stores/host-store';
 import { useKeyStore } from '@/stores/key-store';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, Server, KeyRound, Lock } from 'lucide-react';
+import { X, Server, KeyRound, Lock, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HostFormProps {
@@ -33,6 +34,7 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
   const [authType, setAuthType] = useState<'password' | 'key'>('password');
   const [password, setPassword] = useState('');
   const [keyId, setKeyId] = useState('');
+  const [portForwards, setPortForwards] = useState<PortForwardConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +51,7 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
       setAuthType(host.authType);
       setPassword('');
       setKeyId(host.keyId ?? '');
+      setPortForwards(host.portForwards ?? []);
     } else {
       setLabel('');
       setHostname('');
@@ -57,6 +60,7 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
       setAuthType('password');
       setPassword('');
       setKeyId('');
+      setPortForwards([]);
     }
     setError(null);
   }, [host]);
@@ -71,6 +75,7 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
           label, hostname, port: parseInt(port), username, authType,
           password: authType === 'password' ? password || null : null,
           keyId: authType === 'key' ? keyId || null : null,
+          portForwards,
         };
         await updateHost(host.id, update);
       } else {
@@ -78,6 +83,7 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
           workspaceId, label, hostname, port: parseInt(port), username, authType,
           password: authType === 'password' ? password || null : null,
           keyId: authType === 'key' ? keyId || null : null,
+          portForwards,
         };
         await createHost(input);
       }
@@ -236,6 +242,89 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
                     Import keys in Settings &rarr; SSH Keys
                   </p>
                 )}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+          {/* Port Forwarding section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Port Forwarding</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setPortForwards([...portForwards, { id: crypto.randomUUID(), type: 'local', localPort: 8080, remoteHost: '127.0.0.1', remotePort: 80 }])}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add
+              </Button>
+            </div>
+            
+            {portForwards.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No port forwards configured.</p>
+            ) : (
+              <div className="space-y-2">
+                {portForwards.map((pf) => (
+                  <div key={pf.id} className="p-2 border rounded-md space-y-2 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <Select
+                        value={pf.type}
+                        onValueChange={(v: string | null) => {
+                          if (v === 'local' || v === 'remote') {
+                            setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, type: v } : p))
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-6 text-xs w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="local">Local</SelectItem>
+                          <SelectItem value="remote">Remote</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <button
+                        type="button"
+                        onClick={() => setPortForwards(portForwards.filter(p => p.id !== pf.id))}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase text-muted-foreground">Local Port</Label>
+                        <Input
+                          type="number"
+                          value={pf.localPort}
+                          onChange={(e) => setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, localPort: parseInt(e.target.value) || 0 } : p))}
+                          className="h-6 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase text-muted-foreground">Remote Port</Label>
+                        <Input
+                          type="number"
+                          value={pf.remotePort}
+                          onChange={(e) => setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, remotePort: parseInt(e.target.value) || 0 } : p))}
+                          className="h-6 text-xs"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Remote Host</Label>
+                      <Input
+                        value={pf.remoteHost}
+                        onChange={(e) => setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, remoteHost: e.target.value } : p))}
+                        className="h-6 text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -10,7 +10,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FolderOpen, File, RefreshCw, FolderPlus, Upload as UploadIcon, ChevronLeft } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import { Input } from '@/components/ui/input';
+import { FolderOpen, File, RefreshCw, FolderPlus, Upload as UploadIcon, ChevronLeft, Download, Trash2, Pencil } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface FilePaneProps {
@@ -26,12 +42,19 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+type DialogState = {
+  type: 'mkdir' | 'rename' | 'delete' | null;
+  entry?: SftpEntry;
+  value: string;
+};
+
 export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   const [currentPath, setCurrentPath] = useState('/');
   const [entries, setEntries] = useState<SftpEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dialogState, setDialogState] = useState<DialogState>({ type: null, value: '' });
   const { addTransfer } = useTransferStore();
 
   useEffect(() => {
@@ -67,17 +90,51 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
     setCurrentPath('/' + parts.join('/') || '/');
   }
 
-  async function handleMkdir() {
-    const name = window.prompt('New folder name:');
-    if (!name?.trim()) return;
-    await window.sftpApi.mkdir(sessionId, `${currentPath}/${name}`.replace('//', '/'));
-    await loadDirectory(currentPath);
+  function openMkdirDialog() {
+    setDialogState({ type: 'mkdir', value: '' });
   }
 
-  async function handleDelete(entry: SftpEntry) {
-    if (!window.confirm(`Delete "${entry.name}"?`)) return;
-    await window.sftpApi.delete(sessionId, entry.path, entry.type === 'directory');
-    await loadDirectory(currentPath);
+  function openRenameDialog(entry: SftpEntry) {
+    setDialogState({ type: 'rename', value: entry.name, entry });
+  }
+
+  function openDeleteDialog(entry: SftpEntry) {
+    setDialogState({ type: 'delete', value: '', entry });
+  }
+
+  async function handleDialogConfirm() {
+    if (dialogState.type === 'mkdir') {
+      const name = dialogState.value.trim();
+      if (!name) return;
+      try {
+        await window.sftpApi.mkdir(sessionId, `${currentPath}/${name}`.replace('//', '/'));
+        await loadDirectory(currentPath);
+        setDialogState({ type: null, value: '' });
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    } else if (dialogState.type === 'rename') {
+      const newName = dialogState.value.trim();
+      if (!newName || !dialogState.entry) return;
+      const parentPath = dialogState.entry.path.substring(0, dialogState.entry.path.lastIndexOf('/'));
+      const newPath = parentPath ? `${parentPath}/${newName}` : `/${newName}`;
+      try {
+        await window.sftpApi.rename(sessionId, dialogState.entry.path, newPath);
+        await loadDirectory(currentPath);
+        setDialogState({ type: null, value: '' });
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    } else if (dialogState.type === 'delete') {
+      if (!dialogState.entry) return;
+      try {
+        await window.sftpApi.delete(sessionId, dialogState.entry.path, dialogState.entry.type === 'directory');
+        await loadDirectory(currentPath);
+        setDialogState({ type: null, value: '' });
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    }
   }
 
   async function handleUpload() {
@@ -108,7 +165,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         if (message !== 'Transfer cancelled') {
-          console.error('Upload failed:', e);
+          toast.error(`Upload failed: ${message}`);
         }
       }
     }
@@ -117,11 +174,8 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   async function handleDownload(entry: SftpEntry) {
     if (entry.type === 'directory') return;
 
-    const defaultLocalPath = `${entry.name}`;
-    const localPath = window.prompt('Save downloaded file as:', defaultLocalPath);
-    if (!localPath?.trim()) {
-      return;
-    }
+    const localPath = await window.sftpApi.getSaveFilePath(entry.name);
+    if (!localPath) return;
 
     const transferId = crypto.randomUUID();
     addTransfer({
@@ -129,7 +183,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
       filename: entry.name,
       sessionId,
       remotePath: entry.path,
-      localPath: localPath.trim(),
+      localPath,
       bytesTransferred: 0,
       totalBytes: entry.size,
       direction: 'download',
@@ -138,11 +192,11 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
     });
 
     try {
-      await window.sftpApi.download(sessionId, entry.path, localPath.trim(), transferId);
+      await window.sftpApi.download(sessionId, entry.path, localPath, transferId);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (message !== 'Transfer cancelled') {
-        console.error('Download failed:', e);
+        toast.error(`Download failed: ${message}`);
       }
     }
   }
@@ -189,7 +243,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         if (message !== 'Transfer cancelled') {
-          console.error('Upload failed:', e);
+          toast.error(`Upload failed: ${message}`);
         }
       }
     }
@@ -204,7 +258,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
         <span className="text-xs font-medium text-muted-foreground mr-2" data-testid={`${title.toLowerCase()}-file-pane-title`}>
           {title}
         </span>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={goUp} disabled={currentPath === '/'}>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={goUp} disabled={currentPath === '/'} aria-label="Go up">
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
         {/* Breadcrumb */}
@@ -222,10 +276,10 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
             </span>
           ))}
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => loadDirectory(currentPath)} title="Refresh">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => loadDirectory(currentPath)} title="Refresh" aria-label="Refresh">
           <RefreshCw className="h-3 w-3" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleMkdir} title="New folder">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={openMkdirDialog} title="New folder" aria-label="New folder">
           <FolderPlus className="h-3 w-3" />
         </Button>
         <Button
@@ -234,6 +288,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
           className="h-6 w-6"
           onClick={handleUpload}
           title="Upload files"
+          aria-label="Upload files"
         >
           <UploadIcon className="h-3 w-3" />
         </Button>
@@ -272,40 +327,56 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
             </TableHeader>
             <TableBody>
               {entries.map((entry) => (
-                <TableRow
-                  key={entry.path}
-                  className={cn(
-                    'cursor-pointer text-xs',
-                    entry.type === 'directory' && 'hover:bg-accent/40'
-                  )}
-                  onDoubleClick={() => {
-                    if (entry.type === 'directory') {
-                      navigate(entry);
-                    } else {
-                      handleDownload(entry);
-                    }
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    handleDelete(entry);
-                  }}
-                >
-                  <TableCell className="py-1">
-                    {entry.type === 'directory' ? (
-                      <FolderOpen className="h-3.5 w-3.5 text-blue-400" />
-                    ) : (
-                      <File className="h-3.5 w-3.5 text-muted-foreground" />
+                <ContextMenu key={entry.path}>
+                  <ContextMenuTrigger>
+                    <TableRow
+                      className={cn(
+                        'cursor-pointer text-xs',
+                        entry.type === 'directory' && 'hover:bg-accent/40'
+                      )}
+                      onDoubleClick={() => {
+                        if (entry.type === 'directory') {
+                          navigate(entry);
+                        } else {
+                          handleDownload(entry);
+                        }
+                      }}
+                    >
+                      <TableCell className="py-1">
+                        {entry.type === 'directory' ? (
+                          <FolderOpen className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <File className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </TableCell>
+                      <TableCell className="py-1 font-mono">{entry.name}</TableCell>
+                      <TableCell className="py-1 text-right text-muted-foreground">
+                        {entry.type !== 'directory' ? formatSize(entry.size) : '—'}
+                      </TableCell>
+                      <TableCell className="py-1 text-muted-foreground">
+                        {new Date(entry.modifiedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="py-1 font-mono text-muted-foreground">{entry.permissions}</TableCell>
+                    </TableRow>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    {entry.type !== 'directory' && (
+                      <ContextMenuItem onClick={() => handleDownload(entry)}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </ContextMenuItem>
                     )}
-                  </TableCell>
-                  <TableCell className="py-1 font-mono">{entry.name}</TableCell>
-                  <TableCell className="py-1 text-right text-muted-foreground">
-                    {entry.type !== 'directory' ? formatSize(entry.size) : '—'}
-                  </TableCell>
-                  <TableCell className="py-1 text-muted-foreground">
-                    {new Date(entry.modifiedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="py-1 font-mono text-muted-foreground">{entry.permissions}</TableCell>
-                </TableRow>
+                    <ContextMenuItem onClick={() => openRenameDialog(entry)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Rename
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => openDeleteDialog(entry)} className="text-red-500 focus:text-red-500">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
               {entries.length === 0 && !loading && (
                 <TableRow>
@@ -318,6 +389,46 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
           </Table>
         )}
       </div>
+
+      {/* Dialog for mkdir/rename/delete */}
+      <Dialog open={dialogState.type !== null} onOpenChange={(open) => !open && setDialogState({ type: null, value: '' })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {dialogState.type === 'mkdir' && 'New Folder'}
+              {dialogState.type === 'rename' && 'Rename'}
+              {dialogState.type === 'delete' && 'Delete'}
+            </DialogTitle>
+          </DialogHeader>
+          {dialogState.type === 'delete' ? (
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete "{dialogState.entry?.name}"?
+              {dialogState.entry?.type === 'directory' && ' This will delete the entire folder.'}
+            </p>
+          ) : (
+            <Input
+              value={dialogState.value}
+              onChange={(e) => setDialogState({ ...dialogState, value: e.target.value })}
+              placeholder={dialogState.type === 'mkdir' ? 'Folder name' : 'New name'}
+              onKeyDown={(e) => e.key === 'Enter' && handleDialogConfirm()}
+              autoFocus
+            />
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogState({ type: null, value: '' })}>
+              Cancel
+            </Button>
+            <Button
+              variant={dialogState.type === 'delete' ? 'destructive' : 'default'}
+              onClick={handleDialogConfirm}
+            >
+              {dialogState.type === 'mkdir' && 'Create'}
+              {dialogState.type === 'rename' && 'Rename'}
+              {dialogState.type === 'delete' && 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -20,7 +20,7 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'userId' | 'updatedAt'> = {
   bellStyle: 'none',
   lineHeight: 1.0,
   copyOnSelect: false,
-  aiProvider: 'openai',
+  aiProvider: 'gemini',
 };
 
 export const settingsIpcHandlers = {
@@ -56,7 +56,7 @@ export const settingsIpcHandlers = {
         bellStyle: data.bell_style ?? 'none',
         lineHeight: data.line_height ?? 1.0,
         copyOnSelect: data.copy_on_select ?? false,
-        aiProvider: data.ai_provider ?? 'openai',
+        aiProvider: data.ai_provider ?? 'gemini',
         updatedAt: data.updated_at,
       };
       settingsQueries.upsert(user.id, JSON.stringify(settings));
@@ -112,7 +112,7 @@ export const settingsIpcHandlers = {
       bellStyle: data.bell_style ?? 'none',
       lineHeight: data.line_height ?? 1.0,
       copyOnSelect: data.copy_on_select ?? false,
-      aiProvider: data.ai_provider ?? 'openai',
+      aiProvider: data.ai_provider ?? 'gemini',
       updatedAt: data.updated_at,
     };
 

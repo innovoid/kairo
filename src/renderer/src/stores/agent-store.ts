@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import type {
+  AgentChatInput,
   AgentPlaybook,
   AgentRun,
   AgentStep,
   RunPlaybookInput,
   StartAgentRunInput,
 } from '@shared/types/agent';
+import type { AiProvider } from '@shared/types/settings';
+import type { ApproveStepWithAiInput } from '@/../../preload/agent-api';
 import { useSettingsStore } from './settings-store';
 
 interface AgentState {
@@ -19,6 +22,7 @@ interface AgentState {
   approveStep: (runId: string, step: AgentStep, options?: { elevate?: boolean; doubleConfirm?: boolean }) => Promise<AgentRun>;
   rejectStep: (runId: string, stepId: string, reason?: string) => Promise<AgentRun>;
   cancelRun: (runId: string) => Promise<AgentRun>;
+  chat: (runId: string, content: string) => Promise<AgentRun>;
   savePlaybook: (runId: string, name: string, workspaceId?: string) => Promise<AgentPlaybook>;
   listPlaybooks: (workspaceId?: string) => Promise<AgentPlaybook[]>;
   runPlaybook: (input: RunPlaybookInput) => Promise<AgentRun>;
@@ -26,9 +30,19 @@ interface AgentState {
 }
 
 function defaultModelForProvider(provider: string): string {
-  if (provider === 'anthropic') return 'claude-haiku-3-5';
+  if (provider === 'anthropic') return 'claude-haiku-3-5-20241022';
   if (provider === 'gemini') return 'gemini-2.0-flash';
   return 'gpt-4o-mini';
+}
+
+async function getAiCredentials(): Promise<{ provider: AiProvider; model: string; apiKey: string }> {
+  const settings = useSettingsStore.getState().settings;
+  const provider = (settings?.aiProvider ?? 'gemini') as AiProvider;
+  const apiKey = await window.apiKeysApi.get(provider);
+  if (!apiKey) {
+    throw new Error(`No API key configured for ${provider}. Go to Settings → AI to add your key.`);
+  }
+  return { provider, model: defaultModelForProvider(provider), apiKey };
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -43,14 +57,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     window.agentApi.onRunUpdated((run) => {
       set((state) => ({
-        runs: {
-          ...state.runs,
-          [run.id]: run,
-        },
-        activeRunBySession: {
-          ...state.activeRunBySession,
-          [run.sessionId]: run.id,
-        },
+        runs: { ...state.runs, [run.id]: run },
+        activeRunBySession: { ...state.activeRunBySession, [run.sessionId]: run.id },
       }));
     });
 
@@ -61,6 +69,29 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           [event.stepId]: `${state.stepOutputByStepId[event.stepId] ?? ''}${event.chunk}`,
         },
       }));
+    });
+
+    // Stream assistant message chunks into the run's messages array
+    window.agentApi.onMessageChunk((event) => {
+      set((state) => {
+        const run = state.runs[event.runId];
+        if (!run) return state;
+        const messages = run.messages.map((m) =>
+          m.id === event.messageId ? { ...m, content: m.content + event.chunk } : m
+        );
+        return { runs: { ...state.runs, [run.id]: { ...run, messages } } };
+      });
+    });
+
+    window.agentApi.onMessageDone((event) => {
+      set((state) => {
+        const run = state.runs[event.runId];
+        if (!run) return state;
+        const messages = run.messages.map((m) =>
+          m.id === event.messageId ? { ...m, streaming: false } : m
+        );
+        return { runs: { ...state.runs, [run.id]: { ...run, messages } } };
+      });
     });
 
     window.agentApi.onBlocked((_runId, reason) => {
@@ -80,117 +111,72 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   startRun: async (input) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
-    const settings = useSettingsStore.getState().settings;
-    const provider = settings?.aiProvider ?? 'openai';
-    const apiKey = await window.apiKeysApi.get(provider);
-
-    if (!apiKey) {
-      throw new Error(`No API key configured for ${provider}. Go to Settings -> AI to add your key.`);
-    }
-
-    const model = defaultModelForProvider(provider);
-    const run = await window.agentApi.startRun({
-      ...input,
-      provider,
-      model,
-      apiKey,
-    });
-
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
+    const { provider, model, apiKey } = await getAiCredentials();
+    const run = await window.agentApi.startRun({ ...input, provider, model, apiKey });
     set((state) => ({
-      runs: {
-        ...state.runs,
-        [run.id]: run,
-      },
-      activeRunBySession: {
-        ...state.activeRunBySession,
-        [run.sessionId]: run.id,
-      },
+      runs: { ...state.runs, [run.id]: run },
+      activeRunBySession: { ...state.activeRunBySession, [run.sessionId]: run.id },
     }));
-
     return run;
   },
 
   approveStep: async (runId, step, options) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
-    const run = await window.agentApi.approveStep({
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
+    const { provider, model, apiKey } = await getAiCredentials();
+    const input: ApproveStepWithAiInput = {
       runId,
       stepId: step.id,
       elevate: options?.elevate,
       doubleConfirm: options?.doubleConfirm,
-    });
-
-    set((state) => ({
-      runs: {
-        ...state.runs,
-        [run.id]: run,
-      },
-    }));
-
+      provider,
+      model,
+      apiKey,
+    };
+    const run = await window.agentApi.approveStep(input);
+    set((state) => ({ runs: { ...state.runs, [run.id]: run } }));
     return run;
   },
 
   rejectStep: async (runId, stepId, reason) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
     const run = await window.agentApi.rejectStep({ runId, stepId, reason });
-    set((state) => ({
-      runs: {
-        ...state.runs,
-        [run.id]: run,
-      },
-    }));
+    set((state) => ({ runs: { ...state.runs, [run.id]: run } }));
     return run;
   },
 
   cancelRun: async (runId) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
     const run = await window.agentApi.cancelRun({ runId });
-    set((state) => ({
-      runs: {
-        ...state.runs,
-        [run.id]: run,
-      },
-    }));
+    set((state) => ({ runs: { ...state.runs, [run.id]: run } }));
+    return run;
+  },
+
+  chat: async (runId, content) => {
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
+    const { provider, model, apiKey } = await getAiCredentials();
+    const input: AgentChatInput = { runId, content, provider, model, apiKey };
+    const run = await window.agentApi.chat(input);
+    set((state) => ({ runs: { ...state.runs, [run.id]: run } }));
     return run;
   },
 
   savePlaybook: async (runId, name, workspaceId) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
     return window.agentApi.savePlaybook({ runId, name, workspaceId });
   },
 
   listPlaybooks: async (workspaceId) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
     return window.agentApi.listPlaybooks(workspaceId);
   },
 
   runPlaybook: async (input) => {
-    if (!window.agentApi) {
-      throw new Error('Agent API is not available in this environment.');
-    }
-
+    if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
     const run = await window.agentApi.runPlaybook(input);
     set((state) => ({
-      runs: {
-        ...state.runs,
-        [run.id]: run,
-      },
-      activeRunBySession: {
-        ...state.activeRunBySession,
-        [run.sessionId]: run.id,
-      },
+      runs: { ...state.runs, [run.id]: run },
+      activeRunBySession: { ...state.activeRunBySession, [run.sessionId]: run.id },
     }));
     return run;
   },

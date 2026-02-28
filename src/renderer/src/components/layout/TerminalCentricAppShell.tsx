@@ -276,7 +276,16 @@ export function TerminalCentricAppShell() {
 
     const newSessionId = `local-${Date.now()}`;
     splitPane(tab.tabId, 'horizontal', newSessionId);
-    window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+
+    if (tab.reconnectConfig?.type === 'ssh' && tab.reconnectConfig.hostId) {
+      const host = hosts.find(h => h.id === tab.reconnectConfig!.hostId);
+      window.sshApi.connect(newSessionId, {
+        ...tab.reconnectConfig,
+        password: host?.password ?? undefined,
+      });
+    } else {
+      window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+    }
   };
 
   const handleSplitVertical = (tabId: string) => {
@@ -285,7 +294,16 @@ export function TerminalCentricAppShell() {
 
     const newSessionId = `local-${Date.now()}`;
     splitPane(tab.tabId, 'vertical', newSessionId);
-    window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+
+    if (tab.reconnectConfig?.type === 'ssh' && tab.reconnectConfig.hostId) {
+      const host = hosts.find(h => h.id === tab.reconnectConfig!.hostId);
+      window.sshApi.connect(newSessionId, {
+        ...tab.reconnectConfig,
+        password: host?.password ?? undefined,
+      });
+    } else {
+      window.sshApi.connect(newSessionId, { type: 'local', promptStyle: settings?.promptStyle });
+    }
   };
 
   const handleToggleBroadcast = (tabId: string) => {

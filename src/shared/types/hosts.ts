@@ -1,3 +1,5 @@
+import type { PortForwardConfig } from './port-forward';
+
 export interface HostFolder {
   id: string;
   workspaceId: string;
@@ -19,6 +21,7 @@ export interface Host {
   password: string | null;
   keyId: string | null;
   tags: string[];
+  portForwards?: PortForwardConfig[];
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +37,7 @@ export interface CreateHostInput {
   password?: string | null;
   keyId?: string | null;
   tags?: string[];
+  portForwards?: PortForwardConfig[];
 }
 
 export interface UpdateHostInput {
@@ -46,6 +50,7 @@ export interface UpdateHostInput {
   password?: string | null;
   keyId?: string | null;
   tags?: string[];
+  portForwards?: PortForwardConfig[];
 }
 
 export interface CreateFolderInput {

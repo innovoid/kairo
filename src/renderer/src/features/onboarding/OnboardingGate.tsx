@@ -5,6 +5,7 @@ import { isE2EMode } from '@/lib/e2e';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AppLoader } from '@/components/ui/AppLoader';
 import { cn } from '@/lib/utils';
 
 interface OnboardingGateProps {
@@ -183,8 +184,8 @@ function SetupFlow({
                   Choose a name your team can quickly recognize.
                 </p>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="workspace-name" className="text-xs text-zinc-300">
+              <div className="space-y-2">
+                <Label htmlFor="workspace-name" className="text-sm text-zinc-300">
                   Workspace Name
                 </Label>
                 <Input
@@ -192,7 +193,8 @@ function SetupFlow({
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
                   placeholder="Production Ops"
-                  className="border-white/15 bg-black/40 font-mono text-zinc-100 placeholder:text-zinc-500"
+                  autoFocus
+                  className="h-12 border-white/15 bg-black/40 font-mono text-base text-zinc-100 placeholder:text-zinc-500"
                 />
               </div>
             </div>
@@ -325,13 +327,15 @@ function SetupFlow({
 }
 
 export function OnboardingGate({ children }: OnboardingGateProps) {
-  if (isE2EMode()) {
-    return <>{children}</>;
-  }
-
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
+    // E2E mode: skip onboarding entirely
+    if (isE2EMode()) {
+      setState({ status: 'ready', workspace: {} as Workspace, completed: true });
+      return;
+    }
+
     let mounted = true;
 
     const load = async () => {
@@ -364,12 +368,11 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
     };
   }, []);
 
+  // E2E: bypass rendering the gate UI (still need hooks above)
+  if (isE2EMode()) return <>{children}</>;
+
   if (state.status === 'loading') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Preparing onboarding...</div>
-      </div>
-    );
+    return <AppLoader message="Loading workspace…" />;
   }
 
   if (state.status === 'error') {
