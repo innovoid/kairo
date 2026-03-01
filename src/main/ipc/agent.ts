@@ -10,21 +10,13 @@ import type {
   StartAgentRunInput,
 } from '../../shared/types/agent';
 
-// approveStep now carries AI credentials so the orchestrator can stream analysis
-interface ApproveStepWithAi extends ApproveAgentStepInput {
-  provider: string;
-  model: string;
-  apiKey: string;
-}
-
 export const agentIpcHandlers = {
   async startRun(event: IpcMainInvokeEvent, input: StartAgentRunInput) {
     return agentOrchestrator.startRun(input, event.sender);
   },
 
-  async approveStep(event: IpcMainInvokeEvent, input: ApproveStepWithAi) {
-    const { provider, model, apiKey, ...approveInput } = input;
-    return agentOrchestrator.approveStep(approveInput, event.sender, { provider, model, apiKey });
+  async approveStep(event: IpcMainInvokeEvent, input: ApproveAgentStepInput) {
+    return agentOrchestrator.approveStep(input, event.sender);
   },
 
   async rejectStep(event: IpcMainInvokeEvent, input: RejectAgentStepInput) {

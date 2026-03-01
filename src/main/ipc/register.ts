@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { isExpiredAccessToken } from './access-token';
 import { logger } from '../lib/logger';
 import { workspaceIpcHandlers } from './workspace';
 import { hostsIpcHandlers } from './hosts';
@@ -52,6 +53,12 @@ function getSupabaseClientForSender(senderId: number): SupabaseClient {
   const accessToken = accessTokenBySenderId.get(senderId);
   if (!accessToken) {
     throw new Error('Not authenticated. Please sign in first.');
+  }
+
+  if (isExpiredAccessToken(accessToken)) {
+    accessTokenBySenderId.delete(senderId);
+    supabaseByAccessToken.delete(accessToken);
+    throw new Error('Session expired. Please sign in again.');
   }
 
   const cachedClient = supabaseByAccessToken.get(accessToken);
@@ -141,6 +148,11 @@ export function registerWorkspaceIpcHandlers(): void {
         trackedSenderIds.delete(event.sender.id);
         accessTokenBySenderId.delete(event.sender.id);
       });
+    }
+
+    const existingToken = accessTokenBySenderId.get(event.sender.id);
+    if (existingToken && existingToken !== accessToken) {
+      supabaseByAccessToken.delete(existingToken);
     }
 
     if (accessToken && accessToken.length > 0) {

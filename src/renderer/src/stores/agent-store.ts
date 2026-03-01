@@ -9,7 +9,6 @@ import type {
   StartAgentRunInput,
 } from '@shared/types/agent';
 import type { AiProvider } from '@shared/types/settings';
-import type { ApproveStepWithAiInput } from '@/../../preload/agent-api';
 import { useSettingsStore } from './settings-store';
 
 interface AgentState {
@@ -18,14 +17,14 @@ interface AgentState {
   stepOutputByStepId: Record<string, string>;
   listenersInitialized: boolean;
   initListeners: () => void;
-  startRun: (input: Omit<StartAgentRunInput, 'provider' | 'model' | 'apiKey'>) => Promise<AgentRun>;
+  startRun: (input: Omit<StartAgentRunInput, 'provider' | 'model'>) => Promise<AgentRun>;
   approveStep: (runId: string, step: AgentStep, options?: { elevate?: boolean; doubleConfirm?: boolean }) => Promise<AgentRun>;
   rejectStep: (runId: string, stepId: string, reason?: string) => Promise<AgentRun>;
   cancelRun: (runId: string) => Promise<AgentRun>;
   chat: (runId: string, content: string) => Promise<AgentRun>;
   savePlaybook: (runId: string, name: string, workspaceId?: string) => Promise<AgentPlaybook>;
   listPlaybooks: (workspaceId?: string) => Promise<AgentPlaybook[]>;
-  runPlaybook: (input: RunPlaybookInput) => Promise<AgentRun>;
+  runPlaybook: (input: Omit<RunPlaybookInput, 'provider' | 'model'>) => Promise<AgentRun>;
   getActiveRun: (sessionId: string) => AgentRun | null;
 }
 
@@ -35,14 +34,10 @@ function defaultModelForProvider(provider: string): string {
   return 'gpt-4o-mini';
 }
 
-async function getAiCredentials(): Promise<{ provider: AiProvider; model: string; apiKey: string }> {
+async function getAiConfig(): Promise<{ provider: AiProvider; model: string }> {
   const settings = useSettingsStore.getState().settings;
   const provider = (settings?.aiProvider ?? 'gemini') as AiProvider;
-  const apiKey = await window.apiKeysApi.get(provider);
-  if (!apiKey) {
-    throw new Error(`No API key configured for ${provider}. Go to Settings → AI to add your key.`);
-  }
-  return { provider, model: defaultModelForProvider(provider), apiKey };
+  return { provider, model: defaultModelForProvider(provider) };
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -112,8 +107,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   startRun: async (input) => {
     if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
-    const { provider, model, apiKey } = await getAiCredentials();
-    const run = await window.agentApi.startRun({ ...input, provider, model, apiKey });
+    const { provider, model } = await getAiConfig();
+    const run = await window.agentApi.startRun({ ...input, provider, model });
     set((state) => ({
       runs: { ...state.runs, [run.id]: run },
       activeRunBySession: { ...state.activeRunBySession, [run.sessionId]: run.id },
@@ -123,15 +118,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   approveStep: async (runId, step, options) => {
     if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
-    const { provider, model, apiKey } = await getAiCredentials();
-    const input: ApproveStepWithAiInput = {
+    const { provider, model } = await getAiConfig();
+    const input = {
       runId,
       stepId: step.id,
-      elevate: options?.elevate,
-      doubleConfirm: options?.doubleConfirm,
       provider,
       model,
-      apiKey,
+      elevate: options?.elevate,
+      doubleConfirm: options?.doubleConfirm,
     };
     const run = await window.agentApi.approveStep(input);
     set((state) => ({ runs: { ...state.runs, [run.id]: run } }));
@@ -154,8 +148,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   chat: async (runId, content) => {
     if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
-    const { provider, model, apiKey } = await getAiCredentials();
-    const input: AgentChatInput = { runId, content, provider, model, apiKey };
+    const { provider, model } = await getAiConfig();
+    const input: AgentChatInput = { runId, content, provider, model };
     const run = await window.agentApi.chat(input);
     set((state) => ({ runs: { ...state.runs, [run.id]: run } }));
     return run;
@@ -173,7 +167,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   runPlaybook: async (input) => {
     if (!window.agentApi) throw new Error('Agent API is not available in this environment.');
-    const run = await window.agentApi.runPlaybook(input);
+    const { provider, model } = await getAiConfig();
+    const run = await window.agentApi.runPlaybook({ ...input, provider, model });
     set((state) => ({
       runs: { ...state.runs, [run.id]: run },
       activeRunBySession: { ...state.activeRunBySession, [run.sessionId]: run.id },

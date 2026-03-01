@@ -85,12 +85,13 @@ export interface StartAgentRunInput {
   workspaceId?: string;
   provider: AiProvider;
   model: string;
-  apiKey: string;
 }
 
 export interface ApproveAgentStepInput {
   runId: string;
   stepId: string;
+  provider: AiProvider;
+  model: string;
   elevate?: boolean;
   doubleConfirm?: boolean;
 }
@@ -118,6 +119,8 @@ export interface RunPlaybookInput {
   workspaceId?: string;
   hostId?: string;
   hostLabel?: string;
+  provider: AiProvider;
+  model: string;
 }
 
 export interface AgentPlaybook {
@@ -181,5 +184,4 @@ export interface AgentChatInput {
   content: string;
   provider: AiProvider;
   model: string;
-  apiKey: string;
 }

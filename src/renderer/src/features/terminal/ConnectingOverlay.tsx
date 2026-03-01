@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { ArchTermLogo } from '@/components/ui/ArchTermLogo';
+import { KairoLogo } from '@/components/ui/KairoLogo';
 
 interface ConnectingOverlayProps {
   visible: boolean;
@@ -51,7 +51,7 @@ export function ConnectingOverlay({ visible, label, isLocal }: ConnectingOverlay
       >
         {/* Logo — no pulse rings */}
         <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 shadow-[0_0_32px_rgba(16,185,129,0.2)]">
-          <ArchTermLogo size="sm" iconOnly />
+          <KairoLogo size="sm" iconOnly />
         </div>
 
         {/* Label */}

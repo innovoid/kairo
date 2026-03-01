@@ -1,7 +1,7 @@
 /**
  * Terminal-Centric AppShell
  *
- * Modern reimagining of ArchTerm's layout with refined brutalist design.
+ * Modern reimagining of Kairo's layout with refined brutalist design.
  * This is a complete replacement for the traditional sidebar-based AppShell.
  *
  * Key Features:
@@ -53,7 +53,7 @@ import {
 } from '@/features/terminal/session-recovery';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-import { ArchTermLogo } from '@/components/ui/ArchTermLogo';
+import { KairoLogo } from '@/components/ui/KairoLogo';
 import type { Workspace } from '@shared/types/workspace';
 import type { Host } from '@shared/types/hosts';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
@@ -705,7 +705,7 @@ export function TerminalCentricAppShell() {
     {
       id: 'settings',
       title: 'Settings',
-      description: 'Configure ArchTerm',
+      description: 'Configure Kairo',
       category: 'settings',
       shortcut: shortcutLabel('settings'),
       keywords: ['settings', 'preferences', 'config'],
@@ -779,7 +779,7 @@ export function TerminalCentricAppShell() {
             className="inline-block animate-pulse"
             style={{ filter: 'drop-shadow(0 0 40px var(--primary-glow, rgba(16,185,129,0.4)))' }}
           >
-            <ArchTermLogo iconOnly size="md" />
+            <KairoLogo iconOnly size="md" />
           </div>
           <div className="space-y-3">
             <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mx-auto" />
@@ -961,7 +961,7 @@ export function TerminalCentricAppShell() {
                 filter: 'drop-shadow(0 0 40px rgba(16,185,129,0.35))',
               }}
             >
-              <ArchTermLogo stacked size="lg" />
+              <KairoLogo stacked size="lg" />
             </div>
             <div className="flex flex-col gap-2 text-sm font-mono">
               <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all duration-200 cursor-default">

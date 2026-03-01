@@ -1,4 +1,4 @@
-# ArchTerm
+# Kairo
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0-emerald" alt="Version">
@@ -6,11 +6,11 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
-ArchTerm is an **AI-powered SSH client** for macOS and Windows, built with Electron, React 18, and TypeScript. It combines a modern terminal experience with intelligent AI assistance and seamless team collaboration.
+Kairo is an **AI-powered SSH client** for macOS and Windows, built with Electron, React 18, and TypeScript. It combines a modern terminal experience with intelligent AI assistance and seamless team collaboration.
 
-## Why ArchTerm?
+## Why Kairo?
 
-Traditional SSH clients are powerful but lack modern UX. ArchTerm brings:
+Traditional SSH clients are powerful but lack modern UX. Kairo brings:
 
 - 🤖 **AI Agent** — Plan complex tasks, approve steps one-by-one, let AI analyze output after each command
 - ⚡ **Ghostty Terminal** — GPU-accelerated terminal rendering via WebAssembly

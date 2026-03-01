@@ -9,6 +9,7 @@ import { recordingManager } from './recording-manager';
 import { sessionEventBus } from './session-event-bus';
 import { clearAgentVisibilitySession, filterAgentArtifactsForRenderer } from './agent-command-visibility';
 import { clearSftpCache } from './sftp-manager';
+import { resolveUnknownHostPrompt } from './ssh-host-key-prompt';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from 'node:fs';
@@ -30,6 +31,7 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
+const HOST_KEY_PROMPT_TIMEOUT_MS = 45_000;
 
 function getKnownHostsPath() {
   const sshDir = join(homedir(), '.ssh');
@@ -288,16 +290,20 @@ function verifyHostKey(
     }
   }
 
-  dialog.showMessageBox({
-    type: 'warning',
-    buttons: ['Accept and Connect', 'Cancel'],
-    defaultId: 0,
-    cancelId: 1,
-    title: 'Unknown Host Key',
-    message: `The authenticity of host '${displayHost}' can't be established.`,
-    detail: `${keyType} key fingerprint is ${presentedFingerprint}.\nAre you sure you want to continue connecting?`
-  }).then(result => {
-    if (result.response === 0) {
+  void resolveUnknownHostPrompt(
+    () =>
+      dialog.showMessageBox({
+        type: 'warning',
+        buttons: ['Accept and Connect', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'Unknown Host Key',
+        message: `The authenticity of host '${displayHost}' can't be established.`,
+        detail: `${keyType} key fingerprint is ${presentedFingerprint}.\nAre you sure you want to continue connecting?`
+      }),
+    HOST_KEY_PROMPT_TIMEOUT_MS
+  ).then((outcome) => {
+    if (outcome === 'accepted') {
       const hostIdentifier = port === 22 ? host : `[${host}]:${port}`;
       appendKnownHostEntry(knownHostsPath, hostIdentifier, keyType, b64Key);
       addHostKeyEvent({
@@ -310,19 +316,27 @@ function verifyHostKey(
         presentedFingerprint,
         knownFingerprints: [],
       });
-    } else {
-      addHostKeyEvent({
-        type: 'unknown_rejected',
-        host,
-        port,
-        displayHost,
-        hostCandidates: knownHostCandidates,
-        keyType,
-        presentedFingerprint,
-        knownFingerprints: [],
-      });
+      callback(true);
+      return;
     }
-    callback(result.response === 0);
+
+    if (outcome === 'timeout') {
+      sender.send('ssh:error', sessionId, `Host key verification timed out for ${displayHost}. Connection was cancelled.`);
+    } else if (outcome === 'error') {
+      sender.send('ssh:error', sessionId, `Unable to verify host key for ${displayHost}. Connection was cancelled.`);
+    }
+
+    addHostKeyEvent({
+      type: 'unknown_rejected',
+      host,
+      port,
+      displayHost,
+      hostCandidates: knownHostCandidates,
+      keyType,
+      presentedFingerprint,
+      knownFingerprints: [],
+    });
+    callback(false);
   });
 }
 

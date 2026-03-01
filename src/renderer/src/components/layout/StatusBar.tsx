@@ -32,7 +32,7 @@ export function StatusBar() {
           <span>Recording</span>
         </div>
       )}
-      <div className="ml-auto">ArchTerm</div>
+      <div className="ml-auto">Kairo</div>
     </div>
   );
 }

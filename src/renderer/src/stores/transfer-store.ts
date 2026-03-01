@@ -11,6 +11,63 @@ interface TransferState {
 }
 
 const completionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const autoRetryAttempts = new Map<string, number>();
+const MAX_AUTO_RETRIES = 1;
+const AUTO_RETRY_DELAY_MS = 600;
+
+function isLikelyTransientTransferError(message: string | undefined): boolean {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+
+  const permanentSignals = [
+    'permission denied',
+    'no such file',
+    'not found',
+    'authentication',
+    'auth failed',
+    'invalid path',
+    'is a directory',
+    'failure',
+  ];
+  if (permanentSignals.some((signal) => normalized.includes(signal))) return false;
+
+  const transientSignals = [
+    'etimedout',
+    'timed out',
+    'timeout',
+    'econnaborted',
+    'econnreset',
+    'ehostunreach',
+    'connection reset',
+    'broken pipe',
+    'epipe',
+    'socket hang up',
+    'network',
+    'temporarily unavailable',
+    'eof',
+  ];
+
+  return transientSignals.some((signal) => normalized.includes(signal));
+}
+
+function scheduleAutoRetryIfEligible(transferId: string): void {
+  const state = useTransferStore.getState();
+  const transfer = state.transfers.get(transferId);
+  if (!transfer || transfer.status !== 'error') return;
+
+  if (!transfer.sessionId || !transfer.localPath || !transfer.remotePath) return;
+  if (!isLikelyTransientTransferError(transfer.error)) return;
+
+  const attempts = autoRetryAttempts.get(transferId) ?? 0;
+  if (attempts >= MAX_AUTO_RETRIES) return;
+  autoRetryAttempts.set(transferId, attempts + 1);
+
+  setTimeout(() => {
+    const latest = useTransferStore.getState().transfers.get(transferId);
+    if (!latest || latest.status !== 'error') return;
+    void useTransferStore.getState().retryTransfer(transferId);
+  }, AUTO_RETRY_DELAY_MS);
+}
 
 function scheduleAutoDismiss(transferId: string): void {
   if (completionTimers.has(transferId)) {
@@ -40,6 +97,7 @@ export const useTransferStore = create<TransferState>((set) => ({
       newTransfers.set(normalized.transferId, normalized);
       return { transfers: newTransfers };
     });
+    autoRetryAttempts.delete(normalized.transferId);
   },
 
   updateProgress: (progress) => {
@@ -69,7 +127,13 @@ export const useTransferStore = create<TransferState>((set) => ({
     });
 
     if (progress.status === 'done' || progress.status === 'cancelled') {
+      autoRetryAttempts.delete(progress.transferId);
       scheduleAutoDismiss(progress.transferId);
+      return;
+    }
+
+    if (progress.status === 'error') {
+      scheduleAutoRetryIfEligible(progress.transferId);
     }
   },
 
@@ -78,6 +142,7 @@ export const useTransferStore = create<TransferState>((set) => ({
       clearTimeout(completionTimers.get(transferId)!);
       completionTimers.delete(transferId);
     }
+    autoRetryAttempts.delete(transferId);
 
     set((state) => {
       const newTransfers = new Map(state.transfers);
@@ -109,6 +174,7 @@ export const useTransferStore = create<TransferState>((set) => ({
       });
       return { transfers: newTransfers };
     });
+    autoRetryAttempts.delete(transferId);
 
     scheduleAutoDismiss(transferId);
 

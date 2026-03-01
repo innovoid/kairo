@@ -71,7 +71,7 @@ vi.mock('@/components/ui/sonner', () => ({
   Toaster: () => null,
 }));
 vi.mock('@/components/ui/logo', () => ({
-  ArchTermLogoIcon: () => <span data-testid="logo" />,
+  KairoLogoIcon: () => <span data-testid="logo" />,
 }));
 
 const sessionState = {
@@ -141,7 +141,7 @@ describe('TerminalCentricAppShell', () => {
     render(<TerminalCentricAppShell />);
 
     await waitFor(() => {
-      expect(screen.getByText('ArchTerm')).toBeInTheDocument();
+      expect(screen.getByText('Kairo')).toBeInTheDocument();
     });
     expect(screen.getByTestId('team-overlay-state')).toHaveTextContent('closed');
 

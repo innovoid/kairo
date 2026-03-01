@@ -157,7 +157,7 @@ export function UpdateReadyModal({ state, actions }: UpdateReadyModalProps) {
 
               <div className="min-w-0 flex-1 pt-0.5">
                 <h2 className="text-base font-semibold text-foreground tracking-tight">
-                  ArchTerm {state.version} is ready
+                  Kairo {state.version} is ready
                 </h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   The update has been downloaded and is ready to install.

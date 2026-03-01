@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArchTermLogo } from "@/components/ui/ArchTermLogo";
+import { KairoLogo } from "@/components/ui/KairoLogo";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -141,7 +141,7 @@ export function LoginPage() {
           className="flex flex-col justify-center"
         >
           <div className="mb-10">
-            <ArchTermLogo size="md" />
+            <KairoLogo size="md" />
           </div>
 
           <div className="space-y-6">
@@ -350,7 +350,7 @@ export function LoginPage() {
                 ) : isSignUp ? (
                   "Create Account"
                 ) : (
-                  "Continue to ArchTerm"
+                  "Continue to Kairo"
                 )}
               </Button>
             </form>

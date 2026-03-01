@@ -85,7 +85,6 @@ describe('useAgentStore', () => {
         sessionId: 'session-1',
         task: 'Install Docker',
         provider: 'openai',
-        apiKey: 'test-api-key',
       })
     );
 
@@ -103,6 +102,8 @@ describe('useAgentStore', () => {
     expect(mockAgentApi.runPlaybook).toHaveBeenCalledWith({
       playbookName: 'docker',
       sessionId: 'session-1',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
     });
 
     const state = useAgentStore.getState();

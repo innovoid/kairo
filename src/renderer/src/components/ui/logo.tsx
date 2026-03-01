@@ -1,5 +1,5 @@
 /**
- * ArchTerm Logo Components
+ * Kairo Logo Components
  * Emerald theme — consistent with global primary color
  */
 
@@ -9,10 +9,10 @@ interface LogoProps {
 }
 
 /**
- * Full ArchTerm Logo with animated elements
+ * Full Kairo Logo with animated elements
  * Use for splash screens, about pages, large displays
  */
-export function ArchTermLogo({ className = '', size = 32 }: LogoProps) {
+export function KairoLogo({ className = '', size = 32 }: LogoProps) {
   return (
     <svg
       width={size}
@@ -139,10 +139,10 @@ export function ArchTermLogo({ className = '', size = 32 }: LogoProps) {
 }
 
 /**
- * Simple ArchTerm Logo - Clean geometric design
+ * Simple Kairo Logo - Clean geometric design
  * Use for navigation, headers, compact spaces
  */
-export function ArchTermLogoSimple({ className = '', size = 32 }: LogoProps) {
+export function KairoLogoSimple({ className = '', size = 32 }: LogoProps) {
   return (
     <svg
       width={size}
@@ -205,7 +205,7 @@ export function ArchTermLogoSimple({ className = '', size = 32 }: LogoProps) {
  * Icon Logo - Compact terminal window design
  * Use for favicons, app icons, small UI elements
  */
-export function ArchTermLogoIcon({ className = '', size = 32 }: LogoProps) {
+export function KairoLogoIcon({ className = '', size = 32 }: LogoProps) {
   return (
     <svg
       width={size}
@@ -305,7 +305,7 @@ export function ArchTermLogoIcon({ className = '', size = 32 }: LogoProps) {
  * Wordmark Logo - Full brand with text
  * Use for marketing, documentation, large headers
  */
-export function ArchTermWordmark({ className = '', size = 120 }: LogoProps) {
+export function KairoWordmark({ className = '', size = 120 }: LogoProps) {
   return (
     <svg
       width={size}
@@ -346,7 +346,7 @@ export function ArchTermWordmark({ className = '', size = 120 }: LogoProps) {
         AT
       </text>
 
-      {/* "ArchTerm" text */}
+      {/* "Kairo" text */}
       <text
         x="45"
         y="35"
@@ -356,7 +356,7 @@ export function ArchTermWordmark({ className = '', size = 120 }: LogoProps) {
         fill="url(#wordmark-gradient)"
         letterSpacing="-0.5"
       >
-        ArchTerm
+        Kairo
       </text>
 
       {/* Tagline */}

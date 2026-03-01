@@ -154,7 +154,7 @@ function SetupFlow({
           {step === 0 && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-semibold tracking-tight">Welcome to ArchTerm</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">Welcome to Kairo</h2>
                 <p className="mt-2 text-sm text-zinc-300">
                   Before you start, configure your workspace identity and encryption posture.
                 </p>

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ArchTermLogo } from './ArchTermLogo';
+import { KairoLogo } from './KairoLogo';
 
 const BOOT_STEPS = [
   'Initializing secure context…',
@@ -63,12 +63,12 @@ export function AppLoader({ message }: { message?: string }) {
           <div
             className="relative flex items-center justify-center h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 shadow-[0_0_40px_rgba(16,185,129,0.2)]"
           >
-            <ArchTermLogo size="sm" iconOnly />
+            <KairoLogo size="sm" iconOnly />
           </div>
         </div>
 
         {/* Wordmark */}
-        <ArchTermLogo size="md" textOnly stacked />
+        <KairoLogo size="md" textOnly stacked />
 
         {/* Current status */}
         <p

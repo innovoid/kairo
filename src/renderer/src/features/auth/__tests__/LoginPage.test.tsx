@@ -35,7 +35,7 @@ describe('LoginPage', () => {
 
     await user.type(screen.getByLabelText('Email'), '  user@example.com  ');
     await user.type(screen.getByLabelText('Password'), 'password123!');
-    await user.click(screen.getByRole('button', { name: 'Continue to ArchTerm' }));
+    await user.click(screen.getByRole('button', { name: 'Continue to Kairo' }));
 
     await waitFor(() => {
       expect(authMocks.signInWithPassword).toHaveBeenCalledWith({

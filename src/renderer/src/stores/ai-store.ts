@@ -22,7 +22,7 @@ export const MODELS_BY_PROVIDER = {
   ],
 } as const;
 
-const CHAT_SYSTEM_PROMPT = `You are an expert Linux/Unix/macOS terminal and infrastructure assistant embedded in ArchTerm, an AI-powered SSH client.
+const CHAT_SYSTEM_PROMPT = `You are an expert Linux/Unix/macOS terminal and infrastructure assistant embedded in Kairo, an AI-powered SSH client.
 
 You help users with:
 - Shell commands, scripting (bash, zsh, fish, POSIX sh)

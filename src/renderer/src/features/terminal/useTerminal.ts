@@ -38,6 +38,26 @@ interface TerminalCacheEntry {
 
 // Module-level storage for terminal instances
 const terminalCache = new Map<string, TerminalCacheEntry>();
+const MAX_DETACHED_TERMINALS = 24;
+
+function isDetachedTerminal(entry: TerminalCacheEntry): boolean {
+  const element = entry.terminal.element;
+  return !element || !element.isConnected;
+}
+
+function pruneDetachedTerminalCache(keepSessionId?: string): void {
+  const detachedEntries = Array.from(terminalCache.entries()).filter(([id, entry]) => (
+    id !== keepSessionId && isDetachedTerminal(entry)
+  ));
+
+  if (detachedEntries.length <= MAX_DETACHED_TERMINALS) return;
+  const toEvict = detachedEntries.length - MAX_DETACHED_TERMINALS;
+
+  for (const [id, entry] of detachedEntries.slice(0, toEvict)) {
+    entry.terminal.dispose();
+    terminalCache.delete(id);
+  }
+}
 
 function suppressNativeInputCaret(terminal: Terminal): void {
   const textarea = terminal.textarea;
@@ -105,13 +125,13 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
       pasteTarget = containerRef.current;
       pasteHandler = (event: ClipboardEvent) => {
         const text = event.clipboardData?.getData('text');
-        if (text && text.includes('\n')) {
+        if (text && /[\r\n]/.test(text)) {
           event.preventDefault();
           
           if (terminal.wasmTerm?.hasBracketedPaste()) {
             terminal.paste(text);
           } else {
-            const lines = text.split('\n').length;
+            const lines = text.split(/\r?\n/).length;
             setPendingPaste({ text, lines });
           }
         }
@@ -178,6 +198,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
 
     const setup = async () => {
       if (!containerRef.current || disposed) return;
+      pruneDetachedTerminalCache(sessionId);
 
       const cached = terminalCache.get(sessionId);
       if (cached) {
@@ -238,6 +259,7 @@ export function useTerminal({ containerRef, sessionId, settings, isVisible = tru
 
       const entry = { terminal, fitAddon, searchAddon };
       terminalCache.set(sessionId, entry);
+      pruneDetachedTerminalCache(sessionId);
       attachSessionTerminal(entry);
     };
 

@@ -1,15 +1,13 @@
 import type { AgentRiskLevel, HostFacts } from '../../shared/types/agent';
 
 const DESTRUCTIVE_PATTERNS: RegExp[] = [
-  // Recursive forced deletion
-  /\brm\s+(-[a-z]*r[a-z]*f[a-z]*|-[a-z]*f[a-z]*r[a-z]*)\b/i,
-  // Disk formatting
+  // Disk formatting / partitioning
   /\bmkfs\b/i,
   /\bfdisk\b/i,
   /\bparted\b/i,
   /\bwipefs\b/i,
   // Block device overwrite
-  /\bdd\s+if=/i,
+  /\bdd\b.*\b(of=|if=)\b/i,
   // System power
   /\bshutdown\b/i,
   /\breboot\b/i,
@@ -77,15 +75,75 @@ const PRIVILEGED_PATTERNS: RegExp[] = [
   /\bcrontab\s+-[rie]\b/i,
 ];
 
+function splitShellSegments(command: string): string[] {
+  return command
+    .split(/(?:\|\||&&|;|\n)/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function stripElevationPrefix(command: string): string {
+  return command
+    .replace(/^\s*(sudo|doas)\s+(--\s+)?/i, '')
+    .replace(/^\s*su\s+-c\s+/i, '')
+    .trim();
+}
+
+function looksLikeRmCommand(binary: string): boolean {
+  return /(^|\/)rm$/i.test(binary);
+}
+
+function hasDestructiveRmFlags(segment: string): boolean {
+  const cleaned = stripElevationPrefix(segment);
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || !looksLikeRmCommand(tokens[0])) return false;
+
+  let hasRecursive = false;
+  let hasForce = false;
+  for (const token of tokens.slice(1)) {
+    const lower = token.toLowerCase();
+    if (lower === '--') break;
+
+    if (lower === '--recursive' || lower === '-r') {
+      hasRecursive = true;
+      continue;
+    }
+
+    if (lower === '--force' || lower === '-f') {
+      hasForce = true;
+      continue;
+    }
+
+    if (/^-[^-]/.test(lower)) {
+      if (lower.includes('r')) hasRecursive = true;
+      if (lower.includes('f')) hasForce = true;
+    }
+  }
+
+  return hasRecursive && hasForce;
+}
+
 function isDestructive(command: string): boolean {
-  return DESTRUCTIVE_PATTERNS.some((pattern) => pattern.test(command));
+  const segments = splitShellSegments(command);
+  return segments.some((segment) => {
+    if (hasDestructiveRmFlags(segment)) return true;
+    return DESTRUCTIVE_PATTERNS.some((pattern) => pattern.test(segment));
+  });
 }
 
 function needsPrivilege(command: string, facts?: HostFacts): boolean {
   if (facts?.isRoot) return false;
-  // Already elevated
-  if (/^\s*sudo\b/i.test(command) || /^\s*su\s+-\b/i.test(command)) return false;
-  return PRIVILEGED_PATTERNS.some((pattern) => pattern.test(command));
+
+  const segments = splitShellSegments(command);
+  return segments.some((segment) => {
+    const normalized = stripElevationPrefix(segment);
+    if (/^\s*(sudo|doas)\b/i.test(segment) || /^\s*su\s+-\b/i.test(segment)) return false;
+    return PRIVILEGED_PATTERNS.some((pattern) => pattern.test(normalized));
+  });
+}
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 export function classifyCommandRisk(command: string, facts?: HostFacts): AgentRiskLevel {
@@ -102,6 +160,8 @@ export function requiresDoubleConfirm(risk: AgentRiskLevel): boolean {
 export function applyElevation(command: string, shouldElevate: boolean, facts?: HostFacts): string {
   if (!shouldElevate) return command;
   if (facts?.isRoot) return command;
-  if (/^\s*sudo\b/i.test(command) || /^\s*su\b/i.test(command)) return command;
-  return `sudo ${command}`;
+  if (/^\s*(sudo|doas)\b/i.test(command) || /^\s*su\b/i.test(command)) return command;
+
+  // Use sudo with an explicit command boundary to avoid option injection.
+  return `sudo -- sh -lc ${shellSingleQuote(command)}`;
 }

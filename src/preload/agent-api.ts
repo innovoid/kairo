@@ -7,6 +7,7 @@ import type {
   AgentPlaybook,
   AgentRun,
   AgentStepOutputEvent,
+  ApproveAgentStepInput,
   CancelAgentRunInput,
   RejectAgentStepInput,
   RunPlaybookInput,
@@ -14,21 +15,10 @@ import type {
   StartAgentRunInput,
 } from '../shared/types/agent';
 
-// approveStep carries AI credentials so the orchestrator can stream analysis
-export interface ApproveStepWithAiInput {
-  runId: string;
-  stepId: string;
-  elevate?: boolean;
-  doubleConfirm?: boolean;
-  provider: string;
-  model: string;
-  apiKey: string;
-}
-
 const agentApi = {
   startRun: (input: StartAgentRunInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.startRun', input),
-  approveStep: (input: ApproveStepWithAiInput): Promise<AgentRun> =>
+  approveStep: (input: ApproveAgentStepInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.approveStep', input),
   rejectStep: (input: RejectAgentStepInput): Promise<AgentRun> =>
     ipcRenderer.invoke('agent.rejectStep', input),

@@ -9,7 +9,7 @@ test.describe('ArchTerm Electron Visual Smoke', () => {
     const launched = await launchArchTerm();
     app = launched.app;
     page = launched.page;
-    await expect(page.getByText('ArchTerm')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /kairo|archterm/i })).toBeVisible({ timeout: 30_000 });
   });
 
   test.afterEach(async () => {

@@ -15,6 +15,7 @@ const mockSftpApi = {
 describe('useTransferStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     useTransferStore.setState({ transfers: new Map() });
   });
 
@@ -91,5 +92,76 @@ describe('useTransferStore', () => {
     expect(transfer?.error).toContain('Retry metadata missing');
     expect(mockSftpApi.upload).not.toHaveBeenCalled();
     expect(mockSftpApi.download).not.toHaveBeenCalled();
+  });
+
+  it('auto-retries transient transfer errors once when metadata is present', async () => {
+    vi.useFakeTimers();
+    const now = new Date().toISOString();
+    useTransferStore.getState().addTransfer({
+      transferId: 't-4',
+      filename: 'bundle.zip',
+      direction: 'upload',
+      sessionId: 'session-2',
+      localPath: '/tmp/bundle.zip',
+      remotePath: '/remote/bundle.zip',
+      bytesTransferred: 20,
+      totalBytes: 100,
+      status: 'active',
+      startedAt: now,
+      updatedAt: now,
+    });
+
+    useTransferStore.getState().updateProgress({
+      transferId: 't-4',
+      filename: 'bundle.zip',
+      direction: 'upload',
+      bytesTransferred: 20,
+      totalBytes: 100,
+      status: 'error',
+      error: 'ETIMEDOUT while writing',
+    });
+
+    await vi.runAllTimersAsync();
+
+    expect(mockSftpApi.upload).toHaveBeenCalledTimes(1);
+    expect(mockSftpApi.upload).toHaveBeenCalledWith(
+      'session-2',
+      '/tmp/bundle.zip',
+      '/remote/bundle.zip',
+      't-4'
+    );
+  });
+
+  it('does not auto-retry non-transient transfer errors', async () => {
+    vi.useFakeTimers();
+    const now = new Date().toISOString();
+    useTransferStore.getState().addTransfer({
+      transferId: 't-5',
+      filename: 'secrets.txt',
+      direction: 'download',
+      sessionId: 'session-2',
+      localPath: '/tmp/secrets.txt',
+      remotePath: '/remote/secrets.txt',
+      bytesTransferred: 0,
+      totalBytes: 100,
+      status: 'active',
+      startedAt: now,
+      updatedAt: now,
+    });
+
+    useTransferStore.getState().updateProgress({
+      transferId: 't-5',
+      filename: 'secrets.txt',
+      direction: 'download',
+      bytesTransferred: 0,
+      totalBytes: 100,
+      status: 'error',
+      error: 'Permission denied',
+    });
+
+    await vi.runAllTimersAsync();
+
+    expect(mockSftpApi.download).not.toHaveBeenCalled();
+    expect(mockSftpApi.upload).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 import { Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface ArchTermLogoProps {
+interface KairoLogoProps {
   /** Controls overall scale. Default: 'md' */
   size?: 'sm' | 'md' | 'lg';
   /** Stack icon above text instead of side-by-side */
@@ -37,13 +37,13 @@ const SIZE = {
   },
 };
 
-export function ArchTermLogo({
+export function KairoLogo({
   size = 'md',
   stacked = false,
   iconOnly = false,
   textOnly = false,
   className,
-}: ArchTermLogoProps) {
+}: KairoLogoProps) {
   const s = SIZE[size];
 
   return (
@@ -71,7 +71,7 @@ export function ArchTermLogo({
       {!iconOnly && (
         <div className={stacked ? 'flex flex-col items-center gap-0.5' : ''}>
           <h1 className={cn('font-semibold tracking-tight text-white leading-none', s.name)}>
-            ArchTerm
+            Kairo
           </h1>
           <p className={cn('font-mono text-emerald-400/80', s.tag)}>
             AI-powered ssh client
