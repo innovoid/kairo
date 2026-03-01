@@ -154,13 +154,6 @@ export function createWindowApiMocks() {
       update: asyncFn({}),
       delete: asyncFn(undefined),
     },
-    recordingApi: {
-      start: asyncFn(undefined),
-      stop: asyncFn(null),
-      list: asyncFn([]),
-      read: asyncFn(''),
-      isRecording: asyncFn(false),
-    },
     updaterApi: {
       checkForUpdates: asyncFn(undefined),
       downloadUpdate: asyncFn(undefined),

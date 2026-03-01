@@ -107,14 +107,6 @@ vi.mock('@/stores/transfer-store', () => ({
   }),
 }));
 
-vi.mock('@/stores/recording-store', () => ({
-  useRecordingStore: () => ({
-    isRecording: vi.fn().mockReturnValue(false),
-    startRecording: vi.fn(),
-    stopRecording: vi.fn(),
-  }),
-}));
-
 vi.mock('@/stores/broadcast-store', () => ({
   useBroadcastStore: () => ({
     enabled: false,

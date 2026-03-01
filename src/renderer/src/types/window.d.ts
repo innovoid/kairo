@@ -9,7 +9,6 @@ import type { AgentApi } from '../../../preload/agent-api';
 import type { SettingsApi } from '../../../preload/settings-api';
 import type { ApiKeysApi } from '../../../preload/api-keys-api';
 import type { SnippetsApi } from '../../../preload/snippets-api';
-import type { RecordingApi } from '../../../preload/recording-api';
 import type { UpdaterApi } from '../../../preload/updater-api';
 import type { ActiveWorkspaceContext, Workspace } from '../../../shared/types/workspace';
 
@@ -30,7 +29,6 @@ declare global {
     settingsApi: SettingsApi;
     apiKeysApi: ApiKeysApi;
     snippetsApi: SnippetsApi;
-    recordingApi: RecordingApi;
     updaterApi: UpdaterApi;
   }
 }

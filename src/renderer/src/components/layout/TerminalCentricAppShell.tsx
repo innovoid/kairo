@@ -39,7 +39,6 @@ import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTransferStore } from '@/stores/transfer-store';
-import { useRecordingStore } from '@/stores/recording-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useAutoUpdater } from '@/features/updater/useAutoUpdater';
@@ -84,7 +83,6 @@ export function TerminalCentricAppShell() {
   const { settings, fetchSettings } = useSettingsStore();
   const { hosts, fetchHosts } = useHostStore();
   const { workspaces, activeWorkspace, fetchWorkspaces } = useWorkspaceStore();
-  const { isRecording, startRecording, stopRecording } = useRecordingStore();
   const { enabled: broadcastEnabled, toggle: toggleBroadcastEnabled, addTarget } = useBroadcastStore();
 
   const tabs = useSessionStore((s) => s.tabs);
@@ -362,19 +360,6 @@ export function TerminalCentricAppShell() {
     });
   };
 
-  const handleStartRecording = async (tabId: string) => {
-    const tab = tabs.get(tabId);
-    if (!tab?.sessionId) return;
-
-    try {
-      await window.recordingApi.start(tab.sessionId, 80, 24); // Default terminal size
-      startRecording(tab.sessionId);
-      toast.success('Recording started');
-    } catch (error) {
-      toast.error('Failed to start recording');
-    }
-  };
-
   const handleOpenSettings = (tab: SettingsTab = 'terminal') => {
     setSettingsInitialTab(tab);
     setSettingsOpen(true);
@@ -446,21 +431,6 @@ export function TerminalCentricAppShell() {
     }
 
     await performWorkspaceSwitch(nextWorkspaceId, false);
-  };
-
-  const handleStopRecording = async (tabId: string) => {
-    const tab = tabs.get(tabId);
-    if (!tab?.sessionId) return;
-
-    try {
-      const filepath = await window.recordingApi.stop(tab.sessionId);
-      stopRecording(tab.sessionId);
-      if (filepath) {
-        toast.success(`Recording saved: ${filepath}`);
-      }
-    } catch (error) {
-      toast.error('Failed to stop recording');
-    }
   };
 
   const handleSplitHorizontal = async (tabId: string) => {
@@ -579,22 +549,6 @@ export function TerminalCentricAppShell() {
     if (activeTabId) handleOpenSftp(activeTabId);
   });
 
-  // Toggle Recording
-  useHotkey(resolveHotkey('toggle-recording'), (e) => {
-    if (isTerminalFocused()) return;
-    e.preventDefault();
-    if (activeTabId) {
-      const tab = tabs.get(activeTabId);
-      if (tab?.sessionId) {
-        if (isRecording(tab.sessionId)) {
-          handleStopRecording(activeTabId);
-        } else {
-          handleStartRecording(activeTabId);
-        }
-      }
-    }
-  });
-
   // Toggle Broadcast
   useHotkey(resolveHotkey('toggle-broadcast'), (e) => {
     if (isTerminalFocused()) return;
@@ -624,7 +578,6 @@ export function TerminalCentricAppShell() {
       status: tab.status as 'connected' | 'connecting' | 'disconnected' | 'error',
       isActive: tab.tabId === activeTabId,
       sessionId: tab.sessionId,
-      isRecording: tab.sessionId ? isRecording(tab.sessionId) : false,
       reconnectAttempts: tab.reconnectAttempts,
       disconnectReason: tab.disconnectReason,
       connectLatencyMs: tab.connectLatencyMs,
@@ -820,8 +773,6 @@ export function TerminalCentricAppShell() {
             onAiAgent={() => setAgentOpen(true)}
             onSettings={() => handleOpenSettings('terminal')}
             onOpenSftp={handleOpenSftp}
-            onStartRecording={handleStartRecording}
-            onStopRecording={handleStopRecording}
             onSplitHorizontal={handleSplitHorizontal}
             onSplitVertical={handleSplitVertical}
             onToggleBroadcast={handleToggleBroadcast}

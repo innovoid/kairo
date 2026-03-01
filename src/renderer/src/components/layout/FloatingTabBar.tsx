@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot, Terminal, HeartPulse } from 'lucide-react';
+import { X, Plus, ChevronDown, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot, Terminal, HeartPulse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getHotkey } from '@/lib/hotkeys-registry';
 import { formatShortcut } from '@/lib/shortcut-format';
@@ -34,7 +34,6 @@ interface Tab {
   status: 'connected' | 'connecting' | 'disconnected' | 'error';
   isActive: boolean;
   sessionId?: string;
-  isRecording?: boolean;
   reconnectAttempts?: number;
   disconnectReason?: string;
   connectLatencyMs?: number;
@@ -57,8 +56,6 @@ interface FloatingTabBarProps {
   onAiAgent?: () => void;
   onSettings?: () => void;
   onOpenSftp?: (tabId: string) => void;
-  onStartRecording?: (tabId: string) => void;
-  onStopRecording?: (tabId: string) => void;
   onSplitHorizontal?: (tabId: string) => void;
   onSplitVertical?: (tabId: string) => void;
   onToggleBroadcast?: (tabId: string) => void;
@@ -92,8 +89,6 @@ export function FloatingTabBar({
   onAiAgent,
   onSettings,
   onOpenSftp,
-  onStartRecording,
-  onStopRecording,
   onSplitHorizontal,
   onSplitVertical,
   onToggleBroadcast,
@@ -129,8 +124,6 @@ export function FloatingTabBar({
                 onClick={() => onTabClick?.(tab.id)}
                 onClose={() => onTabClose?.(tab.id)}
                 onOpenSftp={() => onOpenSftp?.(tab.id)}
-                onStartRecording={() => onStartRecording?.(tab.id)}
-                onStopRecording={() => onStopRecording?.(tab.id)}
                 onSplitHorizontal={() => onSplitHorizontal?.(tab.id)}
                 onSplitVertical={() => onSplitVertical?.(tab.id)}
                 onToggleBroadcast={() => onToggleBroadcast?.(tab.id)}
@@ -325,14 +318,12 @@ interface TabProps {
   onClick: () => void;
   onClose: () => void;
   onOpenSftp?: () => void;
-  onStartRecording?: () => void;
-  onStopRecording?: () => void;
   onSplitHorizontal?: () => void;
   onSplitVertical?: () => void;
   onToggleBroadcast?: () => void;
 }
 
-function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onStopRecording, onSplitHorizontal, onSplitVertical, onToggleBroadcast }: TabProps) {
+function Tab({ tab, index, onClick, onClose, onOpenSftp, onSplitHorizontal, onSplitVertical, onToggleBroadcast }: TabProps) {
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClose();
@@ -361,14 +352,6 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
 
             {/* Status dot */}
             <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', statusDot[tab.status])} />
-
-            {/* Recording indicator */}
-            {tab.isRecording && (
-              <span className="flex items-center gap-1 shrink-0">
-                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-[9px] font-bold text-red-500 tracking-wider">REC</span>
-              </span>
-            )}
 
             {/* Label */}
             <span className={cn(
@@ -403,20 +386,6 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
           Open SFTP
           <span className="ml-auto text-[10px] text-text-tertiary">{getShortcutLabel('open-sftp')}</span>
         </ContextMenuItem>
-
-        <ContextMenuSeparator />
-
-        {tab.isRecording ? (
-          <ContextMenuItem onClick={onStopRecording} className="gap-2 text-xs">
-            <Circle className="h-3.5 w-3.5 fill-red-500 text-red-500" />
-            Stop Recording
-          </ContextMenuItem>
-        ) : (
-          <ContextMenuItem onClick={onStartRecording} className="gap-2 text-xs">
-            <Circle className="h-3.5 w-3.5" />
-            Start Recording
-          </ContextMenuItem>
-        )}
 
         <ContextMenuSeparator />
 
