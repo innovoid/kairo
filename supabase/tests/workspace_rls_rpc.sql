@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(10);
 
 -- Seed auth users used by the RLS/RPC tests.
 insert into auth.users (
