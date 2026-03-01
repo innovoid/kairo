@@ -21,8 +21,18 @@ describe('agent-command-visibility', () => {
     const input =
       '{ uname -s ; } ; __archterm_status=$?; printf "\\n__ARCHTERM_AGENT_EXIT_abc123__:%s\\n" "$__archterm_status"\nDarwin\n__ARCHTERM_AGENT_EXIT_abc123__:0\n';
 
-    expect(filterAgentArtifactsForRenderer(sessionId, input)).toBe('Darwin\n');
+    expect(filterAgentArtifactsForRenderer(sessionId, input)).toBe('\nDarwin\n');
 
+    unregisterAgentMarker(sessionId, marker);
+  });
+
+  it('hides command-echo wrapper with prompt prefix', () => {
+    registerAgentMarker(sessionId, marker);
+
+    const input =
+      `macbookpro@host ~ % { uname -s ; } ; __archterm_status=$?; printf "\\n${marker}:%s\\n" "$__archterm_status"\nDarwin\n${marker}:0\n`;
+
+    expect(filterAgentArtifactsForRenderer(sessionId, input)).toBe('\nDarwin\n');
     unregisterAgentMarker(sessionId, marker);
   });
 
@@ -30,7 +40,7 @@ describe('agent-command-visibility', () => {
     registerAgentMarker(sessionId, marker);
 
     const input = '{ uname -s ; } ;\nDarwin\n';
-    expect(filterAgentArtifactsForRenderer(sessionId, input)).toBe('Darwin\n');
+    expect(filterAgentArtifactsForRenderer(sessionId, input)).toBe('\nDarwin\n');
 
     unregisterAgentMarker(sessionId, marker);
   });
@@ -59,6 +69,26 @@ describe('agent-command-visibility', () => {
     registerAgentMarker(sessionId, marker);
 
     expect(filterAgentArtifactsForRenderer(sessionId, 'prompt> ')).toBe('prompt> ');
+    unregisterAgentMarker(sessionId, marker);
+  });
+
+  it('hides wrapped printf fragment that includes marker token', () => {
+    registerAgentMarker(sessionId, marker);
+
+    const input = `; printf "\\n${marker}:%s\\n" "$__archterm_status"\n`;
+    expect(filterAgentArtifactsForRenderer(sessionId, input)).toBe('');
+    unregisterAgentMarker(sessionId, marker);
+  });
+
+  it('hides split prompt-prefixed wrapper fragments before marker appears', () => {
+    registerAgentMarker(sessionId, marker);
+
+    const first = 'macbookpro@host ~ % { id -u ';
+    const second =
+      `; } ; __archterm_status=$?; printf "\\n${marker}:%s\\n" "$__archterm_status"\n501\n${marker}:0\n`;
+
+    expect(filterAgentArtifactsForRenderer(sessionId, first)).toBe('');
+    expect(filterAgentArtifactsForRenderer(sessionId, second)).toBe('\n501\n');
     unregisterAgentMarker(sessionId, marker);
   });
 });

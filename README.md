@@ -218,7 +218,11 @@ Key tables:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `npm test`
+4. Run checks:
+   - `npm run typecheck`
+   - `npm run test:run`
+   - `npm run test:db` (requires Docker + local Supabase stack)
+   - `npm run test:e2e:workflow` (targeted Electron workflow smoke)
 5. Submit a PR
 
 ---

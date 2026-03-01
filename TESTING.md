@@ -11,6 +11,7 @@
 - Run type checks: `npm run typecheck`
 - Run Supabase pgTAP DB tests: `npm run test:db`
 - Run Electron E2E suite: `npm run test:e2e:electron`
+- Run targeted Electron workflow tests: `npm run test:e2e:workflow`
 - Update visual snapshots: `npm run test:e2e:visual:update`
 
 ## Targeted Test Runs

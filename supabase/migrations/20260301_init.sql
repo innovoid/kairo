@@ -356,7 +356,7 @@ create policy "members can manage invites"
 drop policy if exists "anyone can view their own invites by email" on workspace_invites;
 create policy "anyone can view their own invites by email"
   on workspace_invites for select
-  using (email = (select email from auth.users where id = auth.uid()));
+  using (lower(email) = lower(coalesce(auth.email(), '')));
 
 drop policy if exists "users manage own workspace settings" on user_workspace_settings;
 create policy "users manage own workspace settings"
@@ -570,7 +570,7 @@ begin
 
   insert into workspace_members (workspace_id, user_id, role)
   values (v_invite.workspace_id, auth.uid(), v_invite.role)
-  on conflict (workspace_id, user_id) do nothing;
+  on conflict on constraint workspace_members_pkey do nothing;
 
   update workspace_invites
   set accepted_at = now()

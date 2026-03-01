@@ -14,6 +14,7 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:db": "npx supabase test db --local",
+    "test:e2e:workflow": "npm run build && npx playwright test -c playwright.electron.config.ts tests/electron/workflow.spec.ts",
     "test:e2e:electron": "npm run build && npx playwright test -c playwright.electron.config.ts",
     "test:e2e:visual:update": "npm run build && npx playwright test -c playwright.electron.config.ts --update-snapshots",
     "postinstall": "electron-rebuild",

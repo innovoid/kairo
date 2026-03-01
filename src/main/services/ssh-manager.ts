@@ -459,11 +459,14 @@ export const sshManager = {
 
         stream.on('data', (data: Buffer) => {
           const dataStr = data.toString('utf8');
-          sessionEventBus.emitData(sessionId, dataStr);
+          // Filter for renderer before emitting raw chunk to the event bus.
+          // executeShellCommand may unregister markers synchronously when this
+          // chunk contains the completion marker.
           const rendererData = filterAgentArtifactsForRenderer(sessionId, dataStr);
           if (!sender.isDestroyed() && rendererData) {
             sender.send('ssh:data', sessionId, rendererData);
           }
+          sessionEventBus.emitData(sessionId, dataStr);
           if (recordingManager.isRecording(sessionId)) {
             recordingManager.appendData(sessionId, dataStr);
           }
@@ -471,11 +474,12 @@ export const sshManager = {
 
         stream.stderr.on('data', (data: Buffer) => {
           const dataStr = data.toString('utf8');
-          sessionEventBus.emitData(sessionId, dataStr);
+          // Keep stderr in the same ordering as stdout to prevent marker leaks.
           const rendererData = filterAgentArtifactsForRenderer(sessionId, dataStr);
           if (!sender.isDestroyed() && rendererData) {
             sender.send('ssh:data', sessionId, rendererData);
           }
+          sessionEventBus.emitData(sessionId, dataStr);
           if (recordingManager.isRecording(sessionId)) {
             recordingManager.appendData(sessionId, dataStr);
           }

@@ -7,9 +7,8 @@ import type { Tab } from '@/stores/session-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useBroadcastStore } from '@/stores/broadcast-store';
-import { useHostStore } from '@/stores/host-store';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
-import { useTerminal } from './useTerminal';
+import { disposeCachedTerminal, useTerminal } from './useTerminal';
 import { useSshSessionEvents } from './useSshSessionEvents';
 import { SessionStatusOverlay } from './SessionStatusOverlay';
 import { ConnectingOverlay } from './ConnectingOverlay';
@@ -41,7 +40,6 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   const { settings } = useSettingsStore();
   const { targetSessionIds } = useBroadcastStore();
   const { closeTab } = useSessionStore();
-  const { hosts } = useHostStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showSnippetPicker, setShowSnippetPicker] = useState(false);
   const [currentRemotePath, setCurrentRemotePath] = useState('/');
@@ -83,6 +81,11 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
   // ── Reconnect: keep same tabId, assign new sessionId, bump attempt count ──
   const handleReconnect = useCallback(async () => {
     if (!tab.reconnectConfig) return;
+    if (tab.sessionId) {
+      // Reconnect reuses the same mounted container; dispose the prior Ghostty
+      // instance first so a fresh terminal is attached for the new session.
+      disposeCachedTerminal(tab.sessionId);
+    }
 
     const newSessionId = crypto.randomUUID();
     const reconnectStartedAt = Date.now();
@@ -106,8 +109,6 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
       return { tabs: newTabs };
     });
 
-    terminal.current?.write('\r\n\x1b[2m— reconnecting… —\x1b[0m\r\n');
-
     // Fetch password on-demand from Supabase — never stored in renderer memory
     let password: string | undefined;
     if (tab.reconnectConfig?.authType === 'password' && tab.reconnectConfig.hostId) {
@@ -124,7 +125,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     };
 
     void window.sshApi.connect(newSessionId, connectPayload);
-  }, [tab.tabId, tab.reconnectConfig, terminal, hosts]);
+  }, [tab.tabId, tab.reconnectConfig, tab.sessionId]);
 
   // Search — only when this terminal is active/focused
   useHotkey(resolveHotkey('search'), (e) => {

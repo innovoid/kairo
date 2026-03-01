@@ -41,4 +41,25 @@ test.describe('ArchTerm Electron Workflow', () => {
     await closeButton.click();
     await expect(page.getByLabel('Close Local Terminal')).toHaveCount(0);
   });
+
+  test('opens and closes command palette from keyboard', async () => {
+    await pressPrimaryShortcut(page, 'K');
+    const searchInput = page.getByPlaceholder('Search commands, hosts, and actions...');
+    await expect(searchInput).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(searchInput).toHaveCount(0);
+  });
+
+  test('opens and cancels new folder dialog from host browser', async () => {
+    await pressPrimaryShortcut(page, 'H');
+    await expect(page.getByRole('heading', { name: 'Browse Hosts', level: 2 })).toBeVisible();
+
+    await page.getByRole('button', { name: 'New Folder' }).click();
+    await expect(page.getByRole('heading', { name: 'New Folder' })).toBeVisible();
+
+    await page.locator('#folder-name').fill('Ops');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'New Folder' })).toHaveCount(0);
+  });
 });

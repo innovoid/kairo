@@ -6,10 +6,15 @@ import {
   agentStepQueries,
 } from '../db';
 import {
+  assessCommandSafety,
   applyElevation,
   classifyCommandRisk,
   requiresDoubleConfirm,
 } from './agent-command-policy';
+import {
+  evaluateReplanCircuitBreaker,
+  type ReplanGuardState,
+} from './agent-replan-guard';
 import { agentFactsService } from './agent-facts';
 import { aiProxy } from './ai-proxy';
 import { apiKeyStore } from './api-key-store';
@@ -435,6 +440,7 @@ function appendEvent(runId: string, type: string, message: string, stepId?: stri
 // ── Run cache ──────────────────────────────────────────────────────────────────
 
 const runCache = new Map<string, AgentRun>();
+const runReplanStateByRun = new Map<string, ReplanGuardState>();
 
 function resolveRunAiCredentials(provider: string, model: string): AiRunCredentials {
   const apiKey = apiKeyStore.get(provider);
@@ -612,6 +618,10 @@ export const agentOrchestrator = {
     run.messages.push(userMsg);
 
     runCache.set(run.id, run);
+    runReplanStateByRun.set(run.id, {
+      totalReplans: 0,
+      consecutiveNoProgressReplans: 0,
+    });
     persistRun(run);
     appendEvent(run.id, 'info', 'Run started');
     emitRun(sender, run);
@@ -678,6 +688,22 @@ export const agentOrchestrator = {
     if (!step) throw new Error(`Step not found: ${input.stepId}`);
     if (step.status !== 'awaiting_approval' && step.status !== 'blocked') {
       throw new Error('Step is not awaiting approval');
+    }
+
+    // Re-validate command safety at execution time in case policy evolved.
+    const safety = assessCommandSafety(step.command, run.facts);
+    step.risk = safety.risk;
+    step.requiresDoubleConfirm = requiresDoubleConfirm(safety.risk);
+    if (safety.blocked) {
+      step.status = 'blocked';
+      run.status = 'blocked';
+      run.lastError = safety.reason ?? 'Command is blocked by safety policy.';
+      run.updatedAt = nowIso();
+      appendEvent(run.id, 'warning', run.lastError, step.id);
+      persistRun(run);
+      if (!sender.isDestroyed()) sender.send('agent:blocked', run.id, run.lastError);
+      emitRun(sender, run);
+      return run;
     }
 
     // Double-confirm guard for destructive commands
@@ -817,16 +843,37 @@ export const agentOrchestrator = {
         run.summary = analysis.message || 'Task completed successfully.';
 
       } else if (analysis.next === 'replan' && analysis.steps?.length) {
-        // Replace all remaining pending steps with a new plan
-        const remainingPending = run.steps.filter((s) => s.status === 'pending');
-        for (const s of remainingPending) {
-          const idx = run.steps.indexOf(s);
-          if (idx !== -1) run.steps.splice(idx, 1);
-        }
+        const pendingBeforeReplan = run.steps.filter((s) => s.status === 'pending');
+
         const replannedSteps = sanitizePlannedSteps(analysis.steps, run.facts ?? {
           os: 'Linux', distro: 'unknown', version: 'unknown',
           packageManager: 'apt', isRoot: false, sudoAvailable: true, systemdAvailable: true, updatedAt: nowIso(),
         });
+        const guardDecision = evaluateReplanCircuitBreaker(
+          runReplanStateByRun.get(run.id),
+          pendingBeforeReplan,
+          replannedSteps,
+        );
+        runReplanStateByRun.set(run.id, guardDecision.nextState);
+        if (!guardDecision.allowed) {
+          run.status = 'blocked';
+          run.lastError = guardDecision.reason;
+          run.summary = guardDecision.reason;
+          appendEvent(run.id, 'warning', guardDecision.reason ?? 'Run blocked by replan circuit breaker.');
+          if (!sender.isDestroyed() && guardDecision.reason) {
+            sender.send('agent:blocked', run.id, guardDecision.reason);
+          }
+          run.updatedAt = nowIso();
+          persistRun(run);
+          emitRun(sender, run);
+          return run;
+        }
+
+        // Replace all remaining pending steps with a new plan
+        for (const s of pendingBeforeReplan) {
+          const idx = run.steps.indexOf(s);
+          if (idx !== -1) run.steps.splice(idx, 1);
+        }
         const newSteps = capNewStepsToRunBudget(run, replannedSteps);
         if (newSteps.length === 0) {
           run.status = 'blocked';
@@ -901,6 +948,9 @@ export const agentOrchestrator = {
     run.updatedAt = nowIso();
     persistRun(run);
     if (run.status === 'completed' && !sender.isDestroyed()) sender.send('agent:done', run.id);
+    if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
+      runReplanStateByRun.delete(run.id);
+    }
     emitRun(sender, run);
     return run;
   },
@@ -939,10 +989,32 @@ export const agentOrchestrator = {
       }
 
       if (parsed.next === 'replan' && parsed.steps?.length) {
+        const pendingBeforeReplan = run.steps.filter((s) => s.status === 'pending');
         const replannedSteps = sanitizePlannedSteps(parsed.steps, run.facts ?? {
           os: 'Linux', distro: 'unknown', version: 'unknown',
           packageManager: 'apt', isRoot: false, sudoAvailable: true, systemdAvailable: true, updatedAt: nowIso(),
         });
+
+        const guardDecision = evaluateReplanCircuitBreaker(
+          runReplanStateByRun.get(run.id),
+          pendingBeforeReplan,
+          replannedSteps,
+        );
+        runReplanStateByRun.set(run.id, guardDecision.nextState);
+        if (!guardDecision.allowed) {
+          run.status = 'blocked';
+          run.lastError = guardDecision.reason;
+          run.summary = guardDecision.reason;
+          appendEvent(run.id, 'warning', guardDecision.reason ?? 'Run blocked by replan circuit breaker.');
+          if (!sender.isDestroyed() && guardDecision.reason) {
+            sender.send('agent:blocked', run.id, guardDecision.reason);
+          }
+          run.updatedAt = nowIso();
+          persistRun(run);
+          emitRun(sender, run);
+          return run;
+        }
+
         // Replace pending steps
         run.steps = run.steps.filter((s) => s.status !== 'pending');
         const newSteps = capNewStepsToRunBudget(run, replannedSteps);
@@ -972,6 +1044,7 @@ export const agentOrchestrator = {
       } else if (parsed.next === 'done') {
         run.status = 'completed';
         run.summary = parsed.message;
+        runReplanStateByRun.delete(run.id);
       }
 
       run.updatedAt = nowIso();
@@ -1030,6 +1103,7 @@ export const agentOrchestrator = {
     run.status = 'cancelled';
     run.summary = 'Run cancelled by user.';
     run.updatedAt = nowIso();
+    runReplanStateByRun.delete(run.id);
     appendEvent(run.id, 'approval', 'Run cancelled by user');
     persistRun(run);
     emitRun(sender, run);
@@ -1068,6 +1142,10 @@ export const agentOrchestrator = {
     });
 
     runCache.set(run.id, run);
+    runReplanStateByRun.set(run.id, {
+      totalReplans: 0,
+      consecutiveNoProgressReplans: 0,
+    });
     persistRun(run);
     appendEvent(run.id, 'info', `Playbook run started: ${playbookRow.name}`);
     emitRun(sender, run);

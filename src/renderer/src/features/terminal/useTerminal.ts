@@ -79,13 +79,17 @@ function suppressTerminalFocusChrome(terminal: Terminal): void {
   host.style.border = 'none';
 }
 
-// Cleanup function to disconnect PTY session and dispose terminal
-export function disposeTerminalSession(sessionId: string): void {
+export function disposeCachedTerminal(sessionId: string): void {
   const cached = terminalCache.get(sessionId);
   if (cached) {
     cached.terminal.dispose();
     terminalCache.delete(sessionId);
   }
+}
+
+// Cleanup function to disconnect PTY session and dispose terminal
+export function disposeTerminalSession(sessionId: string): void {
+  disposeCachedTerminal(sessionId);
   window.sshApi.disconnect(sessionId);
 }
 

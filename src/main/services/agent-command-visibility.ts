@@ -9,15 +9,21 @@ function getOrCreateMarkerSet(sessionId: string): Set<string> {
   return created;
 }
 
-function isWrapperArtifactLine(line: string): boolean {
+function isWrapperEchoLine(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
 
-  // Wrapper emitted by session-command-executor for agent commands.
+  // Primary echoed wrapper line emitted by session-command-executor.
   if (trimmed.includes('__archterm_status=$?')) return true;
 
   // Fallback for wrapped one-liner command blocks.
   return /^\{\s*.+\s*;\s*\}\s*;\s*$/.test(trimmed);
+}
+
+function isWrapperContinuationArtifact(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return trimmed.startsWith('; printf ') && trimmed.includes('__ARCHTERM_AGENT_EXIT_');
 }
 
 function isMarkerArtifactLine(line: string, markers: Set<string>): boolean {
@@ -38,8 +44,10 @@ function isPotentialArtifactPartial(partial: string, markers: Set<string>): bool
   if (!trimmed) return false;
 
   if (trimmed.startsWith('{')) return true;
+  if (trimmed.includes('{')) return true;
   if (trimmed.includes('__archterm_status')) return true;
   if (trimmed.includes('__ARCHTERM_AGENT_EXIT_')) return true;
+  if (/[#$%]\s+\{/.test(trimmed)) return true;
 
   for (const marker of markers) {
     if (marker.startsWith(trimmed)) return true;
@@ -86,7 +94,13 @@ export function filterAgentArtifactsForRenderer(sessionId: string, chunk: string
 
   let output = '';
   for (const line of completeLines) {
-    if (isWrapperArtifactLine(line)) continue;
+    if (isWrapperEchoLine(line)) {
+      // Preserve the line break so shell cursor movement remains correct
+      // even when command-echo text is suppressed.
+      output += '\n';
+      continue;
+    }
+    if (isWrapperContinuationArtifact(line)) continue;
     if (isMarkerArtifactLine(line, markers)) continue;
     output += `${line}\n`;
   }

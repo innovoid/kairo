@@ -184,13 +184,16 @@ export const localShellManager = {
     sessions.set(sessionId, { pty: ptyProcess });
 
     ptyProcess.onData((data) => {
-      sessionEventBus.emitData(sessionId, data);
+      // Important: filter for renderer first. executeShellCommand listens on
+      // sessionEventBus and may unregister markers synchronously when the
+      // marker appears in this same chunk.
       const rendererData = filterAgentArtifactsForRenderer(sessionId, data);
       if (!sender.isDestroyed()) {
         if (rendererData) {
           sender.send('ssh:data', sessionId, rendererData);
         }
       }
+      sessionEventBus.emitData(sessionId, data);
       if (recordingManager.isRecording(sessionId)) {
         recordingManager.appendData(sessionId, data);
       }

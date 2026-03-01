@@ -95,6 +95,7 @@ export function useSshSessionEvents({
       // Mark as connected on first data packet (only once)
       if (tabStatus === 'connecting' && !hasConnectedRef.current) {
         hasConnectedRef.current = true;
+        terminalRef.current.scrollToBottom();
         updateTabStatus(tabId, 'connected');
         touchTabActivity(tabId);
       }

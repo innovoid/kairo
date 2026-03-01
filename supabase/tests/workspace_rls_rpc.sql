@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(13);
 
 -- Seed auth users used by the RLS/RPC tests.
 insert into auth.users (
@@ -188,6 +188,73 @@ select ok(
       and wi.accepted_at is not null
   ),
   'accepted invite is marked as accepted'
+);
+
+select throws_ok(
+  $$select * from accept_workspace_invite('invite-token-123')$$,
+  'P0001',
+  'Invalid or expired invite token',
+  'accept_workspace_invite rejects replay of already accepted token'
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+select set_config('request.jwt.claim.email', 'owner@example.com', true);
+
+insert into workspace_invites (
+  id,
+  workspace_id,
+  email,
+  role,
+  token_hash,
+  invited_by,
+  expires_at
+)
+select
+  '20000000-0000-0000-0000-000000000002',
+  id,
+  'member@example.com',
+  'member',
+  encode(sha256('expired-token-456'::bytea), 'hex'),
+  '00000000-0000-0000-0000-000000000001',
+  now() - interval '1 hour'
+from created_workspace;
+
+insert into workspace_invites (
+  id,
+  workspace_id,
+  email,
+  role,
+  token_hash,
+  invited_by,
+  expires_at,
+  revoked_at
+)
+select
+  '20000000-0000-0000-0000-000000000003',
+  id,
+  'member@example.com',
+  'member',
+  encode(sha256('revoked-token-789'::bytea), 'hex'),
+  '00000000-0000-0000-0000-000000000001',
+  now() + interval '1 day',
+  now()
+from created_workspace;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', true);
+select set_config('request.jwt.claim.email', 'member@example.com', true);
+
+select throws_ok(
+  $$select * from accept_workspace_invite('expired-token-456')$$,
+  'P0001',
+  'Invalid or expired invite token',
+  'accept_workspace_invite rejects expired token'
+);
+
+select throws_ok(
+  $$select * from accept_workspace_invite('revoked-token-789')$$,
+  'P0001',
+  'Invalid or expired invite token',
+  'accept_workspace_invite rejects revoked token'
 );
 
 select throws_ok(
