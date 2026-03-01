@@ -29,7 +29,7 @@ export function CommandPalette({ onOpenSettings, onOpenKeys, open: externalOpen,
   const closeTab = useSessionStore((s) => s.closeTab);
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
 
-  function connectHost(hostId: string) {
+  async function connectHost(hostId: string) {
     const host = hosts.find((h) => h.id === hostId);
     if (!host) return;
 
@@ -51,11 +51,19 @@ export function CommandPalette({ onOpenSettings, onOpenKeys, open: externalOpen,
         status: 'connecting',
       });
 
+      let password: string | undefined;
+      if (host.authType === 'password') {
+        try {
+          password = await window.hostsApi.getPassword(host.id) ?? undefined;
+        } catch {}
+      }
+
       window.sshApi.connect(sessionId, {
         host: host.hostname,
         port: host.port,
         username: host.username,
         authType: host.authType,
+        password,
         privateKeyId: host.keyId ?? undefined,
         hostId: host.id,
       });

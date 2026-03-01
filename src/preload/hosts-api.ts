@@ -4,6 +4,8 @@ import type { Host, HostFolder, CreateHostInput, UpdateHostInput, CreateFolderIn
 const hostsApi = {
   list: (workspaceId: string): Promise<Host[]> =>
     ipcRenderer.invoke('hosts.list', workspaceId),
+  getPassword: (hostId: string): Promise<string | null> =>
+    ipcRenderer.invoke('hosts.getPassword', hostId),
   create: (input: CreateHostInput): Promise<Host> =>
     ipcRenderer.invoke('hosts.create', input),
   update: (id: string, input: UpdateHostInput): Promise<Host> =>

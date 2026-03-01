@@ -1,17 +1,9 @@
 import { useState, useEffect } from 'react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from '@/components/ui/tooltip';
 import { Server, KeyRound, Building2, Settings, TerminalSquare, Code2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { AvatarInitials } from '@/components/ui/avatar-initials';
-import { UserMenu } from '@/components/layout/UserMenu';
-import { WorkspaceSwitcher } from '@/features/workspaces/WorkspaceSwitcher';
+import { KairoLogoSimple } from '@/components/ui/logo';
 
 interface SidebarProps {
   onOpenSettings: () => void;
@@ -48,43 +40,60 @@ export function Sidebar({ onOpenSettings, onGoHome, onGoKeys, onGoWorkspace, onO
   }, []);
 
   return (
-    <TooltipProvider delay={300}>
-      <div className="flex flex-col items-center w-14 border-r bg-muted/10 shrink-0 py-2 gap-1">
-        {/* Workspace Switcher */}
-        <div className="w-full px-1 mb-2 flex justify-center">
-          <WorkspaceSwitcher />
+    <div className="flex flex-col w-[260px] border-r border-border bg-[var(--surface-1)] shrink-0 py-6 px-6 gap-10 justify-between">
+      {/* Top Section */}
+      <div className="flex flex-col gap-10">
+        {/* Logo */}
+        <div className="flex items-center gap-3">
+          <KairoLogoSimple size={32} />
+          <span className="text-sm font-medium text-foreground">archterm</span>
         </div>
 
         {/* Navigation */}
-        <NavButton icon={Server} label="Hosts" active={activeView === 'hosts'} onClick={onGoHome} />
-        <NavButton icon={KeyRound} label="SSH Keys" active={activeView === 'keys'} onClick={onGoKeys} />
-        <NavButton icon={Building2} label="Workspace" active={activeView === 'workspace'} onClick={onGoWorkspace} />
-        <NavButton icon={TerminalSquare} label="Local Terminal" onClick={onOpenLocalTerminal} />
-        <NavButton icon={Code2} label="Snippets" active={activeView === 'snippets'} onClick={onOpenSnippets} />
-
-        <div className="flex-1" />
-
-        {/* Bottom */}
-        {user && (
-          <Tooltip>
-            <TooltipTrigger
-              className={cn(
-                'inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors',
-                'hover:bg-accent hover:text-accent-foreground',
-                activeView === 'profile' && 'bg-accent text-accent-foreground',
-              )}
-              onClick={onOpenProfile}
-            >
-              <AvatarInitials name={userName} size="sm" />
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              Profile
-            </TooltipContent>
-          </Tooltip>
-        )}
-        <NavButton icon={Settings} label="Settings" active={activeView === 'settings'} onClick={onOpenSettings} />
+        <nav aria-label="Main navigation" className="flex flex-col gap-1">
+          <NavButton
+            icon={TerminalSquare}
+            label="Terminals"
+            active={activeView === 'hosts'}
+            onClick={onGoHome}
+            ariaLabel="Navigate to Terminals page"
+          />
+          <NavButton
+            icon={Server}
+            label="Hosts"
+            active={activeView === 'hosts'}
+            onClick={onGoHome}
+            ariaLabel="Navigate to Hosts page"
+          />
+          <NavButton
+            icon={KeyRound}
+            label="SSH Keys"
+            active={activeView === 'keys'}
+            onClick={onGoKeys}
+            ariaLabel="Navigate to SSH Keys page"
+          />
+          <NavButton
+            icon={Code2}
+            label="Snippets"
+            active={activeView === 'snippets'}
+            onClick={onOpenSnippets}
+            ariaLabel="Navigate to Snippets page"
+          />
+        </nav>
       </div>
-    </TooltipProvider>
+
+      {/* Bottom Section */}
+      <div className="flex flex-col gap-6">
+        <div className="h-px w-full bg-[var(--border-subtle)]" />
+        <NavButton
+          icon={Settings}
+          label="Settings"
+          active={activeView === 'settings'}
+          onClick={onOpenSettings}
+          ariaLabel="Navigate to Settings page"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -93,27 +102,28 @@ function NavButton({
   label,
   active,
   onClick,
+  ariaLabel,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
   onClick: () => void;
+  ariaLabel?: string;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger
-        className={cn(
-          'inline-flex items-center justify-center h-9 w-9 rounded-md transition-colors',
-          'hover:bg-accent hover:text-accent-foreground',
-          active && 'bg-accent text-accent-foreground',
-        )}
-        onClick={onClick}
-      >
-        <Icon className="h-5 w-5" />
-      </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8}>
-        {label}
-      </TooltipContent>
-    </Tooltip>
+    <button
+      aria-label={ariaLabel || label}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2 rounded transition-all duration-300 ease-out w-full text-left',
+        active
+          ? 'bg-[var(--surface-2)] text-[var(--primary)] border-l-[3px] border-[var(--primary)] pl-[9px]'
+          : 'text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-1)] border-l-[3px] border-transparent',
+      )}
+      onClick={onClick}
+    >
+      <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+      <span className="text-sm">{label}</span>
+    </button>
   );
 }

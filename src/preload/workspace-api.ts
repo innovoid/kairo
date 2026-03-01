@@ -1,10 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { WorkspaceIpcApi } from '../shared/types/workspace';
+import type { ActiveWorkspaceContext, Workspace, WorkspaceIpcApi } from '../shared/types/workspace';
 
 const workspaceApi: WorkspaceIpcApi & {
-  getActiveContext: () => Promise<unknown>;
-  ensurePersonalWorkspace: (name?: string) => Promise<unknown>;
-  update: (workspaceId: string, updates: { name: string }) => Promise<unknown>;
+  getActiveContext: () => Promise<ActiveWorkspaceContext | null>;
+  ensurePersonalWorkspace: (name?: string) => Promise<Workspace>;
+  update: (workspaceId: string, updates: { name: string }) => Promise<Workspace>;
   delete: (workspaceId: string) => Promise<void>;
   leave: (workspaceId: string) => Promise<void>;
 } = {

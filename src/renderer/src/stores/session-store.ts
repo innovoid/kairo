@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import type { SshSessionStatus } from '@shared/types/ssh';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
 import type { PaneNode } from '@shared/types/pane';
+import { disposeTerminalSession } from '@/features/terminal/useTerminal';
+import type { SessionConnectConfig } from '@shared/types/session';
 
 export type TabType = 'hosts' | 'keys' | 'team' | 'workspace' | 'settings' | 'profile' | 'terminal' | 'sftp' | 'snippets';
 
@@ -21,6 +23,16 @@ export interface Tab {
   settingsTab?: SettingsTab;
   // For split pane terminal tabs:
   paneTree?: PaneNode;
+  // Reconnect metadata — set when session drops
+  disconnectReason?: string;          // human-readable reason
+  disconnectedAt?: number;            // Date.now() timestamp
+  reconnectConfig?: SessionConnectConfig; // original connect config for reconnect
+  reconnectAttempts?: number;         // how many auto-reconnect attempts made
+  // Lightweight session health telemetry
+  connectStartedAt?: number;
+  connectedAt?: number;
+  connectLatencyMs?: number;
+  lastActivityAt?: number;
 }
 
 interface SessionState {
@@ -30,6 +42,9 @@ interface SessionState {
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string | null) => void;
   updateTabStatus: (tabId: string, status: SshSessionStatus) => void;
+  touchTabActivity: (tabId: string, at?: number) => void;
+  updateTabDisconnect: (tabId: string, reason: string, reconnectConfig?: SessionConnectConfig) => void;
+  clearTabDisconnect: (tabId: string) => void;
   updateSettingsTab: (activeSettingsTab: SettingsTab) => void;
   splitPane: (tabId: string, direction: 'horizontal' | 'vertical', newSessionId: string) => void;
   closePane: (tabId: string, sessionId: string) => void;
@@ -64,7 +79,21 @@ export const useSessionStore = create<SessionState>((set) => ({
       }
 
       // Add the new tab (static or dynamic)
-      newTabs.set(tab.tabId, { ...tab, closable });
+      const now = Date.now();
+      const nextTab: Tab = {
+        ...tab,
+        closable,
+        ...(tab.status === 'connecting'
+          ? {
+              connectStartedAt: tab.connectStartedAt ?? now,
+              connectedAt: undefined,
+              connectLatencyMs: undefined,
+              lastActivityAt: undefined,
+            }
+          : {}),
+      };
+
+      newTabs.set(tab.tabId, nextTab);
       return { tabs: newTabs, activeTabId: tab.tabId };
     });
   },
@@ -73,6 +102,24 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => {
       const tab = state.tabs.get(tabId);
       if (!tab || !tab.closable) return state;
+
+      // Cleanup terminal sessions when closing terminal tabs
+      if (tab.tabType === 'terminal') {
+        if (tab.paneTree) {
+          // Close all sessions in pane tree
+          function collectSessionIds(node: PaneNode): string[] {
+            if (node.type === 'terminal') {
+              return [node.sessionId];
+            }
+            return node.children.flatMap(collectSessionIds);
+          }
+          const sessionIds = collectSessionIds(tab.paneTree);
+          sessionIds.forEach(sid => disposeTerminalSession(sid));
+        } else if (tab.sessionId) {
+          // Close single terminal session
+          disposeTerminalSession(tab.sessionId);
+        }
+      }
 
       const newTabs = new Map(state.tabs);
       newTabs.delete(tabId);
@@ -94,8 +141,73 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => {
       const tab = state.tabs.get(tabId);
       if (!tab) return state;
+
+      const now = Date.now();
+      const nextTab: Tab = { ...tab, status };
+
+      if (status === 'connecting') {
+        nextTab.connectStartedAt = now;
+        nextTab.connectedAt = undefined;
+        nextTab.connectLatencyMs = undefined;
+        nextTab.lastActivityAt = undefined;
+      }
+
+      if (status === 'connected') {
+        const connectedAt = now;
+        const connectStartedAt = tab.connectStartedAt ?? connectedAt;
+        nextTab.connectStartedAt = connectStartedAt;
+        nextTab.connectedAt = tab.connectedAt ?? connectedAt;
+        nextTab.connectLatencyMs = tab.connectLatencyMs ?? Math.max(0, connectedAt - connectStartedAt);
+        nextTab.lastActivityAt = tab.lastActivityAt ?? connectedAt;
+        nextTab.disconnectReason = undefined;
+        nextTab.disconnectedAt = undefined;
+      }
+
       const newTabs = new Map(state.tabs);
-      newTabs.set(tabId, { ...tab, status });
+      newTabs.set(tabId, nextTab);
+      return { tabs: newTabs };
+    });
+  },
+
+  touchTabActivity: (tabId, at) => {
+    set((state) => {
+      const tab = state.tabs.get(tabId);
+      if (!tab) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tabId, { ...tab, lastActivityAt: at ?? Date.now() });
+      return { tabs: newTabs };
+    });
+  },
+
+  updateTabDisconnect: (tabId, reason, reconnectConfig) => {
+    set((state) => {
+      const tab = state.tabs.get(tabId);
+      if (!tab) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tabId, {
+        ...tab,
+        status: 'disconnected',
+        disconnectReason: reason,
+        disconnectedAt: Date.now(),
+        reconnectConfig: reconnectConfig ?? tab.reconnectConfig,
+        reconnectAttempts: (tab.reconnectAttempts ?? 0),
+      });
+      return { tabs: newTabs };
+    });
+  },
+
+  clearTabDisconnect: (tabId) => {
+    set((state) => {
+      const tab = state.tabs.get(tabId);
+      if (!tab) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tabId, {
+        ...tab,
+        disconnectReason: undefined,
+        disconnectedAt: undefined,
+        reconnectAttempts: 0,
+        // Keep the status as-is — caller decides whether to change it
+      });
       return { tabs: newTabs };
     });
   },
@@ -155,6 +267,9 @@ export const useSessionStore = create<SessionState>((set) => ({
   },
 
   closePane: (tabId, sessionId) => {
+    // Cleanup the terminal session for the closed pane
+    disposeTerminalSession(sessionId);
+
     set((state) => {
       const tab = state.tabs.get(tabId);
       if (!tab || !tab.paneTree) return state;

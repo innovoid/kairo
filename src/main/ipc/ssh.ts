@@ -3,6 +3,8 @@ import { sshManager } from '../services/ssh-manager';
 import { localShellManager } from '../services/local-shell-manager';
 import type { SshSessionConfig } from '../../shared/types/ssh';
 import type { SessionConnectConfig } from '../../shared/types/session';
+import type { KnownHostEntry } from '../../shared/types/known-hosts';
+import type { HostKeyEvent } from '../../shared/types/host-key-events';
 
 export const sshIpcHandlers = {
   async connect(
@@ -44,5 +46,21 @@ export const sshIpcHandlers = {
     } else {
       sshManager.resize(sessionId, cols, rows);
     }
+  },
+
+  listKnownHosts(): KnownHostEntry[] {
+    return sshManager.listKnownHosts();
+  },
+
+  removeKnownHost(_event: IpcMainInvokeEvent, entryId: string): boolean {
+    return sshManager.removeKnownHost(entryId);
+  },
+
+  listHostKeyEvents(_event: IpcMainInvokeEvent, limit?: number): HostKeyEvent[] {
+    return sshManager.listHostKeyEvents(limit);
+  },
+
+  clearHostKeyEvents(): void {
+    sshManager.clearHostKeyEvents();
   },
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User, Mail, Download, ExternalLink } from 'lucide-react'
+import { User, Mail, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useDataExport } from './hooks'
 import {
@@ -16,6 +16,8 @@ interface UserData {
   email: string
   user_metadata: {
     full_name?: string
+    name?: string
+    display_name?: string
   }
 }
 
@@ -89,7 +91,10 @@ const AccountSettingsTab = () => {
             <div>
               <p className="text-sm font-medium">Name</p>
               <p className="text-sm text-muted-foreground">
-                {user?.user_metadata?.full_name || 'Not set'}
+                {user?.user_metadata?.full_name ||
+                  user?.user_metadata?.name ||
+                  user?.user_metadata?.display_name ||
+                  (user?.email ? user.email.split('@')[0] : 'Unknown')}
               </p>
             </div>
           </div>
@@ -126,30 +131,6 @@ const AccountSettingsTab = () => {
         </CardContent>
       </Card>
 
-      {/* Manage Account Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Manage Account
-          </CardTitle>
-          <CardDescription>
-            View and update your profile settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => window.location.href = '/profile'}
-          >
-            <span className="flex items-center gap-2">
-              Go to Profile
-              <ExternalLink className="h-4 w-4" />
-            </span>
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   )
 }

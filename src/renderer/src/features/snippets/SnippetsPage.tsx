@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Code2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Code2, Copy } from 'lucide-react';
 import { useSnippetStore } from '@/stores/snippet-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type { Snippet, CreateSnippetInput, UpdateSnippetInput } from '@shared/types/snippets';
+import { toast } from 'sonner';
 
 interface SnippetFormData {
   name: string;
@@ -101,22 +103,35 @@ export function SnippetsPage() {
     await deleteSnippet(id);
   }
 
+  async function handleCopyCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      toast.success('Snippet command copied');
+    } catch {
+      toast.error('Failed to copy command');
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-        <div className="flex items-center gap-2">
-          <Code2 className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-base font-semibold">Snippets</h1>
+      <div className="flex-1 overflow-y-auto py-6 px-8">
+        {/* Search and Add */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 h-10 px-3 border border-[var(--border)] rounded-md bg-[var(--input)] w-[200px]">
+            <svg className="h-4 w-4 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search snippets..."
+              className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-[var(--text-tertiary)]"
+            />
+          </div>
+          <Button onClick={openCreateDialog} className="h-10 px-5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            New Snippet
+          </Button>
         </div>
-        <Button size="sm" onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-1" />
-          New Snippet
-        </Button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-auto px-6 py-4">
         {isLoading ? (
           <div className="text-muted-foreground text-sm">Loading snippets...</div>
         ) : snippets.length === 0 ? (
@@ -125,46 +140,51 @@ export function SnippetsPage() {
             <p className="text-sm">No snippets yet. Create one to get started.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {snippets.map((snippet) => (
               <div
                 key={snippet.id}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
+                className={cn(
+                  'flex items-center justify-between px-5 py-5 border border-[var(--border)] bg-[var(--card)] rounded-lg',
+                  'transition-all duration-300 hover:bg-[var(--card-hover)] hover:-translate-y-0.5 hover:shadow-md'
+                )}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-sm">{snippet.name}</span>
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-card-title">{snippet.name}</h3>
                     {snippet.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
+                      <span
+                        key={tag}
+                        className="px-2 py-1 text-tiny bg-[var(--primary)]/15 text-[var(--primary)] border border-[var(--primary)]/30 rounded"
+                      >
                         {tag}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
-                  <code className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded block truncate">
+                  <code className="text-small text-[var(--text-secondary)] font-mono block">
                     {snippet.command}
                   </code>
                   {snippet.description && (
-                    <p className="text-xs text-muted-foreground mt-1">{snippet.description}</p>
+                    <p className="text-tiny text-[var(--text-tertiary)]">{snippet.description}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-3">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => openEditDialog(snippet)}
-                    title="Edit snippet"
+                    className="gap-1.5"
+                    onClick={() => void handleCopyCommand(snippet.command)}
+                    title="Copy command"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(snippet.id)}
-                    title="Delete snippet"
+                    size="icon"
+                    onClick={() => openEditDialog(snippet)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WorkspaceSwitcher } from '../WorkspaceSwitcher';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 
 // Mock workspace-store
-vi.mock('../../../stores/workspace-store', () => ({
+vi.mock('@/stores/workspace-store', () => ({
   useWorkspaceStore: vi.fn(),
 }));
 
@@ -18,8 +19,7 @@ describe('WorkspaceSwitcher', () => {
   });
 
   it('should render current workspace name', () => {
-    const { useWorkspaceStore } = require('../../../stores/workspace-store');
-    useWorkspaceStore.mockReturnValue({
+    vi.mocked(useWorkspaceStore).mockReturnValue({
       workspaces: mockWorkspaces,
       activeWorkspace: mockWorkspaces[0],
       setActiveWorkspace: vi.fn(),
@@ -27,12 +27,11 @@ describe('WorkspaceSwitcher', () => {
     });
 
     render(<WorkspaceSwitcher />);
-    expect(screen.getByText('Personal Workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'PW' })).toBeInTheDocument();
   });
 
   it('should show workspace list when clicked', async () => {
-    const { useWorkspaceStore } = require('../../../stores/workspace-store');
-    useWorkspaceStore.mockReturnValue({
+    vi.mocked(useWorkspaceStore).mockReturnValue({
       workspaces: mockWorkspaces,
       activeWorkspace: mockWorkspaces[0],
       setActiveWorkspace: vi.fn(),
@@ -41,7 +40,7 @@ describe('WorkspaceSwitcher', () => {
 
     render(<WorkspaceSwitcher />);
 
-    const trigger = screen.getByRole('combobox');
+    const trigger = screen.getByRole('button', { name: 'PW' });
     fireEvent.click(trigger);
 
     await waitFor(() => {
@@ -51,17 +50,16 @@ describe('WorkspaceSwitcher', () => {
 
   it('should switch workspace when selection changes', async () => {
     const mockSetActiveWorkspace = vi.fn();
-    const { useWorkspaceStore } = require('../../../stores/workspace-store');
-    useWorkspaceStore.mockReturnValue({
+    vi.mocked(useWorkspaceStore).mockReturnValue({
       workspaces: mockWorkspaces,
       activeWorkspace: mockWorkspaces[0],
-      setActiveWorkspace: mockSetActiveWorkspace,
+      setActiveWorkspace: mockSetActiveWorkspace.mockImplementation(() => new Promise(() => {})),
       fetchWorkspaces: vi.fn(),
     });
 
     render(<WorkspaceSwitcher />);
 
-    const trigger = screen.getByRole('combobox');
+    const trigger = screen.getByRole('button', { name: 'PW' });
     fireEvent.click(trigger);
 
     await waitFor(() => {

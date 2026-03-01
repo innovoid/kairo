@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   Command,
-  CommandDialog,
   CommandInput,
   CommandList,
   CommandEmpty,
@@ -12,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useSnippetStore } from '@/stores/snippet-store';
 import type { Snippet } from '@shared/types/snippets';
+import { Overlay, OverlayContent, OverlayFooter, OverlayHeader } from '@/components/ui/overlay';
+import { cn } from '@/lib/utils';
 
 interface SnippetPickerOverlayProps {
   onSelect: (command: string) => void;
@@ -42,29 +43,28 @@ export function SnippetPickerOverlay({ onSelect, onClose }: SnippetPickerOverlay
   const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({});
   const placeholders = selectedSnippet ? extractPlaceholders(selectedSnippet.command) : [];
 
-  // Close on Escape
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        if (selectedSnippet) {
-          setSelectedSnippet(null);
-        } else {
-          onClose();
-        }
+      if (e.key === 'Escape' && selectedSnippet) {
+        // Keep the user in snippets modal; only step back from parameter fill.
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedSnippet(null);
       }
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedSnippet, onClose]);
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [selectedSnippet]);
 
   function handleSelectSnippet(snippet: Snippet) {
-    const placeholders = extractPlaceholders(snippet.command);
-    if (placeholders.length === 0) {
+    const dynamicPlaceholders = extractPlaceholders(snippet.command);
+    if (dynamicPlaceholders.length === 0) {
       onSelect(snippet.command);
+      onClose();
     } else {
       setSelectedSnippet(snippet);
       const initial: Record<string, string> = {};
-      for (const p of placeholders) initial[p] = '';
+      for (const p of dynamicPlaceholders) initial[p] = '';
       setPlaceholderValues(initial);
     }
   }
@@ -73,71 +73,89 @@ export function SnippetPickerOverlay({ onSelect, onClose }: SnippetPickerOverlay
     if (!selectedSnippet) return;
     const filled = fillPlaceholders(selectedSnippet.command, placeholderValues);
     onSelect(filled);
-  }
-
-  if (selectedSnippet && placeholders.length > 0) {
-    return (
-      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="bg-background border rounded-xl shadow-lg p-5 w-96 flex flex-col gap-4">
-          <div>
-            <p className="text-sm font-medium mb-1">{selectedSnippet.name}</p>
-            <code className="text-xs font-mono text-muted-foreground bg-muted/40 px-2 py-1 rounded block">
-              {selectedSnippet.command}
-            </code>
-          </div>
-          <div className="flex flex-col gap-2">
-            {placeholders.map((placeholder) => (
-              <div key={placeholder} className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground">{placeholder}</label>
-                <Input
-                  placeholder={`Enter value for {{${placeholder}}}`}
-                  value={placeholderValues[placeholder] ?? ''}
-                  onChange={(e) =>
-                    setPlaceholderValues((v) => ({ ...v, [placeholder]: e.target.value }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleInsertWithValues();
-                  }}
-                  autoFocus={placeholder === placeholders[0]}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSelectedSnippet(null)}>
-              Back
-            </Button>
-            <Button size="sm" onClick={handleInsertWithValues}>
-              Insert
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    onClose();
   }
 
   return (
-    <CommandDialog open onOpenChange={(open) => { if (!open) onClose(); }} title="Snippets" description="Pick a snippet to insert into the terminal">
-      <Command>
-        <CommandInput placeholder="Search snippets..." />
-        <CommandList>
-          <CommandEmpty>No snippets found.</CommandEmpty>
-          <CommandGroup heading="Snippets">
-            {snippets.map((snippet) => (
-              <CommandItem
-                key={snippet.id}
-                value={`${snippet.name} ${snippet.command} ${snippet.tags.join(' ')}`}
-                onSelect={() => handleSelectSnippet(snippet)}
-              >
-                <div className="flex flex-col gap-0.5 w-full">
-                  <span className="font-medium text-sm">{snippet.name}</span>
-                  <code className="text-xs font-mono text-muted-foreground">{snippet.command}</code>
+    <Overlay open onOpenChange={(open) => !open && onClose()} className="max-w-[880px] max-h-[84vh]">
+      <OverlayHeader
+        title="Snippets"
+        description={
+          selectedSnippet
+            ? `Provide values for ${selectedSnippet.name}`
+            : 'Pick a snippet to insert into the active terminal'
+        }
+        onClose={onClose}
+      />
+      <OverlayContent className="pt-4">
+        {selectedSnippet && placeholders.length > 0 ? (
+          <div className="mx-auto max-w-2xl space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{selectedSnippet.name}</p>
+              <code className="block rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-xs font-mono text-muted-foreground">
+                {selectedSnippet.command}
+              </code>
+            </div>
+            <div className="space-y-3">
+              {placeholders.map((placeholder) => (
+                <div key={placeholder} className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">{placeholder}</label>
+                  <Input
+                    placeholder={`Enter value for {{${placeholder}}}`}
+                    value={placeholderValues[placeholder] ?? ''}
+                    onChange={(e) =>
+                      setPlaceholderValues((v) => ({ ...v, [placeholder]: e.target.value }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleInsertWithValues();
+                    }}
+                    autoFocus={placeholder === placeholders[0]}
+                  />
                 </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </Command>
-    </CommandDialog>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-1)] p-2">
+            <Command className={cn('h-[520px] bg-transparent', 'border-0 shadow-none')}>
+              <CommandInput placeholder="Search snippets by name, command, or tag..." />
+              <CommandList className="max-h-[460px]">
+                <CommandEmpty>No snippets found.</CommandEmpty>
+                <CommandGroup heading="Snippets">
+                  {snippets.map((snippet) => (
+                    <CommandItem
+                      key={snippet.id}
+                      value={`${snippet.name} ${snippet.command} ${snippet.tags.join(' ')}`}
+                      onSelect={() => handleSelectSnippet(snippet)}
+                    >
+                      <div className="flex w-full flex-col gap-0.5">
+                        <span className="font-medium text-sm">{snippet.name}</span>
+                        <code className="text-xs font-mono text-muted-foreground">{snippet.command}</code>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </div>
+        )}
+      </OverlayContent>
+      <OverlayFooter>
+        {selectedSnippet ? (
+          <>
+            <Button type="button" variant="outline" onClick={() => setSelectedSnippet(null)}>
+              Back
+            </Button>
+            <Button type="button" onClick={handleInsertWithValues}>
+              Insert
+            </Button>
+          </>
+        ) : (
+          <Button type="button" variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        )}
+      </OverlayFooter>
+    </Overlay>
   );
 }

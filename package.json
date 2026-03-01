@@ -1,9 +1,8 @@
 {
-  "name": "arch-term",
+  "name": "kairo",
   "private": true,
   "version": "0.1.0",
   "main": "out/main/index.js",
-  "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
     "dev:web": "vite",
@@ -14,7 +13,48 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "postinstall": "electron-rebuild"
+    "test:db": "npx supabase test db --local",
+    "test:e2e:workflow": "npm run build && npx playwright test -c playwright.electron.config.ts tests/electron/workflow.spec.ts",
+    "test:e2e:electron": "npm run build && npx playwright test -c playwright.electron.config.ts",
+    "test:e2e:visual:update": "npm run build && npx playwright test -c playwright.electron.config.ts --update-snapshots",
+    "postinstall": "electron-rebuild",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "prepare": "husky"
+  },
+  "build": {
+    "appId": "com.kairo.app",
+    "productName": "Kairo",
+    "publish": {
+      "provider": "github",
+      "owner": "alihussnainrb",
+      "repo": "arch-term",
+      "releaseType": "release"
+    },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.45",
@@ -25,13 +65,15 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource/cascadia-code": "^5.2.3",
+    "@fontsource/cormorant-garamond": "^5.2.11",
+    "@fontsource/fira-code": "^5.2.7",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/source-code-pro": "^5.2.7",
     "@supabase/supabase-js": "^2.57.4",
+    "@tanstack/react-hotkeys": "^0.3.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/ssh2": "^1.15.5",
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/addon-search": "^0.16.0",
-    "@xterm/addon-web-links": "^0.12.0",
-    "@xterm/xterm": "^6.0.0",
     "ai": "^6.0.91",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
@@ -40,7 +82,10 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "embla-carousel-react": "^8.6.0",
+    "framer-motion": "^12.34.3",
+    "ghostty-web": "^0.4.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.544.0",
     "next-themes": "^0.4.6",
@@ -53,14 +98,18 @@
     "react-router-dom": "^7.13.0",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
+    "ssh-config": "^5.0.4",
     "ssh2": "^1.17.0",
+    "ssh2-streams": "^0.4.10",
     "tailwind-merge": "^3.5.0",
     "vaul": "^1.1.2",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.1.13",
+    "@tanstack/cli": "^0.60.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -70,13 +119,22 @@
     "@vitejs/plugin-react": "^5.0.2",
     "@vitest/ui": "^4.0.18",
     "electron": "^40.4.1",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
+    "husky": "^9.1.7",
     "jsdom": "^28.1.0",
+    "lint-staged": "^16.2.7",
+    "playwright": "^1.58.2",
     "shadcn": "^3.8.5",
+    "supabase": "^2.76.12",
     "tailwindcss": "^4.1.13",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
     "vitest": "^4.0.18"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": "bash -c 'npx tsc --noEmit -p tsconfig.app.json'",
+    "*.{json,css,md}": []
   }
 }

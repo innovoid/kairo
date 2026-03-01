@@ -32,6 +32,7 @@ import {
   useDraggable,
   useDroppable,
 } from '@dnd-kit/core';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface HostsGridProps {
   workspaceId: string;
@@ -41,7 +42,7 @@ interface HostsGridProps {
 }
 
 export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChange }: HostsGridProps) {
-  const { hosts, folders, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
+  const { hosts, folders, isLoading, fetchHosts, deleteHost, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<HostFolder | null>(null);
 
@@ -102,26 +103,35 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="p-6">
+      <div className="py-6 px-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold">Hosts</h1>
-            <p className="text-sm text-muted-foreground">Manage and connect to your servers</p>
+        <div className="mb-8">
+          <h1 className="text-display mb-2">Hosts</h1>
+          <p className="text-body text-[var(--text-secondary)]">Manage your SSH connections</p>
+        </div>
+
+        {/* Search and Add */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 h-10 px-3 border border-[var(--border)] rounded-md bg-[var(--input)] w-[200px]">
+            <svg className="h-4 w-4 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search hosts..."
+              className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-[var(--text-tertiary)]"
+            />
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger className={cn(
-              "h-7 gap-1 rounded-lg px-2.5 text-[0.8rem]",
-              "inline-flex items-center justify-center",
-              "bg-primary text-primary-foreground",
-              "hover:bg-primary/80 transition-all",
-              "border border-transparent",
-              "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:border-ring",
+              "h-10 px-5 text-sm font-medium",
+              "inline-flex items-center justify-center gap-2",
+              "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white transition-all duration-300",
               "outline-none select-none"
             )}>
-              <Plus className="h-4 w-4 mr-1.5" />
+              <Plus className="h-4 w-4" />
               Add Host
-              <ChevronDown className="h-4 w-4 ml-1.5" />
+              <ChevronDown className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onAddHost}>
@@ -136,6 +146,32 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
           </DropdownMenu>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-4 p-5 border border-[var(--border)] bg-[var(--card)] rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Skeleton className="h-5 w-5 rounded-md" />
+                    <div className="flex-1">
+                      <Skeleton className="h-5 w-32 mb-2" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                  </div>
+                </div>
+                <Skeleton className="h-4 w-24" />
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Content (only show when not loading) */}
+        {!isLoading && (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           {/* Folder sections */}
           {rootFolders.map((folder) => (
@@ -154,7 +190,7 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
           {/* Root hosts (no folder) */}
           {rootHosts.length > 0 && (
             <DroppableRootArea>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-4">
                 {rootHosts.map((host) => (
                   <DraggableHostCard
                     key={host.id}
@@ -168,9 +204,10 @@ export function HostsGrid({ workspaceId, onAddHost, onEditHost, onWorkspaceChang
             </DroppableRootArea>
           )}
         </DndContext>
+        )}
 
         {/* Empty state */}
-        {hosts.length === 0 && folders.length === 0 && (
+        {!isLoading && hosts.length === 0 && folders.length === 0 && (
           <div className="text-center py-20">
             <Server className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
             <p className="text-sm font-medium">No hosts yet</p>
@@ -316,7 +353,7 @@ function FolderSection({
           Empty folder - drag hosts here
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-4 mb-3">
           {folderHosts.map((host) => (
             <DraggableHostCard
               key={host.id}
@@ -460,24 +497,66 @@ function HostGridCard({
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="flex flex-col gap-2 p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+          className={cn(
+            'flex flex-col gap-4 p-5 border border-[var(--border)] bg-[var(--card)] rounded-lg',
+            'cursor-pointer transition-all duration-300 ease-out',
+            'hover:bg-[var(--card-hover)] hover:shadow-lg hover:-translate-y-0.5',
+            'hover:border-[var(--border)]'
+          )}
           onClick={handleSingleClick}
           onDoubleClick={handleDoubleClick}
         >
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'w-2 h-2 rounded-full shrink-0',
-                isConnected ? 'bg-green-500' : 'bg-muted-foreground/30',
-              )}
-            />
-            <span className="font-medium text-sm truncate">{host.label}</span>
+          {/* Icon and Title */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <Server className={cn(
+                'h-5 w-5',
+                isConnected ? 'text-[var(--success)]' : 'text-[var(--text-tertiary)]'
+              )} />
+              <div>
+                <h3 className="text-card-title mb-1">
+                  {host.label}
+                </h3>
+                <p className="text-small font-mono text-[var(--text-secondary)]">
+                  {host.username}@{host.hostname}:{host.port}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <p className="font-mono truncate">
-              {host.username}@{host.hostname}:{host.port}
-            </p>
-            <p className="capitalize">{host.authType} auth</p>
+
+          {/* Auth Type */}
+          <div className="flex items-center gap-4 text-tiny text-[var(--text-tertiary)]">
+            <span>SSH • {host.authType === 'key' ? 'Private Key' : 'Password'}</span>
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <>
+                  <span
+                    className="h-2 w-2 rounded-full bg-[var(--success)]"
+                    aria-hidden="true"
+                  />
+                  <span className="px-2 py-1 text-tiny bg-[var(--success)]/15 text-[var(--success)] border border-[var(--success)]/30 rounded">
+                    Connected
+                  </span>
+                </>
+              ) : (
+                <span className="text-tiny text-[var(--text-tertiary)]">
+                  Disconnected
+                </span>
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                connect();
+              }}
+              className="text-sm text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors duration-200 font-medium"
+            >
+              Connect →
+            </button>
           </div>
         </div>
       </ContextMenuTrigger>

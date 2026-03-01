@@ -1,8 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthGate } from '@/features/auth/AuthGate';
-import { WorkspaceGate } from '@/features/workspaces/WorkspaceGate';
-import { AppShell } from '@/components/layout/AppShell';
-import { ProfilePage } from '@/features/profile/ProfilePage';
+import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
+import { TerminalCentricAppShell } from '@/components/layout/TerminalCentricAppShell';
 
 export function App() {
   return (
@@ -12,19 +11,9 @@ export function App() {
           path="/"
           element={
             <AuthGate>
-              <WorkspaceGate>
-                <AppShell />
-              </WorkspaceGate>
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <AuthGate>
-              <WorkspaceGate>
-                <ProfilePage />
-              </WorkspaceGate>
+              <OnboardingGate>
+                <TerminalCentricAppShell />
+              </OnboardingGate>
             </AuthGate>
           }
         />

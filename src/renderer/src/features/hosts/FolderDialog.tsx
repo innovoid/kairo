@@ -22,6 +22,7 @@ interface FolderDialogProps {
 export function FolderDialog({ open, folder, workspaceId, onClose, onSave }: FolderDialogProps) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (folder) {
@@ -29,16 +30,24 @@ export function FolderDialog({ open, folder, workspaceId, onClose, onSave }: Fol
     } else {
       setName('');
     }
+    setError(null);
   }, [folder, open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (!workspaceId) {
+      setError('Workspace is not ready yet.');
+      return;
+    }
 
     setLoading(true);
+    setError(null);
     try {
       await onSave(name.trim(), folder?.id);
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save folder');
     } finally {
       setLoading(false);
     }
@@ -63,6 +72,7 @@ export function FolderDialog({ open, folder, workspaceId, onClose, onSave }: Fol
                 autoFocus
               />
             </div>
+            {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>

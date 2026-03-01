@@ -1,87 +1,312 @@
-import { useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { SearchAddon } from '@xterm/addon-search';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { FitAddon, Terminal } from 'ghostty-web';
 import type { UserSettings } from '@shared/types/settings';
 import { TERMINAL_THEMES } from '@shared/themes/terminal-themes';
 import { useBroadcastStore } from '@/stores/broadcast-store';
+import { ensureGhosttyInitialized } from './ghostty-runtime';
+import { TerminalSearchController } from './terminal-search';
+
+// Map font names to proper CSS font families with fallbacks
+function getFontFamily(fontName: string | undefined): string {
+  const fontMap: Record<string, string> = {
+    'JetBrains Mono': '"JetBrains Mono", monospace',
+    'Fira Code': '"Fira Code", monospace',
+    'Cascadia Code': '"Cascadia Code", monospace',
+    'Source Code Pro': '"Source Code Pro", monospace',
+    Menlo: 'Menlo, monospace',
+    Monaco: 'Monaco, monospace',
+    'SF Mono': '"SF Mono", monospace',
+    Consolas: 'Consolas, monospace',
+    'Courier New': '"Courier New", monospace',
+  };
+
+  return fontMap[fontName || ''] || '"JetBrains Mono", monospace';
+}
 
 interface UseTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   sessionId: string;
   settings?: UserSettings | null;
+  isVisible?: boolean;
 }
 
-export function useTerminal({ containerRef, sessionId, settings }: UseTerminalOptions) {
+interface TerminalCacheEntry {
+  terminal: Terminal;
+  fitAddon: FitAddon;
+  searchAddon: TerminalSearchController;
+}
+
+// Module-level storage for terminal instances
+const terminalCache = new Map<string, TerminalCacheEntry>();
+const MAX_DETACHED_TERMINALS = 24;
+
+function isDetachedTerminal(entry: TerminalCacheEntry): boolean {
+  const element = entry.terminal.element;
+  return !element || !element.isConnected;
+}
+
+function pruneDetachedTerminalCache(keepSessionId?: string): void {
+  const detachedEntries = Array.from(terminalCache.entries()).filter(([id, entry]) => (
+    id !== keepSessionId && isDetachedTerminal(entry)
+  ));
+
+  if (detachedEntries.length <= MAX_DETACHED_TERMINALS) return;
+  const toEvict = detachedEntries.length - MAX_DETACHED_TERMINALS;
+
+  for (const [id, entry] of detachedEntries.slice(0, toEvict)) {
+    entry.terminal.dispose();
+    terminalCache.delete(id);
+  }
+}
+
+function suppressNativeInputCaret(terminal: Terminal): void {
+  const textarea = terminal.textarea;
+  if (!textarea) return;
+  textarea.setAttribute('data-no-focus-ring', 'true');
+  textarea.style.caretColor = 'transparent';
+  textarea.style.outline = 'none';
+  textarea.style.boxShadow = 'none';
+  textarea.style.border = 'none';
+  textarea.style.background = 'transparent';
+}
+
+function suppressTerminalFocusChrome(terminal: Terminal): void {
+  const host = terminal.element;
+  if (!host) return;
+  host.setAttribute('data-no-focus-ring', 'true');
+  host.style.outline = 'none';
+  host.style.boxShadow = 'none';
+  host.style.border = 'none';
+}
+
+export function disposeCachedTerminal(sessionId: string): void {
+  const cached = terminalCache.get(sessionId);
+  if (cached) {
+    cached.terminal.dispose();
+    terminalCache.delete(sessionId);
+  }
+}
+
+// Cleanup function to disconnect PTY session and dispose terminal
+export function disposeTerminalSession(sessionId: string): void {
+  disposeCachedTerminal(sessionId);
+  window.sshApi.disconnect(sessionId);
+}
+
+export function useTerminal({ containerRef, sessionId, settings, isVisible = true }: UseTerminalOptions) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const searchAddonRef = useRef<SearchAddon | null>(null);
+  const searchAddonRef = useRef<TerminalSearchController | null>(null);
+
+  // Pending multi-line paste — lifted so the parent component can render a dialog
+  const [pendingPaste, setPendingPaste] = useState<{ text: string; lines: number } | null>(null);
+  const confirmPaste = useCallback(() => {
+    if (!pendingPaste) return;
+    terminalRef.current?.paste(pendingPaste.text);
+    setPendingPaste(null);
+  }, [pendingPaste]);
+  const cancelPaste = useCallback(() => setPendingPaste(null), []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    let disposed = false;
+    let selectionDisposable: { dispose: () => void } | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let pasteTarget: HTMLDivElement | null = null;
+    let pasteHandler: ((event: ClipboardEvent) => void) | null = null;
 
-    // Get the selected theme or fallback to dracula
-    const themeName = settings?.terminalTheme ?? 'dracula';
-    const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES['dracula'].theme;
+    const applyCopyOnSelect = (terminal: Terminal) => {
+      if (!settings?.copyOnSelect) return;
+      selectionDisposable = terminal.onSelectionChange(() => {
+        const selection = terminal.getSelection();
+        if (selection) {
+          void navigator.clipboard.writeText(selection).catch(() => {});
+        }
+      });
+    };
 
-    const terminal = new Terminal({
-      fontFamily: settings?.terminalFont ?? 'JetBrains Mono, Menlo, monospace',
-      fontSize: settings?.terminalFontSize ?? 14,
-      theme: selectedTheme,
-      cursorBlink: true,
-      cursorStyle: settings?.cursorStyle ?? 'bar',
-      scrollback: settings?.scrollbackLines ?? 10000,
-      lineHeight: settings?.lineHeight ?? 1.2,
-      allowTransparency: false,
-    });
-
-    const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
-    const searchAddon = new SearchAddon();
-
-    terminal.loadAddon(fitAddon);
-    terminal.loadAddon(webLinksAddon);
-    terminal.loadAddon(searchAddon);
-    terminal.open(containerRef.current);
-    fitAddon.fit();
-
-    terminalRef.current = terminal;
-    fitAddonRef.current = fitAddon;
-    searchAddonRef.current = searchAddon;
-
-    // Handle keyboard input
-    const disposeOnData = terminal.onData((data) => {
-      window.sshApi.send(sessionId, data);
-
-      // Broadcast to other terminals if enabled
-      const { enabled, targetSessionIds } = useBroadcastStore.getState();
-      if (enabled) {
-        for (const targetId of targetSessionIds) {
-          if (targetId !== sessionId) {
-            window.sshApi.send(targetId, data);
+    const applyPasteGuard = (terminal: Terminal) => {
+      if (!containerRef.current) return;
+      pasteTarget = containerRef.current;
+      pasteHandler = (event: ClipboardEvent) => {
+        const text = event.clipboardData?.getData('text');
+        if (text && /[\r\n]/.test(text)) {
+          event.preventDefault();
+          
+          if (terminal.wasmTerm?.hasBracketedPaste()) {
+            terminal.paste(text);
+          } else {
+            const lines = text.split(/\r?\n/).length;
+            setPendingPaste({ text, lines });
           }
         }
-      }
-    });
+      };
+      pasteTarget.addEventListener('paste', pasteHandler);
+    };
 
-    // Resize observer
-    const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
-      const { cols, rows } = terminal;
-      window.sshApi.resize(sessionId, cols, rows);
-    });
-    resizeObserver.observe(containerRef.current);
+    const applyResizeObserver = (terminal: Terminal, fitAddon: FitAddon) => {
+      if (!containerRef.current) return;
+      resizeObserver = new ResizeObserver(() => {
+        if (
+          !isVisible ||
+          !containerRef.current ||
+          containerRef.current.offsetWidth === 0 ||
+          containerRef.current.offsetHeight === 0
+        ) {
+          return;
+        }
+
+        fitAddon.fit();
+        const { cols, rows } = terminal;
+        if (cols > 0 && rows > 0) {
+          window.sshApi.resize(sessionId, cols, rows);
+        }
+      });
+      resizeObserver.observe(containerRef.current);
+    };
+
+    const attachSessionTerminal = (entry: TerminalCacheEntry) => {
+      if (!containerRef.current || disposed) return;
+
+      const { terminal, fitAddon, searchAddon } = entry;
+      // ghostty-web stores the parent container itself as terminal.element.
+      // Avoid appending when we're already attached to this exact node.
+      if (
+        terminal.element &&
+        terminal.element !== containerRef.current &&
+        !terminal.element.contains(containerRef.current) &&
+        !containerRef.current.contains(terminal.element)
+      ) {
+        containerRef.current.appendChild(terminal.element);
+      }
+      suppressNativeInputCaret(terminal);
+      suppressTerminalFocusChrome(terminal);
+      terminal.focus();
+
+      requestAnimationFrame(() => {
+        if (!containerRef.current || disposed || containerRef.current.offsetWidth === 0) return;
+        fitAddon.fit();
+        const { cols, rows } = terminal;
+        if (cols > 0 && rows > 0) {
+          window.sshApi.resize(sessionId, cols, rows);
+        }
+      });
+
+      terminalRef.current = terminal;
+      fitAddonRef.current = fitAddon;
+      searchAddonRef.current = searchAddon;
+
+      applyCopyOnSelect(terminal);
+      applyPasteGuard(terminal);
+      applyResizeObserver(terminal, fitAddon);
+    };
+
+    const setup = async () => {
+      if (!containerRef.current || disposed) return;
+      pruneDetachedTerminalCache(sessionId);
+
+      const cached = terminalCache.get(sessionId);
+      if (cached) {
+        attachSessionTerminal(cached);
+        return;
+      }
+
+      const themeName = settings?.terminalTheme ?? 'dracula';
+      const selectedTheme = TERMINAL_THEMES[themeName]?.theme ?? TERMINAL_THEMES.dracula.theme;
+
+      await ensureGhosttyInitialized();
+      if (!containerRef.current || disposed) return;
+
+      const terminal = new Terminal({
+        fontFamily: getFontFamily(settings?.terminalFont),
+        fontSize: settings?.terminalFontSize ?? 13,
+        theme: selectedTheme,
+        cursorBlink: true,
+        cursorStyle: settings?.cursorStyle ?? 'block',
+        scrollback: settings?.scrollbackLines ?? 10000,
+        allowTransparency: true,
+        smoothScrollDuration: 0,
+      });
+
+      const fitAddon = new FitAddon();
+      const searchAddon = new TerminalSearchController(terminal);
+      terminal.loadAddon(fitAddon);
+
+      terminal.open(containerRef.current);
+      suppressNativeInputCaret(terminal);
+      suppressTerminalFocusChrome(terminal);
+      terminal.focus();
+
+      requestAnimationFrame(() => {
+        if (!containerRef.current || disposed) return;
+        const { offsetWidth, offsetHeight } = containerRef.current;
+        if (offsetWidth === 0 || offsetHeight === 0) return;
+
+        fitAddon.fit();
+        const { cols, rows } = terminal;
+        if (cols > 0 && rows > 0) {
+          window.sshApi.resize(sessionId, cols, rows);
+        }
+      });
+
+      terminal.onData((data) => {
+        window.sshApi.send(sessionId, data);
+
+        const { enabled, targetSessionIds } = useBroadcastStore.getState();
+        if (enabled) {
+          for (const targetId of targetSessionIds) {
+            if (targetId !== sessionId) {
+              window.sshApi.send(targetId, data);
+            }
+          }
+        }
+      });
+
+      const entry = { terminal, fitAddon, searchAddon };
+      terminalCache.set(sessionId, entry);
+      pruneDetachedTerminalCache(sessionId);
+      attachSessionTerminal(entry);
+    };
+
+    void setup();
 
     return () => {
-      disposeOnData.dispose();
-      resizeObserver.disconnect();
-      terminal.dispose();
+      disposed = true;
+      selectionDisposable?.dispose();
+
+      if (pasteTarget && pasteHandler) {
+        pasteTarget.removeEventListener('paste', pasteHandler);
+      }
+      resizeObserver?.disconnect();
+
+      const terminal = terminalRef.current;
+      // ghostty-web terminal.element is the parent container; never remove
+      // the React-owned container node during cleanup.
+      if (terminal?.element && terminal.element !== containerRef.current && terminal.element.parentElement) {
+        terminal.element.remove();
+      }
+
       terminalRef.current = null;
       fitAddonRef.current = null;
       searchAddonRef.current = null;
     };
-  }, [sessionId]);
+  }, [sessionId, settings?.copyOnSelect]);
 
-  return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef };
+  // Focus terminal when tab becomes visible
+  useEffect(() => {
+    if (isVisible && terminalRef.current && fitAddonRef.current && containerRef.current) {
+      terminalRef.current.focus();
+
+      requestAnimationFrame(() => {
+        if (containerRef.current && containerRef.current.offsetWidth > 0) {
+          fitAddonRef.current?.fit();
+          const { cols, rows } = terminalRef.current!;
+          if (cols > 0 && rows > 0) {
+            window.sshApi.resize(sessionId, cols, rows);
+          }
+        }
+      });
+    }
+  }, [isVisible, sessionId]);
+
+  return { terminal: terminalRef, fitAddon: fitAddonRef, searchAddon: searchAddonRef, pendingPaste, confirmPaste, cancelPaste };
 }
