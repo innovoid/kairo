@@ -13,10 +13,11 @@
  * - No sidebar, no status bar
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import type { RegisterableHotkey } from '@tanstack/hotkeys';
 import { getHotkey } from '@/lib/hotkeys-registry';
+import { formatShortcut } from '@/lib/shortcut-format';
 import { isTerminalFocused } from '@/lib/terminal-focus';
 import { isE2EMode } from '@/lib/e2e';
 import { TerminalLayout } from './TerminalLayout';
@@ -30,6 +31,9 @@ import { SettingsOverlay } from '@/features/settings/SettingsOverlay';
 import { SnippetsPage } from '@/features/snippets/SnippetsPage';
 import { TransferProgress } from '@/features/sftp/TransferProgress';
 import { Overlay, OverlayContent, OverlayHeader } from '@/components/ui/overlay';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 import { MainArea } from './MainArea';
 import { useSessionStore } from '@/stores/session-store';
 import { useHostStore } from '@/stores/host-store';
@@ -40,12 +44,20 @@ import { useBroadcastStore } from '@/stores/broadcast-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useAutoUpdater } from '@/features/updater/useAutoUpdater';
 import { UpdateBanner, UpdateReadyModal } from '@/features/updater/UpdateNotification';
+import {
+  clearSessionRecoverySnapshot,
+  collectPaneSessionIds,
+  createSessionRecoverySnapshot,
+  loadSessionRecoverySnapshot,
+  saveSessionRecoverySnapshot,
+} from '@/features/terminal/session-recovery';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { ArchTermLogo } from '@/components/ui/ArchTermLogo';
 import type { Workspace } from '@shared/types/workspace';
 import type { Host } from '@shared/types/hosts';
 import type { SettingsTab } from '@/features/settings/SettingsPage';
+import type { Tab } from '@/stores/session-store';
 
 export function TerminalCentricAppShell() {
   const e2eMode = isE2EMode();
@@ -61,6 +73,9 @@ export function TerminalCentricAppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(true);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('terminal');
+  const [pendingWorkspaceSwitchId, setPendingWorkspaceSwitchId] = useState<string | null>(null);
+  const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
+  const [sessionRecoveryHydrated, setSessionRecoveryHydrated] = useState(false);
 
   // Wire up auto-updater toast notifications
   const [updateState, updateActions] = useAutoUpdater();
@@ -78,12 +93,81 @@ export function TerminalCentricAppShell() {
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
   const closeTab = useSessionStore((s) => s.closeTab);
   const splitPane = useSessionStore((s) => s.splitPane);
+  const updateTabDisconnect = useSessionStore((s) => s.updateTabDisconnect);
   const activeTab = activeTabId ? tabs.get(activeTabId) : null;
   const resolveHotkey = (id: string): RegisterableHotkey => {
     const definition = getHotkey(id);
     if (!definition) throw new Error(`Missing hotkey definition: ${id}`);
     return definition.key as RegisterableHotkey;
   };
+
+  const reconnectRecoveredTabs = useCallback(async (recoveredTabs: Tab[]) => {
+    const connectedSessionIds = new Set<string>();
+
+    for (const tab of recoveredTabs) {
+      const sessionIds = tab.paneTree
+        ? collectPaneSessionIds(tab.paneTree)
+        : (tab.sessionId ? [tab.sessionId] : []);
+      const uniqueSessionIds = sessionIds.filter((sessionId) => {
+        if (connectedSessionIds.has(sessionId)) return false;
+        connectedSessionIds.add(sessionId);
+        return true;
+      });
+      if (!uniqueSessionIds.length) continue;
+
+      const reconnectConfig = tab.reconnectConfig;
+      const isSshReconnect =
+        reconnectConfig?.type === 'ssh'
+        && !!reconnectConfig.host
+        && !!reconnectConfig.username
+        && Number.isInteger(reconnectConfig.port);
+
+      if (isSshReconnect) {
+        let password: string | undefined;
+        if (reconnectConfig.authType === 'password' && reconnectConfig.hostId) {
+          try {
+            password = await window.hostsApi.getPassword(reconnectConfig.hostId) ?? undefined;
+          } catch {
+            // Continue without password; the reconnect attempt will surface auth errors if needed.
+          }
+        }
+
+        const payload = { ...reconnectConfig, ...(password ? { password } : {}) };
+        await Promise.all(
+          uniqueSessionIds.map(async (sessionId) => {
+            try {
+              await window.sshApi.connect(sessionId, payload);
+            } catch (error) {
+              updateTabDisconnect(
+                tab.tabId,
+                (error as Error).message || 'Failed to restore SSH session',
+                reconnectConfig
+              );
+            }
+          })
+        );
+        continue;
+      }
+
+      const localPayload = {
+        type: 'local' as const,
+        promptStyle: reconnectConfig?.promptStyle ?? settings?.promptStyle,
+      };
+      await Promise.all(
+        uniqueSessionIds.map(async (sessionId) => {
+          try {
+            await window.sshApi.connect(sessionId, localPayload);
+          } catch (error) {
+            updateTabDisconnect(
+              tab.tabId,
+              (error as Error).message || 'Failed to restore local session',
+              reconnectConfig
+            );
+          }
+        })
+      );
+    }
+  }, [settings?.promptStyle, updateTabDisconnect]);
 
   // Initialize workspace and settings
   useEffect(() => {
@@ -112,6 +196,75 @@ export function TerminalCentricAppShell() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('archterm-theme', theme);
   }, [settings?.theme]);
+
+  // Restore session tabs/splits from the previous app run and reconnect them.
+  useEffect(() => {
+    if (e2eMode || !workspaceId || sessionRecoveryHydrated) return;
+
+    const snapshot = loadSessionRecoverySnapshot();
+    if (!snapshot || snapshot.workspaceId !== workspaceId || snapshot.tabs.length === 0) {
+      setSessionRecoveryHydrated(true);
+      return;
+    }
+
+    const now = Date.now();
+    const restoredTabs = new Map<string, Tab>();
+
+    for (const restored of snapshot.tabs) {
+      if (restored.tabType !== 'terminal' && restored.tabType !== 'sftp') continue;
+      const hasTerminalSession = restored.tabType === 'terminal' && (!!restored.sessionId || !!restored.paneTree);
+      const hasSftpSession = restored.tabType === 'sftp' && !!restored.sessionId;
+      if (!hasTerminalSession && !hasSftpSession) continue;
+
+      const isSplitTerminal = restored.tabType === 'terminal' && !!restored.paneTree;
+      const status = restored.tabType === 'sftp' ? 'connected' : (isSplitTerminal ? 'connected' : 'connecting');
+
+      restoredTabs.set(restored.tabId, {
+        ...restored,
+        closable: true,
+        status,
+        connectStartedAt: status === 'connecting' ? now : undefined,
+        connectedAt: status === 'connected' ? now : undefined,
+        connectLatencyMs: undefined,
+        lastActivityAt: undefined,
+        disconnectReason: undefined,
+        disconnectedAt: undefined,
+      });
+    }
+
+    if (restoredTabs.size === 0) {
+      clearSessionRecoverySnapshot();
+      setSessionRecoveryHydrated(true);
+      return;
+    }
+
+    const defaultActiveTabId = restoredTabs.keys().next().value ?? null;
+    const restoredActiveTabId =
+      snapshot.activeTabId && restoredTabs.has(snapshot.activeTabId)
+        ? snapshot.activeTabId
+        : defaultActiveTabId;
+
+    useSessionStore.setState({
+      tabs: restoredTabs,
+      activeTabId: restoredActiveTabId,
+    });
+    setSessionRecoveryHydrated(true);
+
+    const recoveredTerminalTabs = Array.from(restoredTabs.values()).filter((tab) => tab.tabType === 'terminal');
+    void reconnectRecoveredTabs(recoveredTerminalTabs);
+    toast.info(`Restored ${restoredTabs.size} session tab${restoredTabs.size === 1 ? '' : 's'}`);
+  }, [e2eMode, workspaceId, sessionRecoveryHydrated, reconnectRecoveredTabs]);
+
+  // Persist recoverable session state so tabs/splits can be restored on restart.
+  useEffect(() => {
+    if (e2eMode || !workspaceId || !sessionRecoveryHydrated) return;
+    const snapshot = createSessionRecoverySnapshot(tabs, activeTabId, workspaceId);
+    if (snapshot.tabs.length === 0) {
+      clearSessionRecoverySnapshot();
+      return;
+    }
+    saveSessionRecoverySnapshot(snapshot);
+  }, [e2eMode, workspaceId, sessionRecoveryHydrated, tabs, activeTabId]);
 
   // Handler functions (defined before use)
   const handleOpenLocalTerminal = () => {
@@ -242,10 +395,24 @@ export function TerminalCentricAppShell() {
     setKeysOpen(true);
   };
 
-  const handleWorkspaceSwitch = async (nextWorkspaceId: string) => {
+  const closeAllSessionTabs = () => {
+    const sessionTabIds = Array.from(tabs.values())
+      .filter((tab) => tab.tabType === 'terminal' || tab.tabType === 'sftp')
+      .map((tab) => tab.tabId);
+
+    for (const tabId of sessionTabIds) {
+      handleTabClose(tabId);
+    }
+  };
+
+  const performWorkspaceSwitch = async (nextWorkspaceId: string, closeSessions: boolean) => {
     if (!nextWorkspaceId || nextWorkspaceId === workspaceId) return;
+    setWorkspaceSwitching(true);
 
     try {
+      if (closeSessions) {
+        closeAllSessionTabs();
+      }
       await window.workspaceApi.switchActive(nextWorkspaceId);
       setWorkspaceId(nextWorkspaceId);
       await Promise.all([fetchHosts(nextWorkspaceId), fetchSettings(), fetchWorkspaces()]);
@@ -255,13 +422,30 @@ export function TerminalCentricAppShell() {
       setKeysOpen(false);
       setTeamOpen(false);
       setSettingsOpen(false);
+      setPendingWorkspaceSwitchId(null);
 
       const workspaceName =
         workspaces.find((workspace) => workspace.id === nextWorkspaceId)?.name ?? 'workspace';
       toast.success(`Switched to ${workspaceName}`);
     } catch (error) {
       toast.error((error as Error).message || 'Failed to switch workspace');
+    } finally {
+      setWorkspaceSwitching(false);
     }
+  };
+
+  const handleWorkspaceSwitch = async (nextWorkspaceId: string) => {
+    if (!nextWorkspaceId || nextWorkspaceId === workspaceId) return;
+
+    const hasSessionTabs = Array.from(tabs.values()).some(
+      (tab) => tab.tabType === 'terminal' || tab.tabType === 'sftp'
+    );
+    if (hasSessionTabs) {
+      setPendingWorkspaceSwitchId(nextWorkspaceId);
+      return;
+    }
+
+    await performWorkspaceSwitch(nextWorkspaceId, false);
   };
 
   const handleStopRecording = async (tabId: string) => {
@@ -437,16 +621,24 @@ export function TerminalCentricAppShell() {
       id: tab.tabId,
       title: tab.label,
       hostname: tab.hostname,
-      status: tab.status as 'connected' | 'connecting' | 'disconnected',
+      status: tab.status as 'connected' | 'connecting' | 'disconnected' | 'error',
       isActive: tab.tabId === activeTabId,
       sessionId: tab.sessionId,
       isRecording: tab.sessionId ? isRecording(tab.sessionId) : false,
+      reconnectAttempts: tab.reconnectAttempts,
+      disconnectReason: tab.disconnectReason,
+      connectLatencyMs: tab.connectLatencyMs,
+      lastActivityAt: tab.lastActivityAt,
     }));
 
   const workspaceOptions =
     e2eMode
       ? [{ id: 'e2e-workspace', name: 'E2E Workspace' }]
       : workspaces;
+  const shortcutLabel = (hotkeyId: string) => formatShortcut(getHotkey(hotkeyId)?.key);
+  const pendingWorkspaceName = pendingWorkspaceSwitchId
+    ? workspaces.find((workspace) => workspace.id === pendingWorkspaceSwitchId)?.name ?? 'workspace'
+    : 'workspace';
 
   // Command palette commands
   const commands = [
@@ -465,7 +657,7 @@ export function TerminalCentricAppShell() {
       title: 'Browse Hosts',
       description: 'Open host browser',
       category: 'actions',
-      shortcut: 'Cmd+H',
+      shortcut: shortcutLabel('browse-hosts'),
       keywords: ['hosts', 'browse', 'connections'],
       onExecute: () => setHostBrowserOpen(true),
     },
@@ -474,7 +666,7 @@ export function TerminalCentricAppShell() {
       title: 'Browse Files',
       description: 'Open SFTP browser',
       category: 'actions',
-      shortcut: 'Cmd+B',
+      shortcut: shortcutLabel('browse-files'),
       keywords: ['sftp', 'files', 'browser'],
       onExecute: () => {
         if (!activeTabId) {
@@ -489,7 +681,7 @@ export function TerminalCentricAppShell() {
       title: 'Snippets',
       description: 'Manage saved commands',
       category: 'actions',
-      shortcut: 'Cmd+;',
+      shortcut: shortcutLabel('snippets'),
       keywords: ['snippets', 'commands', 'saved'],
       onExecute: () => setSnippetsOpen(true),
     },
@@ -515,7 +707,7 @@ export function TerminalCentricAppShell() {
       title: 'Settings',
       description: 'Configure ArchTerm',
       category: 'settings',
-      shortcut: 'Cmd+,',
+      shortcut: shortcutLabel('settings'),
       keywords: ['settings', 'preferences', 'config'],
       onExecute: () => handleOpenSettings('terminal'),
     },
@@ -524,7 +716,7 @@ export function TerminalCentricAppShell() {
       title: 'AI Agent',
       description: 'Open AI agent sidebar',
       category: 'actions',
-      shortcut: 'Cmd+Shift+A',
+      shortcut: shortcutLabel('ai-agent'),
       keywords: ['ai', 'agent', 'automation', 'playbook'],
       onExecute: () => setAgentOpen(true),
     },
@@ -542,7 +734,7 @@ export function TerminalCentricAppShell() {
       title: 'New Terminal',
       description: 'Open new terminal tab',
       category: 'terminal',
-      shortcut: 'Cmd+T',
+      shortcut: shortcutLabel('new-tab'),
       keywords: ['new', 'terminal', 'tab'],
       onExecute: () => setHostBrowserOpen(true),
     },
@@ -551,7 +743,7 @@ export function TerminalCentricAppShell() {
       title: 'Local Terminal',
       description: 'Open local terminal on this machine',
       category: 'terminal',
-      shortcut: 'Cmd+L',
+      shortcut: shortcutLabel('local-terminal'),
       keywords: ['local', 'terminal', 'shell', 'bash', 'zsh'],
       onExecute: handleOpenLocalTerminal,
     },
@@ -560,7 +752,7 @@ export function TerminalCentricAppShell() {
       title: 'Split Horizontal',
       description: 'Split terminal horizontally',
       category: 'terminal',
-      shortcut: 'Cmd+D',
+      shortcut: shortcutLabel('split-horizontal'),
       keywords: ['split', 'horizontal', 'pane'],
       onExecute: () => {
         if (activeTabId) handleSplitHorizontal(activeTabId);
@@ -571,7 +763,7 @@ export function TerminalCentricAppShell() {
       title: 'Split Vertical',
       description: 'Split terminal vertically',
       category: 'terminal',
-      shortcut: 'Cmd+Shift+D',
+      shortcut: shortcutLabel('split-vertical'),
       keywords: ['split', 'vertical', 'pane'],
       onExecute: () => {
         if (activeTabId) handleSplitVertical(activeTabId);
@@ -582,14 +774,21 @@ export function TerminalCentricAppShell() {
   if (!workspaceId) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center space-y-6">
           <div
-            className="inline-block animate-pulse mb-4"
+            className="inline-block animate-pulse"
             style={{ filter: 'drop-shadow(0 0 40px var(--primary-glow, rgba(16,185,129,0.4)))' }}
           >
             <ArchTermLogo iconOnly size="md" />
           </div>
-          <p className="text-sm text-text-secondary">Loading workspace...</p>
+          <div className="space-y-3">
+            <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mx-auto" />
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -646,22 +845,15 @@ export function TerminalCentricAppShell() {
               handleOpenHostForm();
             }}
           />
-          {hostFormOpen && (
-            <>
-              <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-                onClick={handleCloseHostForm}
-                aria-hidden="true"
+          <Sheet open={hostFormOpen} onOpenChange={(open) => { if (!open) handleCloseHostForm(); }}>
+            <SheetContent side="right" showCloseButton={false} className="w-[340px] max-w-[95vw] p-0 border-l-0">
+              <HostForm
+                host={editingHost}
+                workspaceId={workspaceId}
+                onClose={handleCloseHostForm}
               />
-              <div className="fixed inset-y-0 right-0 h-screen">
-                <HostForm
-                  host={editingHost}
-                  workspaceId={workspaceId}
-                  onClose={handleCloseHostForm}
-                />
-              </div>
-            </>
-          )}
+            </SheetContent>
+          </Sheet>
           <Overlay
             open={keysOpen}
             onOpenChange={(open) => {
@@ -708,6 +900,51 @@ export function TerminalCentricAppShell() {
             workspaceId={workspaceId}
             initialTab={settingsInitialTab}
           />
+          <Dialog
+            open={pendingWorkspaceSwitchId !== null}
+            onOpenChange={(open) => {
+              if (!open && !workspaceSwitching) {
+                setPendingWorkspaceSwitchId(null);
+              }
+            }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Switch workspace</DialogTitle>
+                <DialogDescription>
+                  Active terminal/SFTP sessions are open. Choose how to switch to {pendingWorkspaceName}.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setPendingWorkspaceSwitchId(null)}
+                  disabled={workspaceSwitching}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    if (!pendingWorkspaceSwitchId) return;
+                    void performWorkspaceSwitch(pendingWorkspaceSwitchId, false);
+                  }}
+                  disabled={workspaceSwitching}
+                >
+                  Keep sessions
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!pendingWorkspaceSwitchId) return;
+                    void performWorkspaceSwitch(pendingWorkspaceSwitchId, true);
+                  }}
+                  disabled={workspaceSwitching}
+                >
+                  Close sessions
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           {/* Agent panel is embedded inline in MainArea */}
         </>
       }
@@ -727,19 +964,19 @@ export function TerminalCentricAppShell() {
               <ArchTermLogo stacked size="lg" />
             </div>
             <div className="flex flex-col gap-2 text-sm font-mono">
-              <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all cursor-default">
+              <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all duration-200 cursor-default">
                 <span className="text-text-tertiary">Press</span>{' '}
-                <span className="text-primary">Cmd+K</span>{' '}
+                <span className="text-primary">{shortcutLabel('command-palette')}</span>{' '}
                 <span className="text-text-tertiary">to open command palette</span>
               </kbd>
-              <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all cursor-default">
+              <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all duration-200 cursor-default">
                 <span className="text-text-tertiary">Press</span>{' '}
-                <span className="text-primary">Cmd+H</span>{' '}
+                <span className="text-primary">{shortcutLabel('browse-hosts')}</span>{' '}
                 <span className="text-text-tertiary">to browse hosts</span>
               </kbd>
-              <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all cursor-default">
+              <kbd className="px-4 py-3 bg-[var(--surface-2)] rounded-lg border border-[var(--border)] hover:bg-[var(--surface-3)] hover:scale-105 transition-all duration-200 cursor-default">
                 <span className="text-text-tertiary">Press</span>{' '}
-                <span className="text-primary">Cmd+T</span>{' '}
+                <span className="text-primary">{shortcutLabel('new-tab')}</span>{' '}
                 <span className="text-text-tertiary">for new connection</span>
               </kbd>
             </div>
@@ -747,7 +984,7 @@ export function TerminalCentricAppShell() {
 
           {/* Grid pattern overlay */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-[0.02]"
+            className="absolute inset-0 pointer-events-none opacity-[0.06]"
             style={{
               backgroundImage: `
                 linear-gradient(var(--border) 1px, transparent 1px),

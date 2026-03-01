@@ -30,13 +30,15 @@ export function useSshSessionEvents({
   reconnectConfig,
   onCwdChange,
 }: UseSshSessionEventsOptions): void {
-  const { updateTabStatus, updateTabDisconnect } = useSessionStore();
+  const { updateTabStatus, touchTabActivity, updateTabDisconnect } = useSessionStore();
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasConnectedRef = useRef(false);
+  const lastActivityEmitRef = useRef(0);
 
   // Reset hasConnectedRef when sessionId changes
   useEffect(() => {
     hasConnectedRef.current = false;
+    lastActivityEmitRef.current = 0;
   }, [sessionId]);
 
   // Connecting-phase timeout watchdog
@@ -73,6 +75,13 @@ export function useSshSessionEvents({
       // Write data to terminal
       terminalRef.current.write(data);
 
+      // Record activity at most once every 5s to avoid noisy store updates.
+      const now = Date.now();
+      if (now - lastActivityEmitRef.current >= 5000) {
+        touchTabActivity(tabId, now);
+        lastActivityEmitRef.current = now;
+      }
+
       // Parse OSC 7 for CWD detection
       if (onCwdChange) {
         const osc7Match = data.match(/\x1b\]7;file:\/\/([^\x07\x1b\\]+)\x07/);
@@ -87,6 +96,7 @@ export function useSshSessionEvents({
       if (tabStatus === 'connecting' && !hasConnectedRef.current) {
         hasConnectedRef.current = true;
         updateTabStatus(tabId, 'connected');
+        touchTabActivity(tabId);
       }
     });
 
@@ -107,5 +117,5 @@ export function useSshSessionEvents({
       offClosed();
       offError();
     };
-  }, [sessionId, tabId, tabStatus, updateTabStatus, updateTabDisconnect, reconnectConfig, terminalRef]);
+  }, [sessionId, tabId, tabStatus, updateTabStatus, touchTabActivity, updateTabDisconnect, reconnectConfig, terminalRef]);
 }

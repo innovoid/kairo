@@ -168,7 +168,7 @@ export function LoginPage() {
 
               <div className="flex items-start gap-4">
                 <div className="mt-1 rounded-full bg-white/5 p-2 ring-1 ring-white/10">
-                  <KeyRound className="h-4 w-4 text-cyan-400" />
+                  <KeyRound className="h-4 w-4 text-emerald-400" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-zinc-100">
@@ -183,7 +183,7 @@ export function LoginPage() {
 
               <div className="flex items-start gap-4">
                 <div className="mt-1 rounded-full bg-white/5 p-2 ring-1 ring-white/10">
-                  <Users className="h-4 w-4 text-violet-400" />
+                  <Users className="h-4 w-4 text-emerald-400" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-zinc-100">

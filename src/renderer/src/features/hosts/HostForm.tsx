@@ -23,6 +23,21 @@ interface HostFormProps {
   host?: Host | null;
 }
 
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
+
+function parsePort(raw: string): number | null {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < MIN_PORT || value > MAX_PORT) {
+    return null;
+  }
+  return value;
+}
+
+function isValidForwardPort(port: number): boolean {
+  return Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
+}
+
 export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
   const { createHost, updateHost } = useHostStore();
   const { keys, fetchKeys } = useKeyStore();
@@ -69,21 +84,70 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    const parsedPort = parsePort(port);
+    if (!parsedPort) {
+      setError(`Port must be an integer between ${MIN_PORT} and ${MAX_PORT}.`);
+      setLoading(false);
+      return;
+    }
+
+    const normalizedLabel = label.trim();
+    const normalizedHostname = hostname.trim();
+    const normalizedUsername = username.trim();
+    const normalizedForwards = portForwards.map((pf) => ({
+      ...pf,
+      remoteHost: pf.remoteHost.trim(),
+    }));
+
+    if (!normalizedLabel || !normalizedHostname || !normalizedUsername) {
+      setError('Label, hostname, and username are required.');
+      setLoading(false);
+      return;
+    }
+
+    const invalidForward = normalizedForwards.find(
+      (pf) =>
+        !isValidForwardPort(pf.localPort) ||
+        !isValidForwardPort(pf.remotePort) ||
+        !pf.remoteHost
+    );
+    if (invalidForward) {
+      setError(`Port forwards must use ports ${MIN_PORT}-${MAX_PORT} and include a remote host.`);
+      setLoading(false);
+      return;
+    }
+
+    if (authType === 'key' && !keyId) {
+      setError('Select an SSH key or switch to password authentication.');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (host) {
         const update: UpdateHostInput = {
-          label, hostname, port: parseInt(port), username, authType,
+          label: normalizedLabel,
+          hostname: normalizedHostname,
+          port: parsedPort,
+          username: normalizedUsername,
+          authType,
           password: authType === 'password' ? password || null : null,
           keyId: authType === 'key' ? keyId || null : null,
-          portForwards,
+          portForwards: normalizedForwards,
         };
         await updateHost(host.id, update);
       } else {
         const input: CreateHostInput = {
-          workspaceId, label, hostname, port: parseInt(port), username, authType,
+          workspaceId,
+          label: normalizedLabel,
+          hostname: normalizedHostname,
+          port: parsedPort,
+          username: normalizedUsername,
+          authType,
           password: authType === 'password' ? password || null : null,
           keyId: authType === 'key' ? keyId || null : null,
-          portForwards,
+          portForwards: normalizedForwards,
         };
         await createHost(input);
       }
@@ -96,7 +160,7 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
   }
 
   return (
-    <div className="flex flex-col w-80 h-full border-l bg-background shrink-0">
+    <div className="flex flex-col w-full h-full border-l bg-background shrink-0">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 h-12 border-b shrink-0">
         <Server className="h-4 w-4 text-primary" />
@@ -300,8 +364,14 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
                         <Input
                           type="number"
                           value={pf.localPort}
-                          onChange={(e) => setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, localPort: parseInt(e.target.value) || 0 } : p))}
+                          onChange={(e) => {
+                            const parsed = parsePort(e.target.value);
+                            if (parsed === null) return;
+                            setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, localPort: parsed } : p));
+                          }}
                           className="h-6 text-xs"
+                          min={MIN_PORT}
+                          max={MAX_PORT}
                         />
                       </div>
                       <div className="space-y-1">
@@ -309,8 +379,14 @@ export function HostForm({ onClose, workspaceId, host }: HostFormProps) {
                         <Input
                           type="number"
                           value={pf.remotePort}
-                          onChange={(e) => setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, remotePort: parseInt(e.target.value) || 0 } : p))}
+                          onChange={(e) => {
+                            const parsed = parsePort(e.target.value);
+                            if (parsed === null) return;
+                            setPortForwards(portForwards.map(p => p.id === pf.id ? { ...p, remotePort: parsed } : p));
+                          }}
                           className="h-6 text-xs"
+                          min={MIN_PORT}
+                          max={MAX_PORT}
                         />
                       </div>
                     </div>

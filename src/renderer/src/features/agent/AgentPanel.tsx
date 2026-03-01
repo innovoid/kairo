@@ -26,6 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSessionStore } from '@/stores/session-store';
 import { cn } from '@/lib/utils';
+import { formatShortcut } from '@/lib/shortcut-format';
 import type { AgentMessage, AgentRun, AgentStep } from '@shared/types/agent';
 
 interface AgentPanelProps {
@@ -38,19 +39,19 @@ interface AgentPanelProps {
 function RiskBadge({ risk }: { risk: AgentStep['risk'] }) {
   if (risk === 'safe')
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
         <ShieldCheck className="h-2.5 w-2.5" />safe
       </span>
     );
   if (risk === 'needs_privilege')
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
         <ShieldAlert className="h-2.5 w-2.5" />sudo
       </span>
     );
   if (risk === 'destructive')
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-mono">
+      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-mono">
         <ShieldX className="h-2.5 w-2.5" />destructive
       </span>
     );
@@ -123,33 +124,33 @@ function StepCard({ step, stepOutput, confirmStepId, loading, isActiveStep, onAp
       {expanded && (
         <div className="px-2.5 pb-2.5 space-y-1.5 border-t border-zinc-800/50">
           {step.explain && (
-            <p className="text-[9.5px] text-zinc-500 pt-1.5 leading-relaxed">{step.explain}</p>
+            <p className="text-[10px] text-zinc-500 pt-1.5 leading-relaxed">{step.explain}</p>
           )}
-          <code className="block text-[9.5px] font-mono text-emerald-300/90 bg-black/50 rounded px-2 py-1.5 break-all border border-zinc-800/60">
+          <code className="block text-[10px] font-mono text-emerald-300/90 bg-black/50 rounded px-2 py-1.5 break-all border border-zinc-800/60">
             {step.command}
           </code>
           {step.verifyCommand && (
             <div className="flex items-center gap-1">
               <Check className="h-2 w-2 text-zinc-600 shrink-0" />
-              <code className="text-[9px] font-mono text-zinc-600 break-all">{step.verifyCommand}</code>
+              <code className="text-[10px] font-mono text-zinc-600 break-all">{step.verifyCommand}</code>
             </div>
           )}
           {outputText && (
             <div className="rounded bg-black/60 border border-zinc-800/50 max-h-28 overflow-y-auto">
-              <pre className="text-[9px] font-mono text-zinc-400 px-2 py-1.5 leading-relaxed whitespace-pre-wrap break-all">
+              <pre className="text-[10px] font-mono text-zinc-400 px-2 py-1.5 leading-relaxed whitespace-pre-wrap break-all">
                 {outputText}
               </pre>
             </div>
           )}
           {step.error && (
-            <p className="text-[9.5px] text-red-400 font-mono bg-red-500/5 border border-red-500/15 rounded px-2 py-1">
+            <p className="text-[10px] text-red-400 font-mono bg-red-500/5 border border-red-500/15 rounded px-2 py-1">
               {step.error}
             </p>
           )}
           {isAwaiting && isActiveStep && (
             <div className="flex items-center gap-1.5 pt-0.5">
               {isConfirm && (
-                <p className="text-[9.5px] text-red-400 flex-1 font-medium">Confirm destructive action?</p>
+                <p className="text-[10px] text-red-400 flex-1 font-medium">Confirm destructive action?</p>
               )}
               <div className={cn('flex gap-1.5', isConfirm ? '' : 'ml-auto')}>
                 <Button
@@ -157,7 +158,7 @@ function StepCard({ step, stepOutput, confirmStepId, loading, isActiveStep, onAp
                   variant="ghost"
                   disabled={loading}
                   onClick={() => onSkip(step)}
-                  className="h-5 px-1.5 text-[9px] gap-0.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 border border-zinc-800"
+                  className="h-5 px-1.5 text-[10px] gap-0.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 border border-zinc-800"
                 >
                   <SkipForward className="h-2 w-2" />
                   Skip
@@ -167,7 +168,7 @@ function StepCard({ step, stepOutput, confirmStepId, loading, isActiveStep, onAp
                   disabled={loading}
                   onClick={() => onApprove(step)}
                   className={cn(
-                    'h-5 px-2 text-[9px] gap-0.5 border-0',
+                    'h-5 px-2 text-[10px] gap-0.5 border-0',
                     isConfirm
                       ? 'bg-red-600 hover:bg-red-500 text-white'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white',
@@ -339,6 +340,7 @@ export function AgentPanel({ onClose, workspaceId }: AgentPanelProps) {
   const isPlanning = activeRun?.status === 'planning';
   const isStreaming = activeRun?.messages.some((m) => m.streaming) ?? false;
   const canSend = !loading && !isPlanning && !isStreaming && !!input.trim();
+  const sendShortcut = formatShortcut('mod+enter');
 
   useEffect(() => { initListeners(); }, [initListeners]);
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 50); }, []);
@@ -527,7 +529,7 @@ export function AgentPanel({ onClose, workspaceId }: AgentPanelProps) {
       {playbooksOpen && (
         <div className="shrink-0 border-b border-zinc-800/70 bg-zinc-900/60">
           <div className="px-3 py-2 max-h-40 overflow-y-auto space-y-1">
-            <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-medium mb-1.5">Saved playbooks</p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium mb-1.5">Saved playbooks</p>
             {playbooks.length === 0 ? (
               <p className="text-[10px] text-zinc-600 py-2">No playbooks saved yet.</p>
             ) : (
@@ -542,7 +544,7 @@ export function AgentPanel({ onClose, workspaceId }: AgentPanelProps) {
                   <Play className="h-2.5 w-2.5 text-emerald-500/50 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-300 truncate font-medium">{pb.name}</p>
-                    <p className="text-[9px] text-zinc-600 truncate font-mono">{pb.task}</p>
+                    <p className="text-[10px] text-zinc-600 truncate font-mono">{pb.task}</p>
                   </div>
                 </button>
               ))
@@ -659,7 +661,7 @@ export function AgentPanel({ onClose, workspaceId }: AgentPanelProps) {
               !activeTerminalTab
                 ? 'Open a terminal tab first…'
                 : !activeRun
-                  ? 'Describe a task… (⌘↵ to send)'
+                  ? `Describe a task… (${sendShortcut} to send)`
                   : 'Ask a follow-up or give new instructions…'
             }
             disabled={loading || isPlanning || isStreaming || !activeTerminalTab}
@@ -684,7 +686,7 @@ export function AgentPanel({ onClose, workspaceId }: AgentPanelProps) {
           </button>
         </div>
         {isStreaming && (
-          <p className="text-[9.5px] text-zinc-600 font-mono">AI is analysing…</p>
+          <p className="text-[10px] text-zinc-600 font-mono">AI is analysing…</p>
         )}
       </div>
     </div>

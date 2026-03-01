@@ -2,6 +2,8 @@ import * as React from 'react';
 import { Search, Terminal, Folder, Sparkles, Key, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { formatShortcut } from '@/lib/shortcut-format';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 interface Command {
   id: string;
@@ -33,11 +35,11 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 
 const categoryColors: Record<string, string> = {
   hosts: 'text-primary',
-  terminal: 'text-cyan-400',
-  snippets: 'text-purple-400',
-  keys: 'text-amber-400',
+  terminal: 'text-emerald-400',
+  snippets: 'text-emerald-500',
+  keys: 'text-emerald-300',
   settings: 'text-emerald-400',
-  actions: 'text-rose-400',
+  actions: 'text-emerald-500',
 };
 
 export function CommandPalette({
@@ -154,28 +156,27 @@ export function CommandPalette({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, filteredCommands, selectedIndex, onOpenChange]);
 
-  if (!open) return null;
+  const quickAccessHint = formatShortcut('mod+1').replace('1', '1-9');
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
-        onClick={() => onOpenChange(false)}
-      />
-
-      {/* Command Palette */}
-      <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] pointer-events-none">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          'z-[100] p-0 top-[15vh] -translate-y-0',
+          'w-[calc(100%-2rem)] max-w-[680px]',
+          'bg-[var(--surface-4)]/98 backdrop-blur-2xl',
+          'border border-[var(--border)] rounded-2xl',
+          'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.9),0_0_0_1px_rgba(59,130,246,0.15)]',
+          'overflow-hidden',
+          className
+        )}
+      >
+        <DialogTitle className="sr-only">Command palette</DialogTitle>
         <div
           className={cn(
-            'w-full max-w-[680px] mx-4',
-            'bg-[var(--surface-4)]/98 backdrop-blur-2xl',
-            'border border-[var(--border)]',
-            'rounded-2xl',
-            'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.9),0_0_0_1px_rgba(59,130,246,0.15)]',
-            'overflow-hidden',
-            'pointer-events-auto',
-            className
+            'animate-in fade-in zoom-in-95',
+            'duration-300',
           )}
           style={{
             animation: 'paletteEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
@@ -295,7 +296,7 @@ export function CommandPalette({
                 </div>
               </div>
               <span className="text-[11px] text-text-tertiary">
-                <kbd className="px-1.5 py-0.5 font-mono font-semibold bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">⌘1-9</kbd>
+                <kbd className="px-1.5 py-0.5 font-mono font-semibold bg-[var(--surface-2)] rounded border border-[var(--border)] text-text-secondary">{quickAccessHint}</kbd>
                 {' '}quick access
               </span>
             </div>
@@ -327,8 +328,8 @@ export function CommandPalette({
             }
           `}</style>
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 

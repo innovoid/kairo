@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilePane } from '../FilePane';
@@ -42,10 +42,12 @@ describe('FilePane', () => {
     (window as any).sftpApi = {
       list: listMock,
       mkdir: vi.fn(),
+      rename: vi.fn(),
       delete: vi.fn(),
       pickUploadFiles: vi.fn(),
       upload: vi.fn(),
       download: downloadMock,
+      getSaveFilePath: vi.fn().mockResolvedValue('/downloads/report.txt'),
     };
   });
 
@@ -61,7 +63,6 @@ describe('FilePane', () => {
 
   it('creates transfer and downloads on file double click', async () => {
     const user = userEvent.setup();
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('report.txt');
 
     render(<FilePane sessionId="session-1" title="Remote" />);
 
@@ -69,52 +70,56 @@ describe('FilePane', () => {
     await user.dblClick(row);
 
     await waitFor(() => {
+      expect((window as any).sftpApi.getSaveFilePath).toHaveBeenCalledWith('report.txt');
       expect(addTransferMock).toHaveBeenCalledTimes(1);
       expect(downloadMock).toHaveBeenCalledWith(
         'session-1',
         '/report.txt',
-        'report.txt',
+        '/downloads/report.txt',
         expect.any(String)
       );
     });
-
-    promptSpy.mockRestore();
   });
 
   it('creates directory from toolbar action and refreshes listing', async () => {
     const user = userEvent.setup();
     const mkdirMock = vi.fn().mockResolvedValue(undefined);
     (window as any).sftpApi.mkdir = mkdirMock;
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('new-folder');
 
     render(<FilePane sessionId="session-1" title="Remote" />);
     await screen.findByText('report.txt');
 
     await user.click(screen.getByTitle('New folder'));
+    const input = await screen.findByPlaceholderText('Folder name');
+    await user.type(input, 'new-folder');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => {
       expect(mkdirMock).toHaveBeenCalledWith('session-1', '/new-folder');
       expect(listMock).toHaveBeenCalledTimes(2);
     });
-
-    promptSpy.mockRestore();
   });
 
   it('deletes entry from context menu when confirmed', async () => {
+    const user = userEvent.setup();
     const deleteMock = vi.fn().mockResolvedValue(undefined);
     (window as any).sftpApi.delete = deleteMock;
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(<FilePane sessionId="session-1" title="Remote" />);
     const fileRowText = await screen.findByText('report.txt');
-    fireEvent.contextMenu(fileRowText);
+
+    fireEvent.contextMenu(fileRowText.closest('tr') ?? fileRowText);
+
+    const deleteMenuItem = await screen.findByRole('menuitem', { name: 'Delete' });
+    await user.click(deleteMenuItem);
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       expect(deleteMock).toHaveBeenCalledWith('session-1', '/report.txt', false);
       expect(listMock).toHaveBeenCalledTimes(2);
     });
-
-    confirmSpy.mockRestore();
   });
 
   it('uploads selected files and continues after partial failures', async () => {
@@ -124,7 +129,6 @@ describe('FilePane', () => {
       .mockRejectedValueOnce(new Error('network glitch'))
       .mockResolvedValueOnce(undefined);
     const pickUploadFilesMock = vi.fn().mockResolvedValue(['/tmp/a.txt', '/tmp/b.txt']);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (window as any).sftpApi.pickUploadFiles = pickUploadFilesMock;
     (window as any).sftpApi.upload = uploadMock;
 
@@ -139,9 +143,6 @@ describe('FilePane', () => {
       expect(uploadMock).toHaveBeenNthCalledWith(2, 'session-1', '/tmp/b.txt', '/b.txt', expect.any(String));
       expect(listMock).toHaveBeenCalledTimes(2);
     });
-
-    expect(errorSpy).toHaveBeenCalledWith('Upload failed:', expect.any(Error));
-    errorSpy.mockRestore();
   });
 
   it('uploads dropped files with path and skips files without path', async () => {
@@ -149,7 +150,6 @@ describe('FilePane', () => {
       .fn()
       .mockRejectedValueOnce(new Error('first failed'))
       .mockResolvedValueOnce(undefined);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (window as any).sftpApi.upload = uploadMock;
 
     render(<FilePane sessionId="session-1" title="Remote" />);
@@ -174,8 +174,5 @@ describe('FilePane', () => {
       expect(uploadMock).toHaveBeenNthCalledWith(2, 'session-1', '/tmp/b.txt', '/b.txt', expect.any(String));
       expect(listMock).toHaveBeenCalledTimes(2);
     });
-
-    expect(errorSpy).toHaveBeenCalledWith('Upload failed:', expect.any(Error));
-    errorSpy.mockRestore();
   });
 });

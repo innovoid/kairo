@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Search, Plus, FolderOpen, Folder, ChevronRight, Server, Circle, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, FolderOpen, Folder, ChevronRight, Server, Circle, Pencil, Trash2, CheckSquare, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -69,12 +69,18 @@ export function HostBrowserOverlay({
   onNewHost,
   className,
 }: HostBrowserOverlayProps) {
-  const { hosts, folders, fetchHosts, createFolder, updateFolder, deleteFolder, moveToFolder } = useHostStore();
+  const { hosts, folders, fetchHosts, createFolder, updateFolder, deleteFolder, moveToFolder, updateHost } = useHostStore();
   const [search, setSearch] = React.useState('');
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set());
   const [dragHostId, setDragHostId] = React.useState<string | null>(null);
   const [folderDialogOpen, setFolderDialogOpen] = React.useState(false);
   const [editingFolder, setEditingFolder] = React.useState<HostFolder | null>(null);
+  const [selectedHostIds, setSelectedHostIds] = React.useState<Set<string>>(new Set());
+  const [bulkFolderId, setBulkFolderId] = React.useState('');
+  const [bulkTag, setBulkTag] = React.useState('');
+  const [bulkPort, setBulkPort] = React.useState('');
+  const [bulkAuthType, setBulkAuthType] = React.useState<'password' | 'key' | ''>('');
+  const [bulkSaving, setBulkSaving] = React.useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -89,6 +95,12 @@ export function HostBrowserOverlay({
       setDragHostId(null);
       setFolderDialogOpen(false);
       setEditingFolder(null);
+      setSelectedHostIds(new Set());
+      setBulkFolderId('');
+      setBulkTag('');
+      setBulkPort('');
+      setBulkAuthType('');
+      setBulkSaving(false);
     }
   }, [open]);
 
@@ -115,6 +127,13 @@ export function HostBrowserOverlay({
       new Map(hosts.map((host) => [host.id, host])),
     [hosts]
   );
+
+  React.useEffect(() => {
+    setSelectedHostIds((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => hostById.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [hostById]);
 
   const foldersByParent = React.useMemo(() => {
     const map = new Map<string | null, HostFolder[]>();
@@ -144,7 +163,31 @@ export function HostBrowserOverlay({
     return map;
   }, [filteredHosts]);
 
+  const selectedHosts = React.useMemo(
+    () => hosts.filter((host) => selectedHostIds.has(host.id)),
+    [hosts, selectedHostIds]
+  );
+
+  const visibleHostIds = React.useMemo(() => filteredHosts.map((host) => host.id), [filteredHosts]);
+
   const dragHost = dragHostId ? hostById.get(dragHostId) ?? null : null;
+
+  const toggleHostSelection = (hostId: string) => {
+    setSelectedHostIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(hostId)) next.delete(hostId);
+      else next.add(hostId);
+      return next;
+    });
+  };
+
+  const selectVisibleHosts = () => {
+    setSelectedHostIds(new Set(visibleHostIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedHostIds(new Set());
+  };
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders((prev) => {
@@ -213,6 +256,81 @@ export function HostBrowserOverlay({
     await moveToFolder(hostId, folderId);
   };
 
+  const runBulkOperation = async (worker: (host: Host) => Promise<void>) => {
+    if (!selectedHosts.length) return;
+    setBulkSaving(true);
+    try {
+      const settled = await Promise.allSettled(selectedHosts.map((host) => worker(host)));
+      const successCount = settled.filter((result) => result.status === 'fulfilled').length;
+      const failedCount = settled.length - successCount;
+
+      if (successCount > 0) {
+        toast.success(`Updated ${successCount} host${successCount === 1 ? '' : 's'}`);
+      }
+      if (failedCount > 0) {
+        toast.error(`${failedCount} host update${failedCount === 1 ? '' : 's'} failed`);
+      }
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const handleBulkMove = async () => {
+    if (!selectedHosts.length) return;
+    if (!bulkFolderId) {
+      toast.error('Select a destination folder');
+      return;
+    }
+
+    const targetFolderId = bulkFolderId === '__root__' ? null : bulkFolderId;
+    await runBulkOperation((host) => moveToFolder(host.id, targetFolderId));
+  };
+
+  const handleBulkTag = async () => {
+    const nextTag = bulkTag.trim();
+    if (!nextTag) {
+      toast.error('Enter a tag to apply');
+      return;
+    }
+
+    await runBulkOperation((host) => {
+      const nextTags = Array.from(new Set([...(host.tags ?? []), nextTag]));
+      return updateHost(host.id, { tags: nextTags });
+    });
+    setBulkTag('');
+  };
+
+  const handleBulkConnectionUpdate = async () => {
+    if (!bulkPort && !bulkAuthType) {
+      toast.error('Set a port or auth type to apply');
+      return;
+    }
+
+    let parsedPort: number | undefined;
+    if (bulkPort) {
+      const candidate = Number(bulkPort);
+      if (!Number.isInteger(candidate) || candidate < 1 || candidate > 65535) {
+        toast.error('Port must be an integer between 1 and 65535');
+        return;
+      }
+      parsedPort = candidate;
+    }
+
+    await runBulkOperation(async (host) => {
+      if (bulkAuthType === 'key' && !host.keyId) {
+        throw new Error(`Host "${host.label}" has no key configured`);
+      }
+
+      const payload: { port?: number; authType?: 'password' | 'key'; keyId?: string | null } = {};
+      if (parsedPort !== undefined) payload.port = parsedPort;
+      if (bulkAuthType) {
+        payload.authType = bulkAuthType;
+        if (bulkAuthType === 'password') payload.keyId = null;
+      }
+      await updateHost(host.id, payload);
+    });
+  };
+
   const renderFolderTree = (parentId: string | null, depth = 0): React.ReactNode => {
     const nodes = foldersByParent.get(parentId) ?? [];
     if (!nodes.length) return null;
@@ -244,6 +362,8 @@ export function HostBrowserOverlay({
                   key={host.id}
                   host={host}
                   depth={depth + 1}
+                  selected={selectedHostIds.has(host.id)}
+                  onToggleSelect={() => toggleHostSelection(host.id)}
                   onConnect={() => {
                     onConnect(host.id);
                     onOpenChange(false);
@@ -284,7 +404,81 @@ export function HostBrowserOverlay({
               )}
             />
           </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={selectVisibleHosts} className="h-7 px-2 text-xs">
+              Select visible
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={clearSelection} className="h-7 px-2 text-xs">
+              Clear selection
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {selectedHostIds.size} selected
+            </span>
+          </div>
         </div>
+
+        {selectedHostIds.size > 0 && (
+          <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-1)]/60 p-3 space-y-3">
+            <div className="text-xs font-medium text-foreground">
+              Bulk actions for {selectedHostIds.size} host{selectedHostIds.size === 1 ? '' : 's'}
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.2fr_auto]">
+              <select
+                className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-3 text-xs font-mono"
+                value={bulkFolderId}
+                onChange={(event) => setBulkFolderId(event.target.value)}
+              >
+                <option value="">Move to folder…</option>
+                <option value="__root__">Unorganized (root)</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleBulkMove()} disabled={bulkSaving}>
+                Move
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.2fr_auto]">
+              <Input
+                value={bulkTag}
+                onChange={(event) => setBulkTag(event.target.value)}
+                placeholder="Add tag to selected hosts"
+                className="h-9 text-xs"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleBulkTag()} disabled={bulkSaving}>
+                Apply Tag
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
+              <Input
+                value={bulkPort}
+                onChange={(event) => setBulkPort(event.target.value)}
+                placeholder="Port (optional)"
+                className="h-9 text-xs"
+              />
+              <select
+                className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface-1)] px-3 text-xs"
+                value={bulkAuthType}
+                onChange={(event) => setBulkAuthType(event.target.value as 'password' | 'key' | '')}
+              >
+                <option value="">Auth type (optional)</option>
+                <option value="password">Password</option>
+                <option value="key">SSH Key</option>
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleBulkConnectionUpdate()}
+                disabled={bulkSaving}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        )}
 
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={(event) => void handleDragEnd(event)}>
           {search ? (
@@ -297,6 +491,8 @@ export function HostBrowserOverlay({
                     key={host.id}
                     host={host}
                     depth={0}
+                    selected={selectedHostIds.has(host.id)}
+                    onToggleSelect={() => toggleHostSelection(host.id)}
                     onConnect={() => {
                       onConnect(host.id);
                       onOpenChange(false);
@@ -313,6 +509,8 @@ export function HostBrowserOverlay({
                     key={host.id}
                     host={host}
                     depth={0}
+                    selected={selectedHostIds.has(host.id)}
+                    onToggleSelect={() => toggleHostSelection(host.id)}
                     onConnect={() => {
                       onConnect(host.id);
                       onOpenChange(false);
@@ -452,10 +650,12 @@ function FolderRow({ folder, depth, isExpanded, totalItems, onToggle, onRename, 
 interface HostRowProps {
   host: Host;
   depth: number;
+  selected: boolean;
+  onToggleSelect: () => void;
   onConnect: () => void;
 }
 
-function HostRow({ host, depth, onConnect }: HostRowProps) {
+function HostRow({ host, depth, selected, onToggleSelect, onConnect }: HostRowProps) {
   const { setNodeRef, listeners, attributes, transform, isDragging } = useDraggable({
     id: hostDragId(host.id),
   });
@@ -467,19 +667,39 @@ function HostRow({ host, depth, onConnect }: HostRowProps) {
   };
 
   return (
-    <button
+    <div
       ref={setNodeRef}
       style={style}
       className={cn(
         'w-full flex items-center gap-3 rounded-md px-2 py-2 text-left',
         'hover:bg-[var(--surface-2)] transition-colors',
+        selected && 'bg-primary/10 ring-1 ring-primary/40',
         isDragging && 'cursor-grabbing'
       )}
       onClick={onConnect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onConnect();
+        }
+      }}
       {...listeners}
       {...attributes}
-      type="button"
+      role="button"
+      tabIndex={0}
     >
+      <button
+        type="button"
+        aria-label={selected ? 'Deselect host' : 'Select host'}
+        className="h-4 w-4 shrink-0 text-muted-foreground hover:text-foreground"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleSelect();
+        }}
+      >
+        {selected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+      </button>
       <Server className="h-4 w-4 text-muted-foreground shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-mono truncate">{host.label}</p>
@@ -488,7 +708,7 @@ function HostRow({ host, depth, onConnect }: HostRowProps) {
         </p>
       </div>
       <Circle className="h-2.5 w-2.5 text-muted-foreground/40" fill="currentColor" />
-    </button>
+    </div>
   );
 }
 

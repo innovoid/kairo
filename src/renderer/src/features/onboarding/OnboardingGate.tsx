@@ -161,7 +161,7 @@ function SetupFlow({
               </div>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <FolderTree className="mb-2 h-4 w-4 text-cyan-400" />
+                  <FolderTree className="mb-2 h-4 w-4 text-emerald-400" />
                   <p className="text-xs text-zinc-300">Name your workspace for shared clarity.</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
@@ -169,7 +169,7 @@ function SetupFlow({
                   <p className="text-xs text-zinc-300">Set baseline controls for team operations.</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <Lock className="mb-2 h-4 w-4 text-violet-400" />
+                  <Lock className="mb-2 h-4 w-4 text-emerald-400" />
                   <p className="text-xs text-zinc-300">Encrypt cloud key sync with a passphrase.</p>
                 </div>
               </div>

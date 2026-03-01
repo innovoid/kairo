@@ -85,6 +85,7 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     if (!tab.reconnectConfig) return;
 
     const newSessionId = crypto.randomUUID();
+    const reconnectStartedAt = Date.now();
 
     useSessionStore.setState((state) => {
       const existing = state.tabs.get(tab.tabId);
@@ -97,6 +98,10 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
         disconnectReason: undefined,
         disconnectedAt: undefined,
         reconnectAttempts: (existing.reconnectAttempts ?? 0) + 1,
+        connectStartedAt: reconnectStartedAt,
+        connectedAt: undefined,
+        connectLatencyMs: undefined,
+        lastActivityAt: undefined,
       });
       return { tabs: newTabs };
     });
@@ -202,4 +207,3 @@ export function TerminalTab({ tab, onSplit, onClosePane, isPane, isVisible = tru
     </div>
   );
 }
-

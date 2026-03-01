@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { HOTKEY_DEFINITIONS, type HotkeyDefinition } from '@/lib/hotkeys-registry';
+import { formatShortcut } from '@/lib/shortcut-format';
 import { cn } from '@/lib/utils';
 
 export function ShortcutsSettingsTab() {
@@ -45,18 +46,6 @@ export function ShortcutsSettingsTab() {
       }
       return next;
     });
-  }
-
-  function formatKey(key: string): string {
-    // Platform-aware formatting
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    return key
-      .replace('mod+', isMac ? '⌘' : 'Ctrl+')
-      .replace('shift+', isMac ? '⇧' : 'Shift+')
-      .replace('alt+', isMac ? '⌥' : 'Alt+')
-      .split('+')
-      .map((k) => k.charAt(0).toUpperCase() + k.slice(1))
-      .join(isMac ? '' : '+');
   }
 
   const categories = [
@@ -131,7 +120,7 @@ export function ShortcutsSettingsTab() {
                       >
                         <span className="text-sm">{shortcut.description}</span>
                         <kbd className="px-2 py-1 text-xs font-mono bg-muted rounded border">
-                          {formatKey(shortcut.key)}
+                          {formatShortcut(shortcut.key)}
                         </kbd>
                       </div>
                     ))}

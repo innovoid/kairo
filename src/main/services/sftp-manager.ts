@@ -4,6 +4,7 @@ import { sshManager } from './ssh-manager';
 import type { SftpEntry, TransferProgress } from '../../shared/types/sftp';
 import { createWriteStream, createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import { basename } from 'node:path';
 
 type SFTPWrapper = ssh2.SFTPWrapper;
 type Stats = ssh2.Stats;
@@ -218,7 +219,7 @@ export const sftpManager = {
     sender: WebContents
   ): Promise<void> {
     const sftp = await getSftp(sessionId);
-    const filename = localPath.split('/').pop() ?? 'file';
+    const filename = basename(localPath) || 'file';
     const fileStat = await stat(localPath);
     const totalBytes = fileStat.size;
     let bytesTransferred = 0;

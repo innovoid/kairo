@@ -1,6 +1,8 @@
 import ssh2 from 'ssh2';
 import type { WebContents } from 'electron';
 import type { SshSessionConfig } from '../../shared/types/ssh';
+import type { KnownHostEntry } from '../../shared/types/known-hosts';
+import type { HostKeyEvent } from '../../shared/types/host-key-events';
 import { privateKeyQueries } from '../db';
 import { keyManager } from './key-manager';
 import { recordingManager } from './recording-manager';
@@ -35,8 +37,192 @@ function getKnownHostsPath() {
   return join(sshDir, 'known_hosts');
 }
 
+function getHostKeyEventsPath() {
+  const sshDir = join(homedir(), '.ssh');
+  if (!existsSync(sshDir)) mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+  return join(sshDir, 'archterm-host-key-events.json');
+}
+
+function getKnownHostsCandidates(host: string, port: number): string[] {
+  const normalizedHost = host.trim();
+  const candidates = new Set<string>([normalizedHost]);
+  candidates.add(`[${normalizedHost}]:${port}`);
+  return Array.from(candidates);
+}
+
+function matchesHashedKnownHost(token: string, candidate: string): boolean {
+  const parts = token.split('|');
+  if (parts.length !== 4 || parts[1] !== '1') return false;
+
+  const salt = Buffer.from(parts[2], 'base64');
+  const expectedDigest = Buffer.from(parts[3], 'base64').toString('base64');
+  const actualDigest = crypto.createHmac('sha1', salt).update(candidate).digest('base64');
+  return actualDigest === expectedDigest;
+}
+
+function matchesKnownHostToken(token: string, candidates: string[]): boolean {
+  const trimmedToken = token.trim();
+  if (!trimmedToken || trimmedToken.startsWith('!')) return false;
+
+  if (trimmedToken.startsWith('|1|')) {
+    return candidates.some((candidate) => matchesHashedKnownHost(trimmedToken, candidate));
+  }
+
+  return candidates.includes(trimmedToken);
+}
+
+function appendKnownHostEntry(path: string, hostIdentifier: string, keyType: string, key: string): void {
+  const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const prefix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+  appendFileSync(path, `${prefix}${hostIdentifier} ${keyType} ${key}\n`, { mode: 0o644 });
+}
+
+function safeFingerprint(base64Key: string): string {
+  try {
+    const decoded = Buffer.from(base64Key, 'base64');
+    if (decoded.length === 0) return 'SHA256:invalid';
+    return `SHA256:${crypto.createHash('sha256').update(decoded).digest('base64')}`;
+  } catch {
+    return 'SHA256:invalid';
+  }
+}
+
+function knownHostEntryId(lineNumber: number, hostPattern: string, keyType: string, key: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${lineNumber}:${hostPattern}:${keyType}:${key}`)
+    .digest('hex')
+    .slice(0, 20);
+}
+
+function parseKnownHostLine(line: string): { hosts: string[]; keyType: string; key: string } | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) return null;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 3) return null;
+  return { hosts: parts[0].split(','), keyType: parts[1], key: parts[2] };
+}
+
+function loadHostKeyEvents(): HostKeyEvent[] {
+  const path = getHostKeyEventsPath();
+  if (!existsSync(path)) return [];
+  try {
+    const raw = readFileSync(path, 'utf8').trim();
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is HostKeyEvent => (
+      typeof item === 'object'
+      && item !== null
+      && typeof (item as HostKeyEvent).id === 'string'
+      && typeof (item as HostKeyEvent).timestamp === 'string'
+      && typeof (item as HostKeyEvent).displayHost === 'string'
+    ));
+  } catch {
+    return [];
+  }
+}
+
+function saveHostKeyEvents(events: HostKeyEvent[]): void {
+  const path = getHostKeyEventsPath();
+  writeFileSync(path, `${JSON.stringify(events, null, 2)}\n`, { mode: 0o600 });
+}
+
+function addHostKeyEvent(event: Omit<HostKeyEvent, 'id' | 'timestamp'>): void {
+  const events = loadHostKeyEvents();
+  const next: HostKeyEvent = {
+    ...event,
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+  };
+  const trimmed = [next, ...events].slice(0, 500);
+  saveHostKeyEvents(trimmed);
+}
+
+function toFingerprintFromKeyBuffer(keyBuffer: Buffer): string {
+  return `SHA256:${crypto.createHash('sha256').update(keyBuffer).digest('base64')}`;
+}
+
+function listKnownHostEntries(): KnownHostEntry[] {
+  const path = getKnownHostsPath();
+  if (!existsSync(path)) return [];
+
+  const lines = readFileSync(path, 'utf8').split('\n');
+  const entries: KnownHostEntry[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const parsed = parseKnownHostLine(lines[i]);
+    if (!parsed) continue;
+    const lineNumber = i + 1;
+    const fingerprint = safeFingerprint(parsed.key);
+
+    for (const hostPattern of parsed.hosts) {
+      const hashed = hostPattern.startsWith('|1|');
+      entries.push({
+        id: knownHostEntryId(lineNumber, hostPattern, parsed.keyType, parsed.key),
+        hostPattern,
+        displayHost: hashed ? '(hashed host)' : hostPattern,
+        keyType: parsed.keyType,
+        fingerprint,
+        lineNumber,
+        hashed,
+      });
+    }
+  }
+
+  return entries.sort((a, b) => a.displayHost.localeCompare(b.displayHost));
+}
+
+function removeKnownHostEntry(entryId: string): boolean {
+  const path = getKnownHostsPath();
+  if (!existsSync(path)) return false;
+
+  const lines = readFileSync(path, 'utf8').split('\n');
+  let changed = false;
+
+  const nextLines = lines.flatMap((line, index) => {
+    const parsed = parseKnownHostLine(line);
+    if (!parsed) return [line];
+
+    const lineNumber = index + 1;
+    const retainedHosts = parsed.hosts.filter((hostPattern) => {
+      const id = knownHostEntryId(lineNumber, hostPattern, parsed.keyType, parsed.key);
+      const shouldKeep = id !== entryId;
+      if (!shouldKeep) changed = true;
+      return shouldKeep;
+    });
+
+    if (retainedHosts.length === parsed.hosts.length) {
+      return [line];
+    }
+
+    if (retainedHosts.length === 0) {
+      return [];
+    }
+
+    const rebuilt = `${retainedHosts.join(',')} ${parsed.keyType} ${parsed.key}`;
+    return [rebuilt];
+  });
+
+  if (changed) {
+    const content = nextLines.join('\n').replace(/\n+$/, '\n');
+    writeFileSync(path, content, { mode: 0o644 });
+  }
+
+  return changed;
+}
+
+function parsePort(value: string | number | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    return fallback;
+  }
+  return parsed;
+}
+
 function verifyHostKey(
   host: string,
+  port: number,
   keyBuffer: Buffer,
   sessionId: string,
   sender: WebContents,
@@ -52,29 +238,55 @@ function verifyHostKey(
 
   const b64Key = keyBuffer.toString('base64');
   const knownHostsPath = getKnownHostsPath();
+  const knownHostCandidates = getKnownHostsCandidates(host, port);
+  const displayHost = port === 22 ? host : `${host}:${port}`;
+  const presentedFingerprint = toFingerprintFromKeyBuffer(keyBuffer);
 
   if (existsSync(knownHostsPath)) {
     const content = readFileSync(knownHostsPath, 'utf8');
     const lines = content.split('\n');
+    let hasMatchingHostEntry = false;
+    const matchingKnownFingerprints: string[] = [];
+
     for (const line of lines) {
-      const parts = line.trim().split(' ');
-      if (parts.length >= 3) {
-        const lineHosts = parts[0].split(',');
-        if (lineHosts.includes(host)) {
-          if (parts[2] === b64Key) {
-            callback(true);
-            return;
-          } else {
-            sender.send('ssh:error', sessionId, `Host key mismatch for ${host}. The fingerprint does not match known_hosts! Potential MITM attack.`);
-            callback(false);
-            return;
-          }
-        }
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const parts = trimmed.split(/\s+/);
+      if (parts.length < 3) continue;
+
+      const lineHosts = parts[0].split(',');
+      const hostMatches = lineHosts.some((token) => matchesKnownHostToken(token, knownHostCandidates));
+      if (!hostMatches) continue;
+
+      hasMatchingHostEntry = true;
+      matchingKnownFingerprints.push(safeFingerprint(parts[2]));
+      if (parts[2] === b64Key) {
+        callback(true);
+        return;
       }
     }
-  }
 
-  const fingerprint = crypto.createHash('sha256').update(keyBuffer).digest('base64');
+    if (hasMatchingHostEntry) {
+      addHostKeyEvent({
+        type: 'mismatch_blocked',
+        host,
+        port,
+        displayHost,
+        hostCandidates: knownHostCandidates,
+        keyType,
+        presentedFingerprint,
+        knownFingerprints: Array.from(new Set(matchingKnownFingerprints)),
+      });
+      sender.send(
+        'ssh:error',
+        sessionId,
+        `Host key mismatch for ${displayHost}. The fingerprint does not match known_hosts! Potential MITM attack.`
+      );
+      callback(false);
+      return;
+    }
+  }
 
   dialog.showMessageBox({
     type: 'warning',
@@ -82,11 +294,33 @@ function verifyHostKey(
     defaultId: 0,
     cancelId: 1,
     title: 'Unknown Host Key',
-    message: `The authenticity of host '${host}' can't be established.`,
-    detail: `${keyType} key fingerprint is SHA256:${fingerprint}.\nAre you sure you want to continue connecting?`
+    message: `The authenticity of host '${displayHost}' can't be established.`,
+    detail: `${keyType} key fingerprint is ${presentedFingerprint}.\nAre you sure you want to continue connecting?`
   }).then(result => {
     if (result.response === 0) {
-      appendFileSync(knownHostsPath, `\n${host} ${keyType} ${b64Key}\n`, { mode: 0o644 });
+      const hostIdentifier = port === 22 ? host : `[${host}]:${port}`;
+      appendKnownHostEntry(knownHostsPath, hostIdentifier, keyType, b64Key);
+      addHostKeyEvent({
+        type: 'unknown_accepted',
+        host,
+        port,
+        displayHost,
+        hostCandidates: knownHostCandidates,
+        keyType,
+        presentedFingerprint,
+        knownFingerprints: [],
+      });
+    } else {
+      addHostKeyEvent({
+        type: 'unknown_rejected',
+        host,
+        port,
+        displayHost,
+        hostCandidates: knownHostCandidates,
+        keyType,
+        presentedFingerprint,
+        knownFingerprints: [],
+      });
     }
     callback(result.response === 0);
   });
@@ -116,7 +350,7 @@ export const sshManager = {
         const parsedConfig = SSHConfig.parse(readFileSync(sshConfigPath, 'utf8'));
         const computed = parsedConfig.compute(config.host);
         if (computed.HostName) finalHost = Array.isArray(computed.HostName) ? computed.HostName[0] : computed.HostName;
-        if (computed.Port) finalPort = parseInt(Array.isArray(computed.Port) ? computed.Port[0] : computed.Port, 10);
+        if (computed.Port) finalPort = parsePort(Array.isArray(computed.Port) ? computed.Port[0] : computed.Port, finalPort);
         if (computed.User) finalUser = Array.isArray(computed.User) ? computed.User[0] : computed.User;
         if (computed.IdentityFile) {
           const files = Array.isArray(computed.IdentityFile) ? computed.IdentityFile : [computed.IdentityFile];
@@ -142,7 +376,7 @@ export const sshManager = {
       keepaliveCountMax: 5,        // Tolerate up to 5 missed keepalives (~50 s) before dropping
       readyTimeout: 20000,
       hostVerifier: (keyHash: Buffer, callback: (accept: boolean) => void) => {
-        verifyHostKey(finalHost, keyHash, sessionId, sender, callback);
+        verifyHostKey(finalHost, finalPort, keyHash, sessionId, sender, callback);
       }
     };
 
@@ -311,7 +545,7 @@ export const sshManager = {
       }
       const hostPortParts = pHostAndPort.split(':');
       const pHost = hostPortParts[0];
-      const pPort = hostPortParts.length > 1 ? parseInt(hostPortParts[1], 10) : 22;
+      const pPort = hostPortParts.length > 1 ? parsePort(hostPortParts[1], 22) : 22;
 
       const jumpConfig: ConnectConfig = {
         host: pHost,
@@ -319,7 +553,7 @@ export const sshManager = {
         username: pUser,
         agent: process.env.SSH_AUTH_SOCK,
         hostVerifier: (keyHash: Buffer, callback: (accept: boolean) => void) => {
-          verifyHostKey(pHost, keyHash, sessionId + '-jump', sender, callback);
+          verifyHostKey(pHost, pPort, keyHash, sessionId + '-jump', sender, callback);
         }
       };
       
@@ -386,6 +620,22 @@ export const sshManager = {
 
   getSftpClient(sessionId: string): ssh2.Client | undefined {
     return sessions.get(sessionId)?.client;
+  },
+
+  listKnownHosts(): KnownHostEntry[] {
+    return listKnownHostEntries();
+  },
+
+  removeKnownHost(entryId: string): boolean {
+    return removeKnownHostEntry(entryId);
+  },
+
+  listHostKeyEvents(limit = 100): HostKeyEvent[] {
+    return loadHostKeyEvents().slice(0, Math.max(1, Math.min(limit, 500)));
+  },
+
+  clearHostKeyEvents(): void {
+    saveHostKeyEvents([]);
   },
 
   disconnectAll(): void {

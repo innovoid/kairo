@@ -1,6 +1,8 @@
-import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot, Terminal } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Plus, ChevronDown, Circle, Folder, FileText, Sparkles, Key, Search, Settings, FolderOpen, SplitSquareHorizontal, SplitSquareVertical, Radio, Bot, Terminal, HeartPulse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getHotkey } from '@/lib/hotkeys-registry';
+import { formatShortcut } from '@/lib/shortcut-format';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,15 +24,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { deriveKeepaliveState, formatAge, formatLatency } from '@/features/terminal/session-health';
 
 interface Tab {
   id: string;
   title: string;
   hostname?: string;
-  status: 'connected' | 'connecting' | 'disconnected';
+  status: 'connected' | 'connecting' | 'disconnected' | 'error';
   isActive: boolean;
   sessionId?: string;
   isRecording?: boolean;
+  reconnectAttempts?: number;
+  disconnectReason?: string;
+  connectLatencyMs?: number;
+  lastActivityAt?: number;
 }
 
 interface FloatingTabBarProps {
@@ -61,7 +69,12 @@ const statusDot = {
   connected: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]',
   connecting: 'bg-amber-400 animate-pulse',
   disconnected: 'bg-zinc-600',
+  error: 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]',
 };
+
+function getShortcutLabel(hotkeyId: string): string {
+  return formatShortcut(getHotkey(hotkeyId)?.key);
+}
 
 export function FloatingTabBar({
   tabs,
@@ -88,6 +101,7 @@ export function FloatingTabBar({
 }: FloatingTabBarProps) {
   const currentWorkspaceLabel =
     workspaces.find((w) => w.id === currentWorkspaceId)?.name ?? 'Workspace';
+  const activeTab = tabs.find((tab) => tab.isActive);
 
   return (
     <TooltipProvider delay={300}>
@@ -144,23 +158,24 @@ export function FloatingTabBar({
             />
             <TooltipContent side="bottom" sideOffset={6}>
               <span className="text-xs">New connection</span>
-              <kbd className="ml-2 text-[10px] text-zinc-400 font-mono">⌘T</kbd>
+              <kbd className="ml-2 text-[10px] text-zinc-400 font-mono">{getShortcutLabel('new-tab')}</kbd>
             </TooltipContent>
           </Tooltip>
         </div>
 
         {/* Right: toolbar actions */}
         <div className="flex items-center shrink-0 h-full border-l border-zinc-800/60 px-1.5 gap-0.5">
-          <ActionButton icon={Folder} label="Hosts" shortcut="⌘H" onClick={onBrowseHosts} />
-          <ActionButton icon={FileText} label="SFTP" shortcut="⌘B" onClick={onBrowseFiles} />
-          <ActionButton icon={Sparkles} label="Snippets" shortcut="⌘;" onClick={onSnippets} />
+          <ActionButton icon={Folder} label="Hosts" shortcut={getShortcutLabel('browse-hosts')} onClick={onBrowseHosts} />
+          <ActionButton icon={FileText} label="SFTP" shortcut={getShortcutLabel('browse-files')} onClick={onBrowseFiles} />
+          <ActionButton icon={Sparkles} label="Snippets" shortcut={getShortcutLabel('snippets')} onClick={onSnippets} />
           <ActionButton icon={Key} label="SSH Keys" onClick={onKeys} />
+          <ConnectionHealthButton tab={activeTab} />
 
           <div className="h-5 w-px bg-zinc-800/80 mx-1" />
 
-          <ActionButton icon={Search} label="Command Palette" shortcut="⌘K" onClick={onCommandPalette} />
-          <ActionButton icon={Bot} label="AI Agent" shortcut="⌘⇧A" onClick={onAiAgent} />
-          <ActionButton icon={Settings} label="Settings" shortcut="⌘," onClick={onSettings} />
+          <ActionButton icon={Search} label="Command Palette" shortcut={getShortcutLabel('command-palette')} onClick={onCommandPalette} />
+          <ActionButton icon={Bot} label="AI Agent" shortcut={getShortcutLabel('ai-agent')} onClick={onAiAgent} />
+          <ActionButton icon={Settings} label="Settings" shortcut={getShortcutLabel('settings')} onClick={onSettings} />
 
           {workspaces.length > 0 && (
             <>
@@ -217,6 +232,91 @@ export function FloatingTabBar({
   );
 }
 
+const keepaliveStateTone: Record<ReturnType<typeof deriveKeepaliveState>, { text: string; dot: string }> = {
+  healthy: { text: 'Healthy', dot: 'bg-emerald-400' },
+  degraded: { text: 'Degraded', dot: 'bg-amber-400' },
+  failed: { text: 'Failed', dot: 'bg-red-400' },
+  unknown: { text: 'Unknown', dot: 'bg-zinc-500' },
+};
+
+function ConnectionHealthButton({ tab }: { tab?: Tab }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!tab?.sessionId) return null;
+
+  const keepalive = deriveKeepaliveState({
+    status: tab.status,
+    disconnectReason: tab.disconnectReason,
+    lastActivityAt: tab.lastActivityAt,
+    now,
+  });
+  const keepaliveTone = keepaliveStateTone[keepalive];
+  const reconnectAttempts = tab.reconnectAttempts ?? 0;
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={(popoverProps) => (
+          <Button
+            {...popoverProps}
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'h-7 w-7 px-0',
+              tab.status === 'connected' && keepalive === 'healthy' && 'text-zinc-500 hover:text-emerald-300',
+              tab.status !== 'connected' && 'text-zinc-500 hover:text-zinc-200',
+            )}
+            aria-label="Connection health"
+            title="Connection health"
+          >
+            <HeartPulse className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      />
+      <PopoverContent align="end" className="w-72 p-3 border-zinc-800 bg-zinc-950 text-zinc-100">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Session health</div>
+            <div className="text-[10px] text-zinc-500 font-mono">{tab.sessionId.slice(0, 8)}</div>
+          </div>
+
+          <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-xs">
+            <span className="text-zinc-500">Status</span>
+            <span className="capitalize">{tab.status}</span>
+
+            <span className="text-zinc-500">Connect latency</span>
+            <span className="font-mono">{formatLatency(tab.connectLatencyMs)}</span>
+
+            <span className="text-zinc-500">Last activity</span>
+            <span className="font-mono">{formatAge(tab.lastActivityAt, now)}</span>
+
+            <span className="text-zinc-500">Reconnects</span>
+            <span className="font-mono">{reconnectAttempts}</span>
+
+            <span className="text-zinc-500">Keepalive</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className={cn('h-1.5 w-1.5 rounded-full', keepaliveTone.dot)} />
+              <span>{keepaliveTone.text}</span>
+            </span>
+          </div>
+
+          {tab.disconnectReason && (
+            <div className="rounded-md border border-zinc-800 bg-zinc-900/70 px-2 py-1.5">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Last disconnect reason</div>
+              <p className="text-[11px] text-zinc-300 leading-snug break-words">{tab.disconnectReason}</p>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Individual Tab ─────────────────────────────────────────────────────────────
 
 interface TabProps {
@@ -264,7 +364,10 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
 
             {/* Recording indicator */}
             {tab.isRecording && (
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+              <span className="flex items-center gap-1 shrink-0">
+                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[9px] font-bold text-red-500 tracking-wider">REC</span>
+              </span>
             )}
 
             {/* Label */}
@@ -298,7 +401,7 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onOpenSftp} className="gap-2 text-xs">
           <FolderOpen className="h-3.5 w-3.5" />
           Open SFTP
-          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('open-sftp')?.key.replace('mod', '⌘')}</span>
+          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('open-sftp')}</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -320,12 +423,12 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onSplitHorizontal} className="gap-2 text-xs">
           <SplitSquareHorizontal className="h-3.5 w-3.5" />
           Split Horizontal
-          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('split-horizontal')?.key.replace('mod', '⌘')}</span>
+          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('split-horizontal')}</span>
         </ContextMenuItem>
         <ContextMenuItem onClick={onSplitVertical} className="gap-2 text-xs">
           <SplitSquareVertical className="h-3.5 w-3.5" />
           Split Vertical
-          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('split-vertical')?.key.replace('mod', '⌘')}</span>
+          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('split-vertical')}</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -340,7 +443,7 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onClose} className="gap-2 text-xs text-red-400 focus:text-red-400">
           <X className="h-3.5 w-3.5" />
           Close Tab
-          <span className="ml-auto text-[10px] text-zinc-500">{getHotkey('close-tab')?.key.replace('mod', '⌘')}</span>
+          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('close-tab')}</span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

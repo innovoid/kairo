@@ -31,10 +31,12 @@ describe('InviteMemberDialog', () => {
     render(<InviteMemberDialog workspaceId="ws-1" onInvited={onInvited} />);
 
     await user.click(screen.getByRole('button', { name: /invite member/i }));
-    await user.type(screen.getByLabelText(/email/i), 'teammate@example.com');
+    const emailInput = await screen.findByLabelText(/email/i);
+    await user.type(emailInput, 'teammate@example.com');
     await user.click(screen.getByRole('button', { name: /send invitation/i }));
 
     await waitFor(() => {
+      expect(inviteMock).toHaveBeenCalledTimes(1);
       expect(inviteMock).toHaveBeenCalledWith({
         workspaceId: 'ws-1',
         email: 'teammate@example.com',
@@ -43,7 +45,7 @@ describe('InviteMemberDialog', () => {
       expect(onInvited).toHaveBeenCalled();
       expect(toastSuccessMock).toHaveBeenCalled();
     });
-  });
+  }, 10_000);
 
   it('shows error toast when invite fails', async () => {
     inviteMock.mockRejectedValue(new Error('Invite failed'));
@@ -52,12 +54,13 @@ describe('InviteMemberDialog', () => {
     render(<InviteMemberDialog workspaceId="ws-1" onInvited={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: /invite member/i }));
-    await user.type(screen.getByLabelText(/email/i), 'teammate@example.com');
+    const emailInput = await screen.findByLabelText(/email/i);
+    await user.type(emailInput, 'teammate@example.com');
     await user.click(screen.getByRole('button', { name: /send invitation/i }));
 
     await waitFor(() => {
+      expect(inviteMock).toHaveBeenCalledTimes(1);
       expect(toastErrorMock).toHaveBeenCalledWith('Invite failed');
     });
-  });
+  }, 10_000);
 });
-

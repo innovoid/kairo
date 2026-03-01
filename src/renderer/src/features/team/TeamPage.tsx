@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 interface TeamPageProps {
   workspaceId: string;
@@ -27,6 +28,8 @@ interface TeamPageProps {
 export function TeamPage({ workspaceId }: TeamPageProps) {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadMembers();
@@ -35,23 +38,46 @@ export function TeamPage({ workspaceId }: TeamPageProps) {
 
   async function loadMembers() {
     setLoading(true);
+    setError(null);
     try {
       const data = await window.workspaceApi.members.list(workspaceId);
       setMembers(data);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load members';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }
 
   async function handleRoleChange(userId: string, role: WorkspaceRole) {
-    await window.workspaceApi.members.updateRole({ workspaceId, userId, role });
-    await loadMembers();
+    setPendingUserId(userId);
+    try {
+      await window.workspaceApi.members.updateRole({ workspaceId, userId, role });
+      await loadMembers();
+      toast.success('Member role updated');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to update member role';
+      toast.error(message);
+    } finally {
+      setPendingUserId(null);
+    }
   }
 
   async function handleRemove(userId: string) {
     if (!window.confirm('Remove this member from the workspace?')) return;
-    await window.workspaceApi.members.remove(workspaceId, userId);
-    await loadMembers();
+    setPendingUserId(userId);
+    try {
+      await window.workspaceApi.members.remove(workspaceId, userId);
+      await loadMembers();
+      toast.success('Member removed');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to remove member';
+      toast.error(message);
+    } finally {
+      setPendingUserId(null);
+    }
   }
 
   function getRoleBadgeColor(role: WorkspaceRole) {
@@ -78,6 +104,13 @@ export function TeamPage({ workspaceId }: TeamPageProps) {
         {loading ? (
           <div className="text-center py-20">
             <p className="text-sm text-muted-foreground">Loading members...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20 space-y-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button variant="outline" size="sm" onClick={() => void loadMembers()}>
+              Retry
+            </Button>
           </div>
         ) : members.length === 0 ? (
           <div className="text-center py-20">
@@ -123,6 +156,7 @@ export function TeamPage({ workspaceId }: TeamPageProps) {
                         <Select
                           value={member.role}
                           onValueChange={(role) => handleRoleChange(member.userId, role as WorkspaceRole)}
+                          disabled={pendingUserId === member.userId}
                         >
                           <SelectTrigger className="w-28 h-8">
                             <SelectValue>
@@ -146,6 +180,7 @@ export function TeamPage({ workspaceId }: TeamPageProps) {
                           size="sm"
                           onClick={() => handleRemove(member.userId)}
                           className="text-destructive hover:text-destructive"
+                          disabled={pendingUserId === member.userId}
                         >
                           Remove
                         </Button>

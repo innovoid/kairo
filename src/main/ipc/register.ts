@@ -184,6 +184,10 @@ export function registerWorkspaceIpcHandlers(): void {
   register('ssh.disconnect', sshIpcHandlers.disconnect);
   register('ssh.send', sshIpcHandlers.send);
   register('ssh.resize', sshIpcHandlers.resize);
+  register('ssh.listKnownHosts', sshIpcHandlers.listKnownHosts);
+  register('ssh.removeKnownHost', sshIpcHandlers.removeKnownHost);
+  register('ssh.listHostKeyEvents', sshIpcHandlers.listHostKeyEvents);
+  register('ssh.clearHostKeyEvents', sshIpcHandlers.clearHostKeyEvents);
 
   // SFTP
   register('sftp.list', sftpIpcHandlers.list);

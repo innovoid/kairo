@@ -28,6 +28,11 @@ export interface Tab {
   disconnectedAt?: number;            // Date.now() timestamp
   reconnectConfig?: SessionConnectConfig; // original connect config for reconnect
   reconnectAttempts?: number;         // how many auto-reconnect attempts made
+  // Lightweight session health telemetry
+  connectStartedAt?: number;
+  connectedAt?: number;
+  connectLatencyMs?: number;
+  lastActivityAt?: number;
 }
 
 interface SessionState {
@@ -37,6 +42,7 @@ interface SessionState {
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string | null) => void;
   updateTabStatus: (tabId: string, status: SshSessionStatus) => void;
+  touchTabActivity: (tabId: string, at?: number) => void;
   updateTabDisconnect: (tabId: string, reason: string, reconnectConfig?: SessionConnectConfig) => void;
   clearTabDisconnect: (tabId: string) => void;
   updateSettingsTab: (activeSettingsTab: SettingsTab) => void;
@@ -73,7 +79,21 @@ export const useSessionStore = create<SessionState>((set) => ({
       }
 
       // Add the new tab (static or dynamic)
-      newTabs.set(tab.tabId, { ...tab, closable });
+      const now = Date.now();
+      const nextTab: Tab = {
+        ...tab,
+        closable,
+        ...(tab.status === 'connecting'
+          ? {
+              connectStartedAt: tab.connectStartedAt ?? now,
+              connectedAt: undefined,
+              connectLatencyMs: undefined,
+              lastActivityAt: undefined,
+            }
+          : {}),
+      };
+
+      newTabs.set(tab.tabId, nextTab);
       return { tabs: newTabs, activeTabId: tab.tabId };
     });
   },
@@ -121,8 +141,40 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => {
       const tab = state.tabs.get(tabId);
       if (!tab) return state;
+
+      const now = Date.now();
+      const nextTab: Tab = { ...tab, status };
+
+      if (status === 'connecting') {
+        nextTab.connectStartedAt = now;
+        nextTab.connectedAt = undefined;
+        nextTab.connectLatencyMs = undefined;
+        nextTab.lastActivityAt = undefined;
+      }
+
+      if (status === 'connected') {
+        const connectedAt = now;
+        const connectStartedAt = tab.connectStartedAt ?? connectedAt;
+        nextTab.connectStartedAt = connectStartedAt;
+        nextTab.connectedAt = tab.connectedAt ?? connectedAt;
+        nextTab.connectLatencyMs = tab.connectLatencyMs ?? Math.max(0, connectedAt - connectStartedAt);
+        nextTab.lastActivityAt = tab.lastActivityAt ?? connectedAt;
+        nextTab.disconnectReason = undefined;
+        nextTab.disconnectedAt = undefined;
+      }
+
       const newTabs = new Map(state.tabs);
-      newTabs.set(tabId, { ...tab, status });
+      newTabs.set(tabId, nextTab);
+      return { tabs: newTabs };
+    });
+  },
+
+  touchTabActivity: (tabId, at) => {
+    set((state) => {
+      const tab = state.tabs.get(tabId);
+      if (!tab) return state;
+      const newTabs = new Map(state.tabs);
+      newTabs.set(tabId, { ...tab, lastActivityAt: at ?? Date.now() });
       return { tabs: newTabs };
     });
   },

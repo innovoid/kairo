@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
 import { Download, Sparkles, X, RotateCcw, Clock, Zap, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { UpdateState, UpdateActions } from './useAutoUpdater';
+import { sanitizeReleaseNotesHtml } from './release-notes';
 
 // ─── Download Progress Banner ──────────────────────────────────────────────────
 
@@ -97,32 +100,28 @@ interface UpdateReadyModalProps {
  */
 export function UpdateReadyModal({ state, actions }: UpdateReadyModalProps) {
   const visible = state.phase === 'ready' && !state.dismissed;
-
-  if (!visible) return null;
+  const safeReleaseNotes = useMemo(
+    () => sanitizeReleaseNotesHtml(state.releaseNotes),
+    [state.releaseNotes]
+  );
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-        style={{ animation: 'fadeInBackdrop 0.3s ease both' }}
-        onClick={actions.dismiss}
-        aria-hidden="true"
-      />
-
-      {/* Card — slides up from bottom center */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-50 flex justify-center pb-8 px-4"
-        style={{ animation: 'slideUpModal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+    <Dialog open={visible} onOpenChange={(open) => { if (!open) actions.dismiss(); }}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          'z-50 p-0 top-auto bottom-8 -translate-y-0',
+          'w-[calc(100%-2rem)] max-w-md',
+          'rounded-2xl overflow-hidden',
+          'bg-[var(--surface-1)]/95 backdrop-blur-2xl',
+          'border border-[var(--border)]',
+          'shadow-[0_-4px_60px_-8px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
+        )}
       >
+        <DialogTitle className="sr-only">Update ready to install</DialogTitle>
         <div
-          className={cn(
-            'w-full max-w-md',
-            'rounded-2xl overflow-hidden',
-            'bg-[var(--surface-1)]/95 backdrop-blur-2xl',
-            'border border-[var(--border)]',
-            'shadow-[0_-4px_60px_-8px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
-          )}
+          className="relative"
+          style={{ animation: 'slideUpModal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both' }}
         >
           {/* Top accent bar */}
           <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-80" />
@@ -167,7 +166,7 @@ export function UpdateReadyModal({ state, actions }: UpdateReadyModalProps) {
             </div>
 
             {/* What's new section (if release notes available) */}
-            {state.releaseNotes && (
+            {safeReleaseNotes && (
               <div
                 className={cn(
                   'mb-5 p-3 rounded-xl',
@@ -181,7 +180,8 @@ export function UpdateReadyModal({ state, actions }: UpdateReadyModalProps) {
                 </p>
                 <div
                   className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: String(state.releaseNotes) }}
+                  // Content is sanitized with a strict allow-list before rendering.
+                  dangerouslySetInnerHTML={{ __html: safeReleaseNotes }}
                 />
               </div>
             )}
@@ -227,18 +227,14 @@ export function UpdateReadyModal({ state, actions }: UpdateReadyModalProps) {
             </div>
           </div>
         </div>
-      </div>
+      </DialogContent>
 
       <style>{`
-        @keyframes fadeInBackdrop {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
         @keyframes slideUpModal {
           from { opacity: 0; transform: translateY(40px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0)    scale(1);    }
         }
       `}</style>
-    </>
+    </Dialog>
   );
 }

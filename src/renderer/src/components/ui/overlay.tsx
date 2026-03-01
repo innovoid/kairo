@@ -2,6 +2,13 @@ import * as React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter as BaseDialogFooter,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface OverlayProps {
   open: boolean;
@@ -11,55 +18,25 @@ interface OverlayProps {
 }
 
 export function Overlay({ open, onOpenChange, children, className }: OverlayProps) {
-  // Handle ESC key
-  React.useEffect(() => {
-    if (!open) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onOpenChange(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [open, onOpenChange]);
-
-  if (!open) return null;
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
         className={cn(
-          'fixed inset-0',
-          'bg-black/60 backdrop-blur-sm',
-          'animate-in fade-in duration-300',
-          'cursor-pointer'
+          // Size constraints
+          'max-w-[min(1200px,calc(100vw-2rem))] max-h-[80vh] p-0',
+          // Glassmorphism styling
+          'bg-[var(--surface-2)]/95 backdrop-blur-xl rounded-2xl',
+          'border border-[var(--border)]/60',
+          'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8),0_0_0_1px_rgba(16,185,129,0.08)]',
+          className
         )}
-        onClick={() => onOpenChange(false)}
-        aria-hidden="true"
-      />
-
-      {/* Modal Container */}
-      <div className="fixed inset-0 flex items-center justify-center p-8 pointer-events-none">
+      >
         <div
-          className={cn(
-            // Size constraints
-            'w-full max-w-[1200px] max-h-[80vh]',
-            // Styling
-            'bg-[var(--surface-2)] rounded-2xl',
-            'border border-[var(--border)]',
-            'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8),0_0_0_1px_rgba(16,185,129,0.08)]',
-            // Animations
-            'animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500',
-            'pointer-events-auto',
-            className
-          )}
+          className="animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500"
           style={{
             animation: 'overlayEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           }}
-          onClick={(e) => e.stopPropagation()}
         >
           {/* Noise texture */}
           <div
@@ -74,23 +51,23 @@ export function Overlay({ open, onOpenChange, children, className }: OverlayProp
 
           <div className="relative">{children}</div>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes overlayEnter {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(16px);
-            filter: blur(8px);
+        <style>{`
+          @keyframes overlayEnter {
+            from {
+              opacity: 0;
+              transform: scale(0.95) translateY(16px);
+              filter: blur(8px);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1) translateY(0);
+              filter: blur(0);
+            }
           }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-            filter: blur(0);
-          }
-        }
-      `}</style>
-    </>
+        `}</style>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -115,23 +92,23 @@ export function OverlayHeader({
       )}
     >
       <div className="flex-1 space-y-1">
-        <h2
+        <DialogTitle
           className="text-xl font-semibold tracking-tight text-foreground"
           style={{
             animation: 'titleEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both',
           }}
         >
           {title}
-        </h2>
+        </DialogTitle>
         {description && (
-          <p
+          <DialogDescription
             className="text-sm text-text-secondary"
             style={{
               animation: 'titleEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both',
             }}
           >
             {description}
-          </p>
+          </DialogDescription>
         )}
       </div>
 
@@ -206,7 +183,7 @@ interface OverlayFooterProps {
 
 export function OverlayFooter({ children, className }: OverlayFooterProps) {
   return (
-    <div
+    <BaseDialogFooter
       className={cn(
         'flex items-center justify-end gap-3 p-6',
         'border-t border-[var(--border-subtle)]',
@@ -215,6 +192,6 @@ export function OverlayFooter({ children, className }: OverlayFooterProps) {
       )}
     >
       {children}
-    </div>
+    </BaseDialogFooter>
   );
 }

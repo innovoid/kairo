@@ -1,0 +1,16 @@
+{
+  "env": {
+    "CLAUDE_CODE_USE_BEDROCK": "1",
+    "ANTHROPIC_CUSTOM_HEADERS": "anthropic-beta: context-1m-2025-08-07"
+  },
+  "permissions": {
+
+    "allow": [
+      "Bash(bun run build)",
+      "Bash(bun test)",
+      "Bash(bun run type-check)",
+      "mcp__figma-remote-mcp__get_screenshot",
+      "mcp__figma-remote-mcp__get_design_context"
+    ]
+  }
+}

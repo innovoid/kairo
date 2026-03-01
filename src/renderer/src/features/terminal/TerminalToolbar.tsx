@@ -103,6 +103,12 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
         {tab.hostname} <span className="text-muted-foreground/50">—</span> {tab.label}
       </span>
       <div className="ml-auto flex items-center gap-0.5">
+        {recordingState && (
+          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 mr-1">
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-red-500 tracking-wider">REC</span>
+          </span>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -140,7 +146,7 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
             <PopoverTrigger
               render={
                 <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="Broadcast targets">
-                  <span className="text-blue-500">({targetSessionIds.length})</span>
+                  <span className="text-emerald-500">({targetSessionIds.length})</span>
                 </Button>
               }
             />

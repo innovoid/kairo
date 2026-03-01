@@ -19,18 +19,23 @@ import {
   Bot,
   User,
   Keyboard,
+  Shield,
   Eye,
   EyeOff,
   Check,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { AiProvider, CursorStyle, BellStyle, TerminalTheme } from '@shared/types/settings';
 import { TERMINAL_THEMES, TERMINAL_THEME_NAMES } from '@shared/themes/terminal-themes';
+import type { KnownHostEntry } from '@shared/types/known-hosts';
+import type { HostKeyEvent } from '@shared/types/host-key-events';
 import AccountSettingsTab from './AccountSettingsTab';
 import { ShortcutsSettingsTab } from './ShortcutsSettingsTab';
 
-export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'account' | 'shortcuts';
+export type SettingsTab = 'terminal' | 'appearance' | 'ai' | 'security' | 'account' | 'shortcuts';
 
 interface SettingsPageProps {
   activeTab: SettingsTab;
@@ -42,6 +47,7 @@ const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ElementType }[] =
   { id: 'terminal', label: 'Terminal', icon: Monitor },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'ai', label: 'AI', icon: Bot },
+  { id: 'security', label: 'Security', icon: Shield },
   { id: 'account', label: 'Account', icon: User },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
 ];
@@ -80,6 +86,7 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
         {activeTab === 'terminal' && <TerminalTab />}
         {activeTab === 'appearance' && <AppearanceTab />}
         {activeTab === 'ai' && <AiTab />}
+        {activeTab === 'security' && <SecurityTab />}
         {activeTab === 'account' && <AccountSettingsTab />}
         {activeTab === 'shortcuts' && <ShortcutsSettingsTab />}
       </div>
@@ -139,6 +146,22 @@ function TerminalTab() {
   const [copyOnSelect, setCopyOnSelect] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const parseIntegerInRange = (value: string, min: number, max: number): number | null => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      return null;
+    }
+    return parsed;
+  };
+
+  const parseNumberInRange = (value: string, min: number, max: number): number | null => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+      return null;
+    }
+    return parsed;
+  };
+
   useEffect(() => {
     if (settings) {
       setTerminalFont(settings.terminalFont);
@@ -155,16 +178,38 @@ function TerminalTab() {
 
   async function handleSave() {
     setSaving(true);
+
+    const parsedFontSize = parseIntegerInRange(terminalFontSize, 8, 32);
+    if (parsedFontSize === null) {
+      toast.error('Font size must be an integer between 8 and 32.');
+      setSaving(false);
+      return;
+    }
+
+    const parsedScrollback = parseIntegerInRange(scrollback, 100, 1_000_000);
+    if (parsedScrollback === null) {
+      toast.error('Scrollback must be an integer between 100 and 1,000,000.');
+      setSaving(false);
+      return;
+    }
+
+    const parsedLineHeight = parseNumberInRange(lineHeight, 1, 2);
+    if (parsedLineHeight === null) {
+      toast.error('Line height must be between 1.0 and 2.0.');
+      setSaving(false);
+      return;
+    }
+
     try {
       await updateSettings({
         terminalFont,
-        terminalFontSize: parseInt(terminalFontSize),
+        terminalFontSize: parsedFontSize,
         terminalTheme,
         promptStyle,
-        scrollbackLines: parseInt(scrollback),
+        scrollbackLines: parsedScrollback,
         cursorStyle,
         bellStyle,
-        lineHeight: parseFloat(lineHeight),
+        lineHeight: parsedLineHeight,
         copyOnSelect,
       });
       toast.success('Terminal settings saved');
@@ -433,6 +478,229 @@ function AppearanceTab() {
       <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
         {saving ? 'Saving…' : 'Save changes'}
       </Button>
+    </div>
+  );
+}
+
+// ─── Security Tab ─────────────────────────────────────────────────────────────
+
+function SecurityTab() {
+  const [entries, setEntries] = useState<KnownHostEntry[]>([]);
+  const [events, setEvents] = useState<HostKeyEvent[]>([]);
+  const [loadingEntries, setLoadingEntries] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [reviewingEventId, setReviewingEventId] = useState<string | null>(null);
+  const [clearingEvents, setClearingEvents] = useState(false);
+
+  async function loadEntries() {
+    setLoadingEntries(true);
+    try {
+      const result = await window.sshApi.listKnownHosts();
+      setEntries(result);
+    } catch {
+      toast.error('Failed to load trusted host keys');
+    } finally {
+      setLoadingEntries(false);
+    }
+  }
+
+  async function loadEvents() {
+    setLoadingEvents(true);
+    try {
+      const result = await window.sshApi.listHostKeyEvents(100);
+      setEvents(result);
+    } catch {
+      toast.error('Failed to load host key events');
+    } finally {
+      setLoadingEvents(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadEntries();
+    void loadEvents();
+  }, []);
+
+  async function handleRemove(entry: KnownHostEntry) {
+    setRemovingId(entry.id);
+    try {
+      const removed = await window.sshApi.removeKnownHost(entry.id);
+      if (!removed) {
+        toast.error('Host key entry was not found');
+        return;
+      }
+      setEntries((prev) => prev.filter((item) => item.id !== entry.id));
+      toast.success(`Removed trust for ${entry.displayHost}`);
+    } catch {
+      toast.error('Failed to remove trusted host key');
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  async function handleReviewMismatch(event: HostKeyEvent) {
+    setReviewingEventId(event.id);
+    try {
+      const knownHosts = await window.sshApi.listKnownHosts();
+      const matching = knownHosts.filter((entry) => (
+        event.hostCandidates.includes(entry.hostPattern)
+        || event.hostCandidates.includes(entry.displayHost)
+      ));
+
+      if (matching.length === 0) {
+        toast.info('No matching trusted host entries were found to revoke');
+        return;
+      }
+
+      const results = await Promise.all(
+        matching.map(async (entry) => ({ entry, removed: await window.sshApi.removeKnownHost(entry.id) }))
+      );
+      const removedCount = results.filter((result) => result.removed).length;
+      if (removedCount > 0) {
+        toast.success(`Revoked ${removedCount} trusted host entr${removedCount === 1 ? 'y' : 'ies'} for ${event.displayHost}`);
+      } else {
+        toast.info('No trusted host entries were removed');
+      }
+      await loadEntries();
+    } catch {
+      toast.error('Failed to revoke trusted host entries');
+    } finally {
+      setReviewingEventId(null);
+    }
+  }
+
+  async function handleClearEventHistory() {
+    setClearingEvents(true);
+    try {
+      await window.sshApi.clearHostKeyEvents();
+      setEvents([]);
+      toast.success('Host key event history cleared');
+    } catch {
+      toast.error('Failed to clear host key event history');
+    } finally {
+      setClearingEvents(false);
+    }
+  }
+
+  const mismatchEvents = events.filter((event) => event.type === 'mismatch_blocked');
+
+  return (
+    <div className="max-w-4xl space-y-6">
+      <SectionHeader
+        title="Changed-Key Review"
+        description="Review host key changes blocked by verification and revoke trust entries before reconnecting."
+      />
+
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)]/40 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-[var(--text-secondary)]">
+            Host key verification events (latest 100)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => void loadEvents()} disabled={loadingEvents}>
+              <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', loadingEvents && 'animate-spin')} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void handleClearEventHistory()} disabled={clearingEvents || loadingEvents}>
+              Clear History
+            </Button>
+          </div>
+        </div>
+
+        {loadingEvents ? (
+          <p className="text-sm text-[var(--text-secondary)]">Loading host key events…</p>
+        ) : mismatchEvents.length === 0 ? (
+          <p className="text-sm text-[var(--text-secondary)]">No changed-key alerts recorded.</p>
+        ) : (
+          <div className="space-y-2">
+            {mismatchEvents.map((event) => (
+              <div key={event.id} className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{event.displayHost}</p>
+                    <p className="text-[11px] text-[var(--text-secondary)]">
+                      {new Date(event.timestamp).toLocaleString()} · {event.keyType}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleReviewMismatch(event)}
+                    disabled={reviewingEventId === event.id}
+                  >
+                    Revoke Matching Trust
+                  </Button>
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] font-mono text-[var(--text-secondary)]">
+                  <p>Presented: {event.presentedFingerprint}</p>
+                  {event.knownFingerprints.length > 0 && (
+                    <p>Known: {event.knownFingerprints.join(', ')}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <SectionHeader
+        title="Host Key Trust"
+        description="Review and revoke trusted SSH host fingerprints stored in your local known_hosts file."
+      />
+
+      <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-1)]/40 px-4 py-3">
+        <div className="text-xs text-[var(--text-secondary)]">
+          Entries loaded from <span className="font-mono text-foreground">~/.ssh/known_hosts</span>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void loadEntries()} disabled={loadingEntries}>
+          <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', loadingEntries && 'animate-spin')} />
+          Refresh
+        </Button>
+      </div>
+
+      {loadingEntries ? (
+        <div className="text-sm text-[var(--text-secondary)]">Loading trusted host keys…</div>
+      ) : entries.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center">
+          <p className="text-sm text-[var(--text-secondary)]">No trusted host key entries found.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-[var(--border)]">
+          <div className="grid grid-cols-[1.2fr_120px_1.6fr_120px] gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span>Host</span>
+            <span>Type</span>
+            <span>Fingerprint</span>
+            <span className="text-right">Actions</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {entries.map((entry) => (
+              <div key={entry.id} className="grid grid-cols-[1.2fr_120px_1.6fr_120px] gap-3 px-4 py-2.5 items-center text-xs">
+                <div className="min-w-0">
+                  <span className="font-mono text-foreground truncate block">{entry.displayHost}</span>
+                  {entry.hashed && (
+                    <span className="text-[10px] text-[var(--text-secondary)]">Hashed host pattern</span>
+                  )}
+                </div>
+                <span className="font-mono text-[var(--text-secondary)]">{entry.keyType}</span>
+                <span className="font-mono text-[11px] text-[var(--text-secondary)] truncate">{entry.fingerprint}</span>
+                <div className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    onClick={() => void handleRemove(entry)}
+                    disabled={removingId === entry.id}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Revoke
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

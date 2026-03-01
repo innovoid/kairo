@@ -35,7 +35,7 @@ describe('LoginPage', () => {
 
     await user.type(screen.getByLabelText('Email'), '  user@example.com  ');
     await user.type(screen.getByLabelText('Password'), 'password123!');
-    await user.click(screen.getByRole('button', { name: 'Enter ArchTerm' }));
+    await user.click(screen.getByRole('button', { name: 'Continue to ArchTerm' }));
 
     await waitFor(() => {
       expect(authMocks.signInWithPassword).toHaveBeenCalledWith({
@@ -50,10 +50,10 @@ describe('LoginPage', () => {
     render(<LoginPage />);
 
     await user.click(screen.getByRole('button', { name: 'Sign Up' }));
-    await user.type(screen.getByLabelText('Operator Name'), 'Alice');
+    await user.type(screen.getByLabelText('Name'), 'Alice');
     await user.type(screen.getByLabelText('Email'), 'alice@example.com');
     await user.type(screen.getByLabelText('Password'), 'short');
-    await user.click(screen.getByRole('button', { name: 'Create account' }));
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     expect(authMocks.signUp).not.toHaveBeenCalled();
     expect(
@@ -66,10 +66,10 @@ describe('LoginPage', () => {
     render(<LoginPage />);
 
     await user.click(screen.getByRole('button', { name: 'Sign Up' }));
-    await user.type(screen.getByLabelText('Operator Name'), '  Alice Admin  ');
+    await user.type(screen.getByLabelText('Name'), '  Alice Admin  ');
     await user.type(screen.getByLabelText('Email'), '  alice@example.com  ');
     await user.type(screen.getByLabelText('Password'), 'StrongPassword#123');
-    await user.click(screen.getByRole('button', { name: 'Create account' }));
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
       expect(authMocks.signUp).toHaveBeenCalledWith({

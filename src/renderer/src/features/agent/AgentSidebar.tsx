@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSessionStore } from '@/stores/session-store';
 import { cn } from '@/lib/utils';
+import { formatShortcut } from '@/lib/shortcut-format';
 import type { AgentStep } from '@shared/types/agent';
 
 interface AgentSidebarProps {
@@ -63,6 +64,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
   const [playbooksLoading, setPlaybooksLoading] = useState(false);
   const [view, setView] = useState<'run' | 'playbooks'>('run');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const runShortcut = formatShortcut('mod+enter');
 
   const initListeners = useAgentStore((s) => s.initListeners);
   const startRun = useAgentStore((s) => s.startRun);
@@ -273,7 +275,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                 )}
               />
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-600 font-mono">⌘↵ to run</span>
+                <span className="text-[10px] text-zinc-600 font-mono">{runShortcut} to run</span>
                 <Button
                   onClick={() => void handleStartRun()}
                   disabled={loading || !activeTerminalTab || !task.trim()}
@@ -334,7 +336,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                               <p className="text-xs font-medium text-zinc-200 flex-1 min-w-0 truncate">
                                 {step.title}
                               </p>
-                              <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-mono shrink-0', riskBadge(step.risk))}>
+                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded border font-mono shrink-0', riskBadge(step.risk))}>
                                 {step.risk}
                               </span>
                             </div>

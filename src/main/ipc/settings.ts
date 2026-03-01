@@ -9,6 +9,22 @@ function getClient(event: IpcMainInvokeEvent): SupabaseClient {
   return client;
 }
 
+const TERMINAL_FONT_SIZE_RANGE = { min: 8, max: 32 };
+const SCROLLBACK_RANGE = { min: 100, max: 1_000_000 };
+const LINE_HEIGHT_RANGE = { min: 1, max: 2 };
+
+function assertIntegerInRange(label: string, value: number, min: number, max: number): void {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${label} must be an integer between ${min} and ${max}`);
+  }
+}
+
+function assertNumberInRange(label: string, value: number, min: number, max: number): void {
+  if (!Number.isFinite(value) || value < min || value > max) {
+    throw new Error(`${label} must be between ${min} and ${max}`);
+  }
+}
+
 const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'userId' | 'updatedAt'> = {
   theme: 'dark',
   terminalFont: 'JetBrains Mono',
@@ -77,6 +93,16 @@ export const settingsIpcHandlers = {
     const supabase = getClient(event);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
+
+    if (input.terminalFontSize !== undefined) {
+      assertIntegerInRange('terminalFontSize', input.terminalFontSize, TERMINAL_FONT_SIZE_RANGE.min, TERMINAL_FONT_SIZE_RANGE.max);
+    }
+    if (input.scrollbackLines !== undefined) {
+      assertIntegerInRange('scrollbackLines', input.scrollbackLines, SCROLLBACK_RANGE.min, SCROLLBACK_RANGE.max);
+    }
+    if (input.lineHeight !== undefined) {
+      assertNumberInRange('lineHeight', input.lineHeight, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max);
+    }
 
     const updates: Record<string, unknown> = {};
     if (input.theme !== undefined) updates.theme = input.theme;

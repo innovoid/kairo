@@ -42,6 +42,11 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function getFilenameFromPath(filePath: string): string {
+  const parts = filePath.split(/[\\/]/);
+  return parts[parts.length - 1] || 'file';
+}
+
 type DialogState = {
   type: 'mkdir' | 'rename' | 'delete' | null;
   entry?: SftpEntry;
@@ -54,6 +59,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [contextEntry, setContextEntry] = useState<SftpEntry | null>(null);
   const [dialogState, setDialogState] = useState<DialogState>({ type: null, value: '' });
   const { addTransfer } = useTransferStore();
 
@@ -68,6 +74,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
   async function loadDirectory(path: string) {
     setLoading(true);
     setError(null);
+    setContextEntry(null);
     try {
       const list = await window.sftpApi.list(sessionId, path);
       setEntries(list);
@@ -142,7 +149,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
     if (!files || files.length === 0) return;
 
     for (const localPath of files) {
-      const filename = localPath.split('/').pop()!;
+      const filename = getFilenameFromPath(localPath);
       const remotePath = `${currentPath}/${filename}`.replace('//', '/');
 
       const transferId = crypto.randomUUID();
@@ -315,78 +322,95 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
         ) : loading ? (
           <div className="p-4 text-sm text-muted-foreground">Loading...</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                <TableHead>Name</TableHead>
-                <TableHead className="w-24 text-right">Size</TableHead>
-                <TableHead className="w-32">Modified</TableHead>
-                <TableHead className="w-16">Perms</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry) => (
-                <ContextMenu key={entry.path}>
-                  <ContextMenuTrigger>
-                    <TableRow
-                      className={cn(
-                        'cursor-pointer text-xs',
-                        entry.type === 'directory' && 'hover:bg-accent/40'
+          <ContextMenu>
+            <ContextMenuTrigger
+              render={
+                <div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8" />
+                        <TableHead>Name</TableHead>
+                        <TableHead className="w-24 text-right">Size</TableHead>
+                        <TableHead className="w-32">Modified</TableHead>
+                        <TableHead className="w-16">Perms</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {entries.map((entry) => (
+                        <TableRow
+                          key={entry.path}
+                          className={cn(
+                            'cursor-pointer text-xs',
+                            entry.type === 'directory' && 'hover:bg-accent/40'
+                          )}
+                          onContextMenu={() => setContextEntry(entry)}
+                          onDoubleClick={() => {
+                            if (entry.type === 'directory') {
+                              navigate(entry);
+                            } else {
+                              void handleDownload(entry);
+                            }
+                          }}
+                        >
+                          <TableCell className="py-1">
+                            {entry.type === 'directory' ? (
+                              <FolderOpen className="h-3.5 w-3.5 text-emerald-500" />
+                            ) : (
+                              <File className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                          <TableCell className="py-1 font-mono">{entry.name}</TableCell>
+                          <TableCell className="py-1 text-right text-muted-foreground">
+                            {entry.type !== 'directory' ? formatSize(entry.size) : '—'}
+                          </TableCell>
+                          <TableCell className="py-1 text-muted-foreground">
+                            {new Date(entry.modifiedAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="py-1 font-mono text-muted-foreground">{entry.permissions}</TableCell>
+                        </TableRow>
+                      ))}
+                      {entries.length === 0 && !loading && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-12">
+                            <div className="flex flex-col items-center gap-2">
+                              <FolderOpen className="h-8 w-8 text-zinc-700" />
+                              <p className="text-xs text-zinc-500">This directory is empty</p>
+                              <p className="text-[10px] text-zinc-600">Drop files here or click Upload to add files</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       )}
-                      onDoubleClick={() => {
-                        if (entry.type === 'directory') {
-                          navigate(entry);
-                        } else {
-                          handleDownload(entry);
-                        }
-                      }}
-                    >
-                      <TableCell className="py-1">
-                        {entry.type === 'directory' ? (
-                          <FolderOpen className="h-3.5 w-3.5 text-emerald-500" />
-                        ) : (
-                          <File className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                      </TableCell>
-                      <TableCell className="py-1 font-mono">{entry.name}</TableCell>
-                      <TableCell className="py-1 text-right text-muted-foreground">
-                        {entry.type !== 'directory' ? formatSize(entry.size) : '—'}
-                      </TableCell>
-                      <TableCell className="py-1 text-muted-foreground">
-                        {new Date(entry.modifiedAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="py-1 font-mono text-muted-foreground">{entry.permissions}</TableCell>
-                    </TableRow>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    {entry.type !== 'directory' && (
-                      <ContextMenuItem onClick={() => handleDownload(entry)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </ContextMenuItem>
-                    )}
-                    <ContextMenuItem onClick={() => openRenameDialog(entry)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Rename
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onClick={() => openDeleteDialog(entry)} className="text-red-500 focus:text-red-500">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
-              {entries.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground text-xs py-8">
-                    Empty directory
-                  </TableCell>
-                </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              }
+            />
+            <ContextMenuContent>
+              {contextEntry?.type !== 'directory' && (
+                <ContextMenuItem onClick={() => contextEntry && void handleDownload(contextEntry)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </ContextMenuItem>
               )}
-            </TableBody>
-          </Table>
+              <ContextMenuItem
+                disabled={!contextEntry}
+                onClick={() => contextEntry && openRenameDialog(contextEntry)}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Rename
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                disabled={!contextEntry}
+                onClick={() => contextEntry && openDeleteDialog(contextEntry)}
+                className="text-red-500 focus:text-red-500"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         )}
       </div>
 

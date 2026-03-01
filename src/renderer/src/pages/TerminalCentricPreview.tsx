@@ -18,9 +18,12 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { formatShortcut } from '@/lib/shortcut-format';
 
 export function TerminalCentricPreview() {
   const [showInfo, setShowInfo] = useState(true);
+  const commandPaletteShortcut = formatShortcut('mod+k');
+  const browseHostsShortcut = formatShortcut('mod+h');
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
@@ -43,11 +46,11 @@ export function TerminalCentricPreview() {
                 </p>
                 <div className="flex flex-wrap gap-2 text-[10px] font-mono text-text-tertiary">
                   <kbd className="px-2 py-1 bg-[var(--surface-2)] rounded border border-[var(--border)]">
-                    Cmd+K
+                    {commandPaletteShortcut}
                   </kbd>
                   <span>Command palette</span>
                   <kbd className="px-2 py-1 bg-[var(--surface-2)] rounded border border-[var(--border)]">
-                    Cmd+H
+                    {browseHostsShortcut}
                   </kbd>
                   <span>Browse hosts</span>
                   <kbd className="px-2 py-1 bg-[var(--surface-2)] rounded border border-[var(--border)]">

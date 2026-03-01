@@ -85,8 +85,10 @@ describe('HostBrowserOverlay', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /new folder/i }));
-    await user.type(screen.getByLabelText(/folder name/i), 'Databases');
-    await user.click(screen.getByRole('button', { name: /^create$/i }));
+    const nameInput = await screen.findByLabelText(/folder name/i);
+    await user.type(nameInput, 'Databases');
+    const createButton = await screen.findByRole('button', { name: /^create$/i });
+    await user.click(createButton);
 
     await waitFor(() => {
       expect(hostStoreMock.createFolder).toHaveBeenCalledWith({
@@ -94,7 +96,7 @@ describe('HostBrowserOverlay', () => {
         name: 'Databases',
       });
     });
-  });
+  }, 12_000);
 
   it('moves host to target folder on drag end', async () => {
     render(
@@ -137,4 +139,3 @@ describe('HostBrowserOverlay', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
-

@@ -9,6 +9,47 @@ function getOrCreateMarkerSet(sessionId: string): Set<string> {
   return created;
 }
 
+function isWrapperArtifactLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+
+  // Wrapper emitted by session-command-executor for agent commands.
+  if (trimmed.includes('__archterm_status=$?')) return true;
+
+  // Fallback for wrapped one-liner command blocks.
+  return /^\{\s*.+\s*;\s*\}\s*;\s*$/.test(trimmed);
+}
+
+function isMarkerArtifactLine(line: string, markers: Set<string>): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+
+  for (const marker of markers) {
+    if (trimmed === marker || trimmed.startsWith(`${marker}:`)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isPotentialArtifactPartial(partial: string, markers: Set<string>): boolean {
+  const trimmed = partial.trimStart();
+  if (!trimmed) return false;
+
+  if (trimmed.startsWith('{')) return true;
+  if (trimmed.includes('__archterm_status')) return true;
+  if (trimmed.includes('__ARCHTERM_AGENT_EXIT_')) return true;
+
+  for (const marker of markers) {
+    if (marker.startsWith(trimmed)) return true;
+    if (`${marker}:`.startsWith(trimmed)) return true;
+    if (trimmed.startsWith(marker)) return true;
+  }
+
+  return false;
+}
+
 export function registerAgentMarker(sessionId: string, marker: string): void {
   getOrCreateMarkerSet(sessionId).add(marker);
 }
@@ -32,16 +73,34 @@ export function filterAgentArtifactsForRenderer(sessionId: string, chunk: string
   if (!chunk) return chunk;
 
   if (!markers || markers.size === 0) {
-    // No agent commands in flight — pass through normally.
-    // Discard any stale empty partial buffer left over from agent mode.
+    // No agent command in-flight: flush raw stream and clear any stale parser state.
     partialBySession.delete(sessionId);
     return chunk;
   }
 
-  // While any agent marker is active, suppress ALL output for this session.
-  // This hides both the echoed command text and the command output from the
-  // terminal so only the agent UI shows progress — not the raw PTY stream.
-  // The sessionEventBus still receives the unfiltered data for the agent to parse.
-  return '';
-}
+  const buffered = `${partialBySession.get(sessionId) ?? ''}${chunk}`.replace(/\r\n/g, '\n');
+  const segments = buffered.split('\n');
+  const hasTrailingNewline = buffered.endsWith('\n');
+  const completeLines = segments.slice(0, Math.max(segments.length - 1, 0));
+  const trailingPartial = hasTrailingNewline ? '' : segments[segments.length - 1] ?? '';
 
+  let output = '';
+  for (const line of completeLines) {
+    if (isWrapperArtifactLine(line)) continue;
+    if (isMarkerArtifactLine(line, markers)) continue;
+    output += `${line}\n`;
+  }
+
+  if (!trailingPartial) {
+    partialBySession.delete(sessionId);
+    return output;
+  }
+
+  if (isPotentialArtifactPartial(trailingPartial, markers)) {
+    partialBySession.set(sessionId, trailingPartial);
+    return output;
+  }
+
+  partialBySession.delete(sessionId);
+  return output + trailingPartial;
+}
