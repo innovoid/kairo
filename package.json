@@ -1,8 +1,16 @@
 {
   "name": "kairo",
+  "description": "",
   "private": true,
   "version": "0.1.0",
   "main": "out/main/index.js",
+  "author": {
+    "name": "InnoVoid",
+    "email": "hi@innovoid.dev",
+    "url": "https://innovoid.dev"
+  },
+  "productName": "Kairo",
+  "resources": "src/resources",
   "scripts": {
     "dev": "electron-vite dev",
     "dev:web": "vite",
@@ -20,7 +28,8 @@
     "postinstall": "electron-rebuild",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postuninstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.kairo.app",

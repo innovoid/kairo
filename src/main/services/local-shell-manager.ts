@@ -3,7 +3,6 @@ import type { WebContents } from 'electron';
 import { platform, userInfo } from 'os';
 import { existsSync } from 'fs';
 import { logger } from '../lib/logger';
-import { recordingManager } from './recording-manager';
 import { sessionEventBus } from './session-event-bus';
 import { clearAgentVisibilitySession, filterAgentArtifactsForRenderer } from './agent-command-visibility';
 
@@ -194,9 +193,6 @@ export const localShellManager = {
         }
       }
       sessionEventBus.emitData(sessionId, data);
-      if (recordingManager.isRecording(sessionId)) {
-        recordingManager.appendData(sessionId, data);
-      }
     });
 
     ptyProcess.onExit(({ exitCode }) => {

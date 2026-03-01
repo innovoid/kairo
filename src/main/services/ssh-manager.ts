@@ -5,7 +5,6 @@ import type { KnownHostEntry } from '../../shared/types/known-hosts';
 import type { HostKeyEvent } from '../../shared/types/host-key-events';
 import { privateKeyQueries } from '../db';
 import { keyManager } from './key-manager';
-import { recordingManager } from './recording-manager';
 import { sessionEventBus } from './session-event-bus';
 import { clearAgentVisibilitySession, filterAgentArtifactsForRenderer } from './agent-command-visibility';
 import { clearSftpCache } from './sftp-manager';
@@ -467,9 +466,6 @@ export const sshManager = {
             sender.send('ssh:data', sessionId, rendererData);
           }
           sessionEventBus.emitData(sessionId, dataStr);
-          if (recordingManager.isRecording(sessionId)) {
-            recordingManager.appendData(sessionId, dataStr);
-          }
         });
 
         stream.stderr.on('data', (data: Buffer) => {
@@ -480,9 +476,6 @@ export const sshManager = {
             sender.send('ssh:data', sessionId, rendererData);
           }
           sessionEventBus.emitData(sessionId, dataStr);
-          if (recordingManager.isRecording(sessionId)) {
-            recordingManager.appendData(sessionId, dataStr);
-          }
         });
 
         stream.on('close', () => {
