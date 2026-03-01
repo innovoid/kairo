@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { X } from 'lucide-react';
 import type { AiProvider } from '@shared/types/settings';
+import { toast } from 'sonner';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -54,10 +55,17 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   async function handleSave() {
     setSaving(true);
+    const parsedFontSize = Number(terminalFontSize);
+    if (!Number.isInteger(parsedFontSize) || parsedFontSize < 8 || parsedFontSize > 32) {
+      toast.error('Font size must be an integer between 8 and 32.');
+      setSaving(false);
+      return;
+    }
+
     try {
       await updateSettings({
         terminalFont,
-        terminalFontSize: parseInt(terminalFontSize),
+        terminalFontSize: parsedFontSize,
         theme,
         aiProvider,
       });

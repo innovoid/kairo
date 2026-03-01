@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2, KeyRound, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Workspace } from '@shared/types/workspace';
 
 interface KeysPageProps {
@@ -36,15 +37,21 @@ export function KeysPage({
     <div className="flex flex-1 h-full overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1">
-              <h1 className="text-lg font-semibold">SSH Keys</h1>
-              <p className="text-sm text-muted-foreground">Import and manage SSH keys for authentication</p>
+        <div className="py-6 px-8">
+          {/* Search and Add */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2 h-10 px-3 border border-[var(--border)] rounded-md bg-[var(--input)] w-[200px]">
+              <svg className="h-4 w-4 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search keys..."
+                className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-[var(--text-tertiary)]"
+              />
             </div>
-            <Button size="sm" onClick={onOpenImport}>
-              <Plus className="h-4 w-4 mr-1.5" />
+            <Button onClick={onOpenImport} className="h-10 px-5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white">
+              <Plus className="h-4 w-4 mr-2" />
               Import Key
             </Button>
           </div>
@@ -63,24 +70,36 @@ export function KeysPage({
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {keys.map((k) => (
-                <div key={k.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                  <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{k.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono truncate">{k.fingerprint}</p>
+                <div
+                  key={k.id}
+                  className={cn(
+                    'flex items-center justify-between px-5 py-4 border border-[var(--border)] bg-[var(--card)] rounded-lg',
+                    'transition-all duration-300 hover:bg-[var(--card-hover)] hover:-translate-y-0.5 hover:shadow-md'
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    <KeyRound className={cn(
+                      'h-5 w-5',
+                      k.keyType === 'rsa' ? 'text-[var(--primary)]' : 'text-[var(--text-tertiary)]'
+                    )} />
+                    <div className="flex flex-col gap-1">
+                      <h3 className="text-card-title">{k.name}</h3>
+                      <div className="flex items-center gap-4 text-tiny text-[var(--text-tertiary)]">
+                        <span className="font-mono uppercase">{k.keyType}</span>
+                        <span className="font-mono">{k.fingerprint}</span>
+                        <span>Added {new Date().toLocaleDateString()}</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground uppercase px-2 py-0.5 rounded bg-muted">
-                    {k.keyType}
-                  </span>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => handleDelete(k.id)}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    className="text-[var(--text-secondary)] hover:text-[var(--destructive)]"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ))}

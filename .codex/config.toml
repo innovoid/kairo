@@ -1,0 +1,4 @@
+[mcp_servers.tanstack]
+command = "npx"
+args = ["@tanstack/cli", "mcp"]
+

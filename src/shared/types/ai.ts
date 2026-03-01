@@ -5,6 +5,8 @@ export interface AiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
+  /** Set when the AI call failed — used to render the message in error style */
+  error?: string;
 }
 
 export interface AiStreamEvent {

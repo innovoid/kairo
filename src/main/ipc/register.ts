@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { isExpiredAccessToken } from './access-token';
 import { logger } from '../lib/logger';
 import { workspaceIpcHandlers } from './workspace';
 import { hostsIpcHandlers } from './hosts';
@@ -8,8 +9,10 @@ import { sshIpcHandlers } from './ssh';
 import { sftpIpcHandlers } from './sftp';
 import { keysIpcHandlers } from './keys';
 import { aiIpcHandlers } from './ai';
+import { agentIpcHandlers } from './agent';
 import { settingsIpcHandlers } from './settings';
 import { apiKeysIpcHandlers } from './api-keys';
+import { snippetsIpcHandlers } from './snippets';
 
 type IpcHandler<TArgs extends unknown[] = unknown[], TResult = unknown> = (
   event: IpcMainInvokeEvent,
@@ -51,6 +54,12 @@ function getSupabaseClientForSender(senderId: number): SupabaseClient {
     throw new Error('Not authenticated. Please sign in first.');
   }
 
+  if (isExpiredAccessToken(accessToken)) {
+    accessTokenBySenderId.delete(senderId);
+    supabaseByAccessToken.delete(accessToken);
+    throw new Error('Session expired. Please sign in again.');
+  }
+
   const cachedClient = supabaseByAccessToken.get(accessToken);
   if (cachedClient) {
     return cachedClient;
@@ -61,16 +70,33 @@ function getSupabaseClientForSender(senderId: number): SupabaseClient {
   return client;
 }
 
+// ── Sensitive field sanitizer ─────────────────────────────────────────────────
+// Strip known-sensitive keys from any plain-object in the args list before
+// they reach the debug logger.  We never strip from the actual handler args —
+// only from the copy used for logging.
+const SENSITIVE_KEYS = new Set(['password', 'passphrase', 'key', 'apiKey', 'accessToken', 'privateKey', 'secret']);
+
+function sanitizeForLog(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(sanitizeForLog);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = SENSITIVE_KEYS.has(k) ? '[REDACTED]' : sanitizeForLog(v);
+  }
+  return out;
+}
+
+function sanitizeArgs(args: unknown[]): unknown[] {
+  return args.map(sanitizeForLog);
+}
+
+// ── withSupabase middleware ───────────────────────────────────────────────────
 function withSupabase<TArgs extends unknown[], TResult>(handler: IpcHandler<TArgs, TResult>) {
   return async (event: IpcMainInvokeEvent, ...args: TArgs): Promise<TResult> => {
     try {
-      logger.debug('[withSupabase] Middleware called, sender:', event.sender.id, 'args:', args);
       const scopedEvent = event as IpcMainInvokeEvent & { supabase: SupabaseClient };
       scopedEvent.supabase = getSupabaseClientForSender(event.sender.id);
-      logger.debug('[withSupabase] Supabase client obtained, calling handler...');
-      const result = await handler(scopedEvent, ...args);
-      logger.debug('[withSupabase] Handler returned successfully');
-      return result;
+      return await handler(scopedEvent, ...args);
     } catch (error) {
       logger.error('[withSupabase] ERROR in middleware:', {
         error,
@@ -84,14 +110,22 @@ function withSupabase<TArgs extends unknown[], TResult>(handler: IpcHandler<TArg
   };
 }
 
-function register(channel: string, handler: (...args: any[]) => Promise<any>) {
-  logger.debug('[register] Registering IPC handler for channel:', channel);
+const HOT_CHANNELS = new Set(['ssh.send', 'ssh.resize', 'sftp.list']);
+
+function register(channel: string, handler: (...args: any[]) => Promise<any> | any) {
+  if (!HOT_CHANNELS.has(channel)) {
+    logger.debug('[register] Registering IPC handler for channel:', channel);
+  }
   ipcMain.removeHandler(channel);
   ipcMain.handle(channel, async (event, ...args) => {
-    logger.debug(`[IPC:${channel}] Handler invoked with args:`, args);
+    if (!HOT_CHANNELS.has(channel)) {
+      logger.debug(`[IPC:${channel}] Handler invoked with args:`, sanitizeArgs(args));
+    }
     try {
       const result = await handler(event, ...args);
-      logger.debug(`[IPC:${channel}] Handler completed successfully`);
+      if (!HOT_CHANNELS.has(channel)) {
+        logger.debug(`[IPC:${channel}] Handler completed successfully`);
+      }
       return result;
     } catch (error) {
       logger.error(`[IPC:${channel}] Handler error:`, {
@@ -113,6 +147,11 @@ export function registerWorkspaceIpcHandlers(): void {
         trackedSenderIds.delete(event.sender.id);
         accessTokenBySenderId.delete(event.sender.id);
       });
+    }
+
+    const existingToken = accessTokenBySenderId.get(event.sender.id);
+    if (existingToken && existingToken !== accessToken) {
+      supabaseByAccessToken.delete(existingToken);
     }
 
     if (accessToken && accessToken.length > 0) {
@@ -141,6 +180,7 @@ export function registerWorkspaceIpcHandlers(): void {
 
   // Hosts & Folders
   register('hosts.list', withSupabase(hostsIpcHandlers.listHosts));
+  register('hosts.getPassword', withSupabase(hostsIpcHandlers.getPassword));
   register('hosts.create', withSupabase(hostsIpcHandlers.createHost));
   register('hosts.update', withSupabase(hostsIpcHandlers.updateHost));
   register('hosts.delete', withSupabase(hostsIpcHandlers.deleteHost));
@@ -155,16 +195,23 @@ export function registerWorkspaceIpcHandlers(): void {
   register('ssh.disconnect', sshIpcHandlers.disconnect);
   register('ssh.send', sshIpcHandlers.send);
   register('ssh.resize', sshIpcHandlers.resize);
+  register('ssh.listKnownHosts', sshIpcHandlers.listKnownHosts);
+  register('ssh.removeKnownHost', sshIpcHandlers.removeKnownHost);
+  register('ssh.listHostKeyEvents', sshIpcHandlers.listHostKeyEvents);
+  register('ssh.clearHostKeyEvents', sshIpcHandlers.clearHostKeyEvents);
 
   // SFTP
   register('sftp.list', sftpIpcHandlers.list);
+  register('sftp.listLocal', sftpIpcHandlers.listLocal);
   register('sftp.download', sftpIpcHandlers.download);
   register('sftp.upload', sftpIpcHandlers.upload);
+  register('sftp.cancel', sftpIpcHandlers.cancel);
   register('sftp.mkdir', sftpIpcHandlers.mkdir);
   register('sftp.rename', sftpIpcHandlers.rename);
   register('sftp.delete', sftpIpcHandlers.delete);
   register('sftp.chmod', sftpIpcHandlers.chmod);
   register('sftp.pickUploadFiles', sftpIpcHandlers.pickUploadFiles);
+  register('sftp.getSaveFilePath', sftpIpcHandlers.getSaveFilePath);
 
   // SSH Keys
   register('keys.list', withSupabase(keysIpcHandlers.list));
@@ -173,9 +220,28 @@ export function registerWorkspaceIpcHandlers(): void {
   register('keys.exportPublic', keysIpcHandlers.exportPublic);
   register('keys.syncEncrypted', withSupabase(keysIpcHandlers.syncEncrypted));
 
+  // Workspace encryption (all require Supabase — passphrase logged as REDACTED)
+  register('keys.isWorkspaceEncryptionInitialized', withSupabase(keysIpcHandlers.isWorkspaceEncryptionInitialized));
+  register('keys.initializeWorkspaceEncryption',    withSupabase(keysIpcHandlers.initializeWorkspaceEncryption));
+  register('keys.verifyWorkspacePassphrase',         withSupabase(keysIpcHandlers.verifyWorkspacePassphrase));
+  register('keys.syncKeyToCloud',                    withSupabase(keysIpcHandlers.syncKeyToCloud));
+  register('keys.downloadKeyFromCloud',              withSupabase(keysIpcHandlers.downloadKeyFromCloud));
+  register('keys.deleteKeyFromCloud',                withSupabase(keysIpcHandlers.deleteKeyFromCloud));
+  register('keys.changeWorkspacePassphrase',         withSupabase(keysIpcHandlers.changeWorkspacePassphrase));
+
   // AI
   register('ai.complete', aiIpcHandlers.complete);
   register('ai.translateCommand', aiIpcHandlers.translateCommand);
+  register('agent.startRun', agentIpcHandlers.startRun);
+  register('agent.approveStep', agentIpcHandlers.approveStep);
+  register('agent.rejectStep', agentIpcHandlers.rejectStep);
+  register('agent.cancelRun', agentIpcHandlers.cancelRun);
+  register('agent.chat', agentIpcHandlers.chat);
+  register('agent.getRun', agentIpcHandlers.getRun);
+  register('agent.listRuns', agentIpcHandlers.listRuns);
+  register('agent.runPlaybook', agentIpcHandlers.runPlaybook);
+  register('agent.savePlaybook', agentIpcHandlers.savePlaybook);
+  register('agent.listPlaybooks', agentIpcHandlers.listPlaybooks);
 
   // Settings
   register('settings.get', withSupabase(settingsIpcHandlers.get));
@@ -185,4 +251,11 @@ export function registerWorkspaceIpcHandlers(): void {
   register('apiKeys.get', apiKeysIpcHandlers.get);
   register('apiKeys.set', apiKeysIpcHandlers.set);
   register('apiKeys.delete', apiKeysIpcHandlers.delete);
+
+  // Snippets
+  register('snippets.list', withSupabase(snippetsIpcHandlers.list));
+  register('snippets.create', withSupabase(snippetsIpcHandlers.create));
+  register('snippets.update', withSupabase(snippetsIpcHandlers.update));
+  register('snippets.delete', withSupabase(snippetsIpcHandlers.delete));
+
 }

@@ -15,6 +15,7 @@ type HostRow = {
   auth_type: 'password' | 'key';
   key_id: string | null;
   tags: string[];
+  port_forwards: any[];
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +53,7 @@ function rowToHost(row: HostRow): Host {
     password: null, // Passwords are not stored for security
     keyId: row.key_id,
     tags: row.tags ?? [],
+    portForwards: row.port_forwards ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -102,6 +104,7 @@ export const supabaseSync = {
         auth_type: row.auth_type,
         key_id: row.key_id,
         tags: JSON.stringify(row.tags ?? []),
+        port_forwards: JSON.stringify(row.port_forwards ?? []),
         synced_at: Date.now(),
       });
     }
@@ -170,6 +173,7 @@ export const supabaseSync = {
       auth_type: input.authType,
       key_id: input.keyId ?? null,
       tags: JSON.stringify(input.tags ?? []),
+      port_forwards: JSON.stringify(input.portForwards ?? []),
       synced_at: now,
     };
 
@@ -190,6 +194,7 @@ export const supabaseSync = {
         auth_type: input.authType,
         key_id: input.keyId ?? null,
         tags: input.tags ?? [],
+        port_forwards: input.portForwards ?? [],
       })
       .then(({ error }) => {
         if (error) logger.error('Background sync failed for host create:', error);
@@ -208,6 +213,7 @@ export const supabaseSync = {
       password: null,
       keyId: newHost.key_id,
       tags: JSON.parse(newHost.tags),
+      portForwards: JSON.parse(newHost.port_forwards),
       createdAt: new Date(newHost.synced_at).toISOString(),
       updatedAt: new Date(newHost.synced_at).toISOString(),
     };
@@ -262,6 +268,7 @@ export const supabaseSync = {
         auth_type: (input.authType !== undefined ? input.authType : existingHost.auth_type) as 'password' | 'key',
         key_id: input.keyId !== undefined ? input.keyId : existingHost.key_id,
         tags: JSON.stringify(input.tags !== undefined ? input.tags : existingTags),
+        port_forwards: JSON.stringify(input.portForwards !== undefined ? input.portForwards : JSON.parse(existingHost.port_forwards ?? '[]')),
         synced_at: Date.now(),
       };
 
@@ -297,6 +304,7 @@ export const supabaseSync = {
       if (input.authType !== undefined) updates.auth_type = input.authType;
       if (input.keyId !== undefined) updates.key_id = input.keyId;
       if (input.tags !== undefined) updates.tags = input.tags;
+      if (input.portForwards !== undefined) updates.port_forwards = input.portForwards;
       // Note: password is intentionally not included
 
       // Sync to Supabase asynchronously
@@ -332,6 +340,7 @@ export const supabaseSync = {
         password: null,
         keyId: updatedHost.key_id,
         tags: parsedTags,
+        portForwards: (() => { try { return JSON.parse(updatedHost.port_forwards); } catch { return []; } })(),
         createdAt: new Date(updatedHost.synced_at).toISOString(),
         updatedAt: new Date(updatedHost.synced_at).toISOString(),
       };
@@ -479,8 +488,10 @@ export const supabaseSync = {
       port: row.port,
       username: row.username,
       authType: row.auth_type,
+      password: null,
       keyId: row.key_id,
       tags: (() => { try { return JSON.parse(row.tags); } catch { return []; } })(),
+      portForwards: (() => { try { return JSON.parse(row.port_forwards); } catch { return []; } })(),
       createdAt: new Date(row.synced_at ?? Date.now()).toISOString(),
       updatedAt: new Date(row.synced_at ?? Date.now()).toISOString(),
     }));

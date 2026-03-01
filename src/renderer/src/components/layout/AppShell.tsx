@@ -18,6 +18,7 @@ import { useSessionStore } from '@/stores/session-store';
 import type { Host } from '@shared/types/hosts';
 import type { Workspace } from '@shared/types/workspace';
 import { Toaster } from '@/components/ui/sonner';
+import { PreviewBanner } from '@/components/ui/preview-banner';
 
 type ActivePanel = 'host-form' | 'import-key' | null;
 
@@ -82,6 +83,22 @@ export function AppShell() {
     openTab({ tabId: 'profile', tabType: 'profile', label: 'Profile' });
   }
 
+  function handleOpenSnippets() {
+    openTab({ tabId: 'snippets', tabType: 'snippets', label: 'Snippets' });
+  }
+
+  function handleOpenLocalTerminal() {
+    const sessionId = `local-${Date.now()}`;
+    openTab({
+      tabId: sessionId,
+      tabType: 'terminal',
+      label: 'Local Terminal',
+      sessionId,
+      status: 'connecting',
+    });
+    window.sshApi.connect(sessionId, { type: 'local', promptStyle: settings?.promptStyle });
+  }
+
   function handleAddHost() {
     setEditingHost(null);
     setActivePanel('host-form');
@@ -118,6 +135,7 @@ export function AppShell() {
     activeTab?.tabType === 'keys' ? 'keys' :
     activeTab?.tabType === 'workspace' ? 'workspace' :
     activeTab?.tabType === 'profile' ? 'profile' :
+    activeTab?.tabType === 'snippets' ? 'snippets' :
     'hosts';
 
   return (
@@ -130,6 +148,8 @@ export function AppShell() {
           onGoKeys={handleGoKeys}
           onGoWorkspace={handleGoWorkspace}
           onOpenProfile={handleGoProfile}
+          onOpenLocalTerminal={handleOpenLocalTerminal}
+          onOpenSnippets={handleOpenSnippets}
           activeView={sidebarView}
         />
 
@@ -186,6 +206,7 @@ export function AppShell() {
       />
 
       <Toaster />
+      <PreviewBanner />
     </div>
   );
 }

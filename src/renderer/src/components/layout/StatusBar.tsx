@@ -23,7 +23,7 @@ export function StatusBar() {
           <span>{activeTransfers} transfer{activeTransfers !== 1 ? 's' : ''}</span>
         </div>
       )}
-      <div className="ml-auto">ArchTerm</div>
+      <div className="ml-auto">Kairo</div>
     </div>
   );
 }

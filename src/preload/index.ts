@@ -5,5 +5,8 @@ import './ssh-api';
 import './sftp-api';
 import './keys-api';
 import './ai-api';
+import './agent-api';
 import './settings-api';
 import './api-keys-api';
+import './snippets-api';
+import './updater-api';

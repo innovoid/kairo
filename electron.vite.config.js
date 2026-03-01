@@ -10,6 +10,12 @@ export default defineConfig({
                 '@shared': resolve(__dirname, 'src/shared'),
             },
         },
+        build: {
+            rollupOptions: {
+                // node-pty is a native module; ensure it stays external
+                external: ['node-pty'],
+            },
+        },
     },
     preload: {
         plugins: [externalizeDepsPlugin()],
