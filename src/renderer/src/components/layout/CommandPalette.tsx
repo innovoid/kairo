@@ -35,11 +35,11 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 
 const categoryColors: Record<string, string> = {
   hosts: 'text-primary',
-  terminal: 'text-emerald-400',
-  snippets: 'text-emerald-500',
-  keys: 'text-emerald-300',
-  settings: 'text-emerald-400',
-  actions: 'text-emerald-500',
+  terminal: 'text-primary',
+  snippets: 'text-primary',
+  keys: 'text-primary',
+  settings: 'text-primary',
+  actions: 'text-primary',
 };
 
 export function CommandPalette({
@@ -167,7 +167,7 @@ export function CommandPalette({
           'w-[calc(100%-2rem)] max-w-[680px]',
           'bg-[var(--surface-4)]/98 backdrop-blur-2xl',
           'border border-[var(--border)] rounded-2xl',
-          'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.9),0_0_0_1px_rgba(59,130,246,0.15)]',
+          'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.9),0_0_0_1px_var(--primary-glow-subtle)]',
           'overflow-hidden',
           className
         )}
@@ -362,7 +362,7 @@ function CommandItem({ command, icon: Icon, isSelected, index, categoryColor, on
         'transition-all duration-200',
         isSelected ? [
           'bg-gradient-to-r from-primary/10 via-primary/5 to-transparent',
-          'shadow-[inset_0_0_20px_rgba(59,130,246,0.08)]',
+          'shadow-[inset_0_0_20px_var(--primary-glow-subtle)]',
           'border-l-2 border-l-primary',
         ] : [
           'border-l-2 border-l-transparent',
@@ -382,7 +382,7 @@ function CommandItem({ command, icon: Icon, isSelected, index, categoryColor, on
           isSelected ? [
             'bg-primary/15',
             'border border-primary/30',
-            'scale-110 shadow-[0_0_20px_rgba(59,130,246,0.2)]',
+            'scale-110 shadow-[0_0_20px_var(--primary-glow-subtle)]',
           ] : [
             'bg-[var(--surface-2)]',
             'border border-[var(--border)]',
@@ -431,7 +431,7 @@ function CommandItem({ command, icon: Icon, isSelected, index, categoryColor, on
               'bg-primary/10',
               'border-primary/40',
               'text-primary',
-              'shadow-[0_0_8px_rgba(59,130,246,0.2)]',
+              'shadow-[0_0_8px_var(--primary-glow-subtle)]',
             ] : [
               'bg-[var(--surface-2)]',
               'border-[var(--border)]',

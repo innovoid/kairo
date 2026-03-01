@@ -71,11 +71,11 @@ export function SettingsPage({ activeTab, onTabChange, workspaceId }: SettingsPa
             className={cn(
               'flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-all duration-150',
               activeTab === id
-                ? 'bg-emerald-500/10 text-emerald-400 font-medium'
+                ? 'bg-primary/10 text-primary font-medium'
                 : 'text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-2)]'
             )}
           >
-            <Icon className={cn('h-4 w-4 shrink-0', activeTab === id ? 'text-emerald-400' : '')} />
+            <Icon className={cn('h-4 w-4 shrink-0', activeTab === id ? 'text-primary' : '')} />
             {label}
           </button>
         ))}
@@ -265,7 +265,7 @@ function TerminalTab() {
                 step="0.1"
                 value={lineHeight}
                 onChange={(e) => setLineHeight(e.target.value)}
-                className="flex-1 accent-emerald-500"
+                className="flex-1 accent-primary"
               />
               <span className="text-sm tabular-nums w-8 text-right text-[var(--text-secondary)]">
                 {lineHeight}
@@ -291,7 +291,7 @@ function TerminalTab() {
                   className={cn(
                     'w-20 h-16 rounded-md border-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-200',
                     cursorStyle === style
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                      ? 'border-primary bg-primary/10 text-primary'
                       : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-foreground'
                   )}
                 >
@@ -326,7 +326,7 @@ function TerminalTab() {
                 className={cn(
                   'relative rounded-lg border-2 p-3 text-left transition-all duration-200',
                   isActive
-                    ? 'border-emerald-500 bg-emerald-500/5'
+                    ? 'border-primary bg-primary/5'
                     : 'border-[var(--border)] hover:border-[var(--border-hover)]'
                 )}
               >
@@ -334,7 +334,7 @@ function TerminalTab() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{themeConfig.name}</span>
                     {isActive && (
-                      <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                      <span className="flex items-center gap-1 text-[10px] text-primary font-medium">
                         <Check className="h-3 w-3" />
                         Active
                       </span>
@@ -376,7 +376,7 @@ function TerminalTab() {
                   className={cn(
                     'px-4 py-2 border rounded-md text-sm transition-all duration-200',
                     promptStyle === value
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                      ? 'border-primary bg-primary/10 text-primary'
                       : 'border-[var(--border)] text-[var(--text-secondary)] hover:text-foreground hover:bg-[var(--surface-1)]'
                   )}
                 >
@@ -416,7 +416,7 @@ function TerminalTab() {
       </div>
 
       <div className="pt-2">
-        <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+        <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary-hover text-white">
           {saving ? 'Saving…' : 'Save changes'}
         </Button>
       </div>
@@ -459,7 +459,7 @@ function AppearanceTab() {
                 className={cn(
                   'w-28 h-20 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200',
                   theme === t
-                    ? 'border-emerald-500 bg-emerald-500/10'
+                    ? 'border-primary bg-primary/10'
                     : 'border-[var(--border)] hover:border-[var(--border-hover)]'
                 )}
               >
@@ -467,7 +467,7 @@ function AppearanceTab() {
                   className="w-12 h-8 rounded border"
                   style={{ background: t === 'dark' ? '#1a1a1a' : '#f5f5f5', borderColor: t === 'dark' ? '#333' : '#ddd' }}
                 />
-                <span className={cn('text-sm capitalize', theme === t ? 'text-emerald-400 font-medium' : 'text-[var(--text-secondary)]')}>
+                <span className={cn('text-sm capitalize', theme === t ? 'text-primary font-medium' : 'text-[var(--text-secondary)]')}>
                   {t}
                 </span>
               </button>
@@ -475,7 +475,7 @@ function AppearanceTab() {
           </div>
         </SettingRow>
       </div>
-      <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+      <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary-hover text-white">
         {saving ? 'Saving…' : 'Save changes'}
       </Button>
     </div>
@@ -793,7 +793,7 @@ function AiTab() {
               className={cn(
                 'rounded-xl border-2 transition-all duration-200',
                 isActive
-                  ? 'border-emerald-500 bg-emerald-500/5'
+                  ? 'border-primary bg-primary/5'
                   : 'border-[var(--border)] hover:border-[var(--border-hover)]'
               )}
             >
@@ -806,7 +806,7 @@ function AiTab() {
                 {/* Radio indicator */}
                 <div className={cn(
                   'mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors',
-                  isActive ? 'border-emerald-500 bg-emerald-500' : 'border-[var(--border)]'
+                  isActive ? 'border-primary bg-primary' : 'border-[var(--border)]'
                 )}>
                   {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                 </div>
@@ -814,7 +814,7 @@ function AiTab() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold">{p.name}</span>
                     {p.badge && (
-                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/20 text-emerald-400 border-0">
+                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
                         {p.badge}
                       </Badge>
                     )}
@@ -854,7 +854,7 @@ function AiTab() {
         })}
       </div>
 
-      <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+      <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary-hover text-white">
         {saving ? 'Saving…' : 'Save changes'}
       </Button>
     </div>

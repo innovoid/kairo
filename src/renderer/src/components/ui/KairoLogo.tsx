@@ -59,11 +59,11 @@ export function KairoLogo({
       {!textOnly && (
         <div
           className={cn(
-            'shrink-0 border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]',
+            'shrink-0 border border-primary/30 bg-primary/10 shadow-[0_0_20px_var(--primary-glow-subtle)]',
             s.box,
           )}
         >
-          <Terminal className={cn('text-emerald-400', s.icon)} />
+          <Terminal className={cn('text-primary', s.icon)} />
         </div>
       )}
 
@@ -73,7 +73,7 @@ export function KairoLogo({
           <h1 className={cn('font-semibold tracking-tight text-white leading-none', s.name)}>
             Kairo
           </h1>
-          <p className={cn('font-mono text-emerald-400/80', s.tag)}>
+          <p className={cn('font-mono text-primary/80', s.tag)}>
             AI-powered ssh client
           </p>
         </div>

@@ -71,9 +71,9 @@ export function TransferProgress({ variant = 'pane' }: TransferProgressProps) {
               ) : transfer.status === 'error' ? (
                 <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
               ) : transfer.direction === 'upload' ? (
-                <Upload className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                <Upload className="h-3.5 w-3.5 text-primary shrink-0" />
               ) : (
-                <Download className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                <Download className="h-3.5 w-3.5 text-primary shrink-0" />
               )}
 
               <div className="flex-1 min-w-0">

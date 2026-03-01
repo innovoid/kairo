@@ -26,9 +26,9 @@ export function Overlay({ open, onOpenChange, children, className }: OverlayProp
           // Size constraints
           'max-w-[min(1200px,calc(100vw-2rem))] max-h-[80vh] p-0',
           // Glassmorphism styling
-          'bg-[var(--surface-2)]/95 backdrop-blur-xl rounded-2xl',
-          'border border-[var(--border)]/60',
-          'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8),0_0_0_1px_rgba(16,185,129,0.08)]',
+          'bg-(--surface-2)/95 backdrop-blur-xl rounded-2xl',
+          'border border-(--border)/60',
+          'shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8),0_0_0_1px_var(--primary-shadow)]',
           className
         )}
       >
@@ -47,7 +47,7 @@ export function Overlay({ open, onOpenChange, children, className }: OverlayProp
           />
 
           {/* Subtle top glow */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/20 to-transparent" />
 
           <div className="relative">{children}</div>
         </div>
@@ -87,7 +87,7 @@ export function OverlayHeader({
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-4 p-6 border-b border-[var(--border-subtle)]',
+        'flex items-start justify-between gap-4 p-6 border-b border-(--border-subtle)',
         className
       )}
     >
@@ -186,8 +186,8 @@ export function OverlayFooter({ children, className }: OverlayFooterProps) {
     <BaseDialogFooter
       className={cn(
         'flex items-center justify-end gap-3 p-6',
-        'border-t border-[var(--border-subtle)]',
-        'bg-[var(--surface-1)]/50',
+        'border-t border-(--border-subtle)',
+        'bg-(--surface-1)/50',
         className
       )}
     >

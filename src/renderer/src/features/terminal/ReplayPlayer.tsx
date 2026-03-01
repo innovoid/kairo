@@ -199,7 +199,7 @@ export function ReplayPlayer({ recordingPath, onClose }: ReplayPlayerProps) {
         <div className="flex-1 flex flex-col gap-4 min-h-0">
           <div
             ref={containerRef}
-            className="flex-1 bg-[#09090b] p-2 rounded-md overflow-hidden"
+            className="flex-1 bg-background p-2 rounded-md overflow-hidden"
           />
           <div className="space-y-2">
             <Slider

@@ -80,15 +80,15 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
   if (!open) return null;
 
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950">
+    <div className="flex flex-col h-full w-full bg-background">
       {/* Header — hidden when embedded inside another panel */}
       {!hideHeader && (
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-800/70 shrink-0">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/70 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center h-6 w-6 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-            <Bot className="h-3.5 w-3.5 text-emerald-400" />
+          <div className="flex items-center justify-center h-6 w-6 rounded-md bg-primary/10 border border-primary/20">
+            <Bot className="h-3.5 w-3.5 text-primary" />
           </div>
-          <span className="text-xs font-semibold text-zinc-200 tracking-tight">AI Assistant</span>
+          <span className="text-xs font-semibold text-foreground tracking-tight">AI Assistant</span>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
@@ -96,7 +96,7 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
               type="button"
               onClick={clearHistory}
               title="Clear history"
-              className="h-5 w-5 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+              className="h-5 w-5 flex items-center justify-center rounded text-text-disabled hover:text-text-secondary hover:bg-surface-3 transition-colors"
             >
               <RotateCcw className="h-3 w-3" />
             </button>
@@ -104,7 +104,7 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="h-5 w-5 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="h-5 w-5 flex items-center justify-center rounded text-text-disabled hover:text-text-secondary hover:bg-surface-3 transition-colors"
           >
             <X className="h-3 w-3" />
           </button>
@@ -113,18 +113,18 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
       )}
 
       {/* Model selector */}
-      <div className="relative px-3 py-1.5 border-b border-zinc-800/70 shrink-0">
+      <div className="relative px-3 py-1.5 border-b border-border/70 shrink-0">
         <button
           type="button"
           onClick={() => setModelMenuOpen((v) => !v)}
-          className="flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-1.5 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
         >
-          <Sparkles className="h-3 w-3 text-emerald-500/70" />
+          <Sparkles className="h-3 w-3 text-primary/70" />
           <span className="font-mono">{currentModelLabel}</span>
           <ChevronDown className={cn('h-2.5 w-2.5 transition-transform', modelMenuOpen && 'rotate-180')} />
         </button>
         {modelMenuOpen && (
-          <div className="absolute left-2 top-full mt-1 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[160px]">
+          <div className="absolute left-2 top-full mt-1 z-50 bg-surface-1 border border-border rounded-lg shadow-xl py-1 min-w-[160px]">
             {models.map((m) => (
               <button
                 key={m.value}
@@ -133,8 +133,8 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
                 className={cn(
                   'w-full text-left px-3 py-1.5 text-[11px] font-mono transition-colors',
                   model === m.value
-                    ? 'text-emerald-400 bg-emerald-500/10'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800',
+                    ? 'text-primary bg-primary/10'
+                    : 'text-text-secondary hover:text-foreground hover:bg-surface-3',
                 )}
               >
                 {m.label}
@@ -148,12 +148,12 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
       <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 gap-3 px-4 text-center">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/15 flex items-center justify-center">
-              <Bot className="h-5 w-5 text-emerald-500/60" />
+            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center">
+              <Bot className="h-5 w-5 text-primary/60" />
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-zinc-400">Terminal AI Assistant</p>
-              <p className="text-[10px] text-zinc-600 leading-relaxed max-w-[180px]">
+              <p className="text-[11px] font-medium text-text-secondary">Terminal AI Assistant</p>
+              <p className="text-[10px] text-text-disabled leading-relaxed max-w-[180px]">
                 Ask anything about shell commands, SSH, system administration, or troubleshooting.
               </p>
             </div>
@@ -167,7 +167,7 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
                   key={ex}
                   type="button"
                   onClick={() => { setInput(ex); inputRef.current?.focus(); }}
-                  className="w-full text-left px-2.5 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 border border-zinc-800/60 hover:border-zinc-700 rounded-md transition-colors font-mono leading-relaxed"
+                  className="w-full text-left px-2.5 py-1.5 text-[10px] text-text-tertiary hover:text-text-secondary border border-border/60 hover:border-border rounded-md transition-colors font-mono leading-relaxed"
                 >
                   {ex}
                 </button>
@@ -191,7 +191,7 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
       </ScrollArea>
 
       {/* Input */}
-      <div className="px-3 py-2.5 border-t border-zinc-800/70 space-y-2 shrink-0">
+      <div className="px-3 py-2.5 border-t border-border/70 space-y-2 shrink-0">
         <div className="relative">
           <textarea
             ref={inputRef}
@@ -203,8 +203,8 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
             disabled={isStreaming}
             className={cn(
               'w-full resize-none rounded-lg px-2.5 py-2 pr-8 text-xs font-mono',
-              'bg-black/40 border border-zinc-800 text-zinc-200',
-              'placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500/40',
+              'bg-black/40 border border-border text-foreground',
+              'placeholder:text-border focus:outline-none focus:border-primary/40',
               'transition-colors disabled:opacity-40',
             )}
           />
@@ -215,19 +215,19 @@ export function AiPanel({ open, onOpenChange, hideHeader = false }: AiPanelProps
             className={cn(
               'absolute right-2 bottom-2 h-5 w-5 flex items-center justify-center rounded transition-colors',
               input.trim() && !isStreaming
-                ? 'text-emerald-400 hover:text-emerald-300'
-                : 'text-zinc-700',
+                ? 'text-primary hover:text-primary-hover'
+                : 'text-border',
             )}
           >
             <Send className="h-3 w-3" />
           </button>
         </div>
         {isStreaming && (
-          <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
+          <div className="flex items-center gap-1.5 text-[10px] text-text-disabled">
             <span className="inline-flex gap-0.5">
-              <span className="h-1 w-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0ms]" />
-              <span className="h-1 w-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="h-1 w-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:300ms]" />
+              <span className="h-1 w-1 bg-primary rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="h-1 w-1 bg-primary rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="h-1 w-1 bg-primary rounded-full animate-bounce [animation-delay:300ms]" />
             </span>
             Thinking…
           </div>

@@ -23,35 +23,35 @@ interface AgentSidebarProps {
 
 function StepIcon({ status }: { status: AgentStep['status'] | string }) {
   if (status === 'done' || status === 'completed')
-    return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />;
+    return <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />;
   if (status === 'failed' || status === 'blocked')
     return <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />;
   if (status === 'running')
-    return <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin shrink-0" />;
+    return <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />;
   if (status === 'awaiting_approval')
     return <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />;
-  return <div className="h-3.5 w-3.5 rounded-full border border-zinc-700 shrink-0" />;
+  return <div className="h-3.5 w-3.5 rounded-full border border-border shrink-0" />;
 }
 
 function stepBg(status: AgentStep['status'] | string): string {
-  if (status === 'done' || status === 'completed') return 'border-emerald-500/20 bg-emerald-500/5';
+  if (status === 'done' || status === 'completed') return 'border-primary/20 bg-primary/5';
   if (status === 'failed' || status === 'blocked') return 'border-red-500/20 bg-red-500/5';
-  if (status === 'running') return 'border-emerald-500/30 bg-emerald-500/8';
+  if (status === 'running') return 'border-primary/30 bg-primary/8';
   if (status === 'awaiting_approval') return 'border-amber-500/25 bg-amber-500/5';
-  return 'border-zinc-800 bg-zinc-900/40';
+  return 'border-border bg-surface-1/40';
 }
 
 function riskBadge(risk: string): string {
-  if (risk === 'safe') return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+  if (risk === 'safe') return 'text-primary bg-primary/10 border-primary/20';
   if (risk === 'moderate') return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
   return 'text-red-400 bg-red-500/10 border-red-500/20';
 }
 
 function runStatusBadge(status: string): string {
-  if (status === 'completed') return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+  if (status === 'completed') return 'text-primary bg-primary/10 border-primary/20';
   if (status === 'failed' || status === 'cancelled') return 'text-red-400 bg-red-500/10 border-red-500/20';
-  if (status === 'running') return 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
-  return 'text-zinc-400 bg-zinc-800 border-zinc-700';
+  if (status === 'running') return 'text-primary bg-primary/10 border-primary/20';
+  return 'text-text-secondary bg-surface-3 border-border';
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -206,31 +206,31 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="w-[400px] max-w-[95vw] p-0 flex flex-col bg-zinc-950 border-l border-zinc-800/60 gap-0"
+        className="w-[400px] max-w-[95vw] p-0 flex flex-col bg-background border-l border-border/60 gap-0"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/60 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <Bot className="h-4 w-4 text-emerald-400" />
+            <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/10 border border-primary/20">
+              <Bot className="h-4 w-4 text-primary" />
             </div>
             <div>
               <p className="text-sm font-semibold text-zinc-100">AI Agent</p>
-              <p className="text-[10px] text-zinc-500 font-mono leading-none mt-0.5">
+              <p className="text-[10px] text-text-tertiary font-mono leading-none mt-0.5">
                 {activeTerminalTab ? activeTerminalTab.label : 'No terminal selected'}
               </p>
             </div>
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="h-6 w-6 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="h-6 w-6 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-secondary hover:bg-surface-3 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {/* View Tabs */}
-        <div className="flex shrink-0 border-b border-zinc-800/60">
+        <div className="flex shrink-0 border-b border-border/60">
           {(['run', 'playbooks'] as const).map((v) => (
             <button
               key={v}
@@ -238,8 +238,8 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
               className={cn(
                 'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors',
                 view === v
-                  ? 'text-emerald-400 border-b-2 border-emerald-500'
-                  : 'text-zinc-500 hover:text-zinc-300 border-b-2 border-transparent',
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-text-tertiary hover:text-text-secondary border-b-2 border-transparent',
               )}
             >
               {v === 'run' ? <Zap className="h-3.5 w-3.5" /> : <BookOpen className="h-3.5 w-3.5" />}
@@ -251,7 +251,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
         {view === 'run' ? (
           <>
             {/* Prompt input */}
-            <div className="px-4 pt-3 pb-3 border-b border-zinc-800/60 shrink-0 space-y-2">
+            <div className="px-4 pt-3 pb-3 border-b border-border/60 shrink-0 space-y-2">
               <textarea
                 ref={inputRef}
                 value={task}
@@ -269,18 +269,18 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                 rows={3}
                 className={cn(
                   'w-full resize-none rounded-lg px-3 py-2.5 text-sm font-mono',
-                  'bg-zinc-900 border border-zinc-700/60 text-zinc-200',
-                  'placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50',
+                  'bg-surface-1 border border-border/60 text-zinc-200',
+                  'placeholder:text-text-disabled focus:outline-none focus:border-primary/50',
                   'transition-colors disabled:opacity-40',
                 )}
               />
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-600 font-mono">{runShortcut} to run</span>
+                <span className="text-[10px] text-text-disabled font-mono">{runShortcut} to run</span>
                 <Button
                   onClick={() => void handleStartRun()}
                   disabled={loading || !activeTerminalTab || !task.trim()}
                   size="sm"
-                  className="h-7 px-3 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border-0"
+                  className="h-7 px-3 text-xs gap-1.5 bg-primary hover:bg-primary-hover text-white border-0"
                 >
                   {loading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -297,10 +297,10 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
               <div className="px-4 py-3 space-y-3">
                 {!activeRun ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-                    <div className="h-10 w-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                      <Bot className="h-5 w-5 text-zinc-600" />
+                    <div className="h-10 w-10 rounded-xl bg-surface-1 border border-border flex items-center justify-center">
+                      <Bot className="h-5 w-5 text-text-disabled" />
                     </div>
-                    <p className="text-xs text-zinc-500 max-w-[200px] leading-relaxed">
+                    <p className="text-xs text-text-tertiary max-w-[200px] leading-relaxed">
                       Describe a task and the agent will plan and execute it on the active terminal.
                     </p>
                   </div>
@@ -329,7 +329,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                           >
                             {/* Step header */}
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-mono text-zinc-600 shrink-0">
+                              <span className="text-[10px] font-mono text-text-disabled shrink-0">
                                 {String(i + 1).padStart(2, '0')}
                               </span>
                               <StepIcon status={step.status} />
@@ -342,7 +342,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                             </div>
 
                             {/* Command */}
-                            <code className="block w-full text-[11px] font-mono text-emerald-300 bg-black/40 rounded-md px-2.5 py-2 break-all leading-relaxed">
+                            <code className="block w-full text-[11px] font-mono text-primary bg-black/40 rounded-md px-2.5 py-2 break-all leading-relaxed">
                               {step.command}
                             </code>
 
@@ -367,7 +367,7 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                                     'h-6 px-2.5 text-[11px] gap-1 ml-auto',
                                     isConfirm
                                       ? 'bg-red-600 hover:bg-red-500 text-white border-0'
-                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white border-0',
+                                      : 'bg-primary hover:bg-primary-hover text-white border-0',
                                   )}
                                 >
                                   {isConfirm ? <ShieldAlert className="h-3 w-3" /> : <Check className="h-3 w-3" />}
@@ -396,20 +396,20 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                       )}
                       {activeRun.status === 'completed' && (
                         <div className="flex-1 space-y-1.5">
-                          <p className="text-[10px] text-zinc-500">Save as playbook</p>
+                          <p className="text-[10px] text-text-tertiary">Save as playbook</p>
                           <div className="flex gap-1.5">
                             <input
                               value={playbookName}
                               onChange={(e) => setPlaybookName(e.target.value)}
                               placeholder="my-playbook"
-                              className="flex-1 h-7 px-2.5 text-xs font-mono rounded-md bg-zinc-900 border border-zinc-700/60 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+                              className="flex-1 h-7 px-2.5 text-xs font-mono rounded-md bg-surface-1 border border-border/60 text-zinc-200 placeholder:text-text-disabled focus:outline-none focus:border-primary/50"
                             />
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => void handleSavePlaybook()}
                               disabled={loading || !playbookName.trim()}
-                              className="h-7 px-2 text-xs border-zinc-700 hover:bg-zinc-800"
+                              className="h-7 px-2 text-xs border-border hover:bg-surface-3"
                             >
                               <Save className="h-3 w-3" />
                             </Button>
@@ -426,18 +426,18 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
           /* Playbooks view */
           <ScrollArea className="flex-1 min-h-0">
             <div className="px-4 py-3 space-y-3">
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-text-tertiary">
                 Saved playbooks let you replay tasks across sessions.
               </p>
               {playbooksLoading ? (
-                <div className="flex items-center gap-2 py-4 text-zinc-500">
+                <div className="flex items-center gap-2 py-4 text-text-tertiary">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-xs">Loading playbooks…</span>
                 </div>
               ) : playbooks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-                  <BookOpen className="h-8 w-8 text-zinc-700" />
-                  <p className="text-xs text-zinc-500 max-w-[180px] leading-relaxed">
+                  <BookOpen className="h-8 w-8 text-surface-3" />
+                  <p className="text-xs text-text-tertiary max-w-[180px] leading-relaxed">
                     Complete a run, then save it as a playbook to reuse it.
                   </p>
                 </div>
@@ -446,20 +446,20 @@ export function AgentSidebar({ open, onOpenChange, workspaceId }: AgentSidebarPr
                   {playbooks.map((pb) => (
                     <div
                       key={pb.id}
-                      className="flex items-center gap-2.5 p-3 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 transition-colors group"
+                      className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-surface-1/40 hover:border-border transition-colors group"
                     >
-                      <div className="h-7 w-7 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                        <BookOpen className="h-3.5 w-3.5 text-emerald-400" />
+                      <div className="h-7 w-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <BookOpen className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-zinc-200 truncate">{pb.name}</p>
-                        <p className="text-[10px] text-zinc-500 truncate mt-0.5 font-mono">{pb.task}</p>
+                        <p className="text-[10px] text-text-tertiary truncate mt-0.5 font-mono">{pb.task}</p>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => void handleRunPlaybook(pb)}
                         disabled={loading || !activeTerminalTab}
-                        className="h-6 px-2 text-[11px] gap-1 bg-emerald-600/80 hover:bg-emerald-500 text-white border-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-6 px-2 text-[11px] gap-1 bg-primary/80 hover:bg-primary-hover text-white border-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Play className="h-3 w-3" />
                         Run

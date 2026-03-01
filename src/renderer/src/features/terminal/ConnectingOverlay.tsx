@@ -50,7 +50,7 @@ export function ConnectingOverlay({ visible, label, isLocal }: ConnectingOverlay
         style={{ animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1) both' }}
       >
         {/* Logo — no pulse rings */}
-        <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 shadow-[0_0_32px_rgba(16,185,129,0.2)]">
+        <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/10 border border-primary/25 shadow-[0_0_32px_var(--primary-glow-subtle)]">
           <KairoLogo size="sm" iconOnly />
         </div>
 
@@ -59,7 +59,7 @@ export function ConnectingOverlay({ visible, label, isLocal }: ConnectingOverlay
           <p className="text-sm font-medium text-zinc-100 font-mono tracking-tight">
             {label ?? (isLocal ? 'Local Terminal' : 'Connecting')}
           </p>
-          <p className="text-xs text-zinc-500 font-mono min-h-[1rem] transition-all duration-300">
+          <p className="text-xs text-text-tertiary font-mono min-h-[1rem] transition-all duration-300">
             {steps[stepIndex]}
           </p>
         </div>
@@ -72,8 +72,8 @@ export function ConnectingOverlay({ visible, label, isLocal }: ConnectingOverlay
               className={cn(
                 'h-1 rounded-full transition-all duration-500',
                 i <= stepIndex
-                  ? 'bg-emerald-500 w-6 shadow-[0_0_6px_rgba(16,185,129,0.6)]'
-                  : 'bg-zinc-700 w-4',
+                  ? 'bg-primary w-6 shadow-[0_0_6px_var(--primary-glow)]'
+                  : 'bg-surface-3 w-4',
               )}
             />
           ))}

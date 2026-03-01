@@ -73,7 +73,7 @@ function InlineText({ text }: { text: string }) {
               }
               if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
                 return (
-                  <code key={pi} className="font-mono text-[10px] text-emerald-300/90 bg-zinc-800/80 px-1 py-0.5 rounded">
+                  <code key={pi} className="font-mono text-[10px] text-primary/90 bg-surface-3/80 px-1 py-0.5 rounded">
                     {part.slice(1, -1)}
                   </code>
                 );
@@ -108,15 +108,15 @@ function CodeBlock({
   }
 
   return (
-    <div className="rounded-md border border-zinc-800 overflow-hidden my-1.5">
+    <div className="rounded-md border border-border overflow-hidden my-1.5">
       {/* Lang bar */}
-      <div className="flex items-center justify-between px-2.5 py-1 bg-zinc-900/80 border-b border-zinc-800/60">
-        <span className="text-[9px] font-mono text-zinc-600">{lang || 'shell'}</span>
+      <div className="flex items-center justify-between px-2.5 py-1 bg-surface-1/80 border-b border-border/60">
+        <span className="text-[9px] font-mono text-text-disabled">{lang || 'shell'}</span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center gap-0.5 text-[9px] text-zinc-600 hover:text-zinc-300 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
+            className="flex items-center gap-0.5 text-[9px] text-text-disabled hover:text-text-secondary transition-colors px-1.5 py-0.5 rounded hover:bg-surface-3"
           >
             <Copy className="h-2.5 w-2.5" />
             Copy
@@ -125,7 +125,7 @@ function CodeBlock({
             <button
               type="button"
               onClick={() => onInsert(code)}
-              className="flex items-center gap-0.5 text-[9px] text-emerald-500 hover:text-emerald-400 transition-colors px-1.5 py-0.5 rounded hover:bg-emerald-500/10"
+              className="flex items-center gap-0.5 text-[9px] text-primary hover:text-primary-hover transition-colors px-1.5 py-0.5 rounded hover:bg-primary/10"
             >
               <Terminal className="h-2.5 w-2.5" />
               Insert
@@ -146,7 +146,7 @@ export function ChatMessage({ role, content, error, onInsertCommand }: ChatMessa
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-emerald-600/20 border border-emerald-500/20 px-3 py-2">
+        <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary/20 border border-primary/20 px-3 py-2">
           <p className="text-xs text-zinc-100 leading-relaxed whitespace-pre-wrap">{content}</p>
         </div>
       </div>
@@ -164,10 +164,10 @@ export function ChatMessage({ role, content, error, onInsertCommand }: ChatMessa
   }
 
   return (
-    <div className={cn('text-xs text-zinc-300 leading-relaxed', !content && 'italic text-zinc-600')}>
+    <div className={cn('text-xs text-text-secondary leading-relaxed', !content && 'italic text-text-disabled')}>
       {!content ? (
         <span className="flex items-center gap-1">
-          <span className="inline-block w-1 h-3 bg-emerald-500 rounded-sm animate-pulse" />
+          <span className="inline-block w-1 h-3 bg-primary rounded-sm animate-pulse" />
         </span>
       ) : (
         renderContent(content, onInsertCommand)

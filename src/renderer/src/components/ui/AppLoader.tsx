@@ -32,14 +32,14 @@ export function AppLoader({ message }: { message?: string }) {
 
   return (
     <div
-      className="relative min-h-screen overflow-hidden bg-[#09090b] flex items-center justify-center"
+      className="relative min-h-screen overflow-hidden bg-background flex items-center justify-center"
       aria-label="Loading"
     >
       {/* Subtle dot grid */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(16,185,129,0.12) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, color-mix(in srgb, var(--primary) 12%, transparent) 1px, transparent 1px)',
           backgroundSize: '28px 28px',
           animation: 'gridDrift 14s linear infinite',
         }}
@@ -49,7 +49,7 @@ export function AppLoader({ message }: { message?: string }) {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse 55% 50% at 50% 50%, rgba(16,185,129,0.06) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse 55% 50% at 50% 50%, color-mix(in srgb, var(--primary) 6%, transparent) 0%, transparent 70%)',
         }}
       />
 
@@ -61,7 +61,7 @@ export function AppLoader({ message }: { message?: string }) {
         {/* Icon — no pulse rings */}
         <div className="relative flex items-center justify-center">
           <div
-            className="relative flex items-center justify-center h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 shadow-[0_0_40px_rgba(16,185,129,0.2)]"
+            className="relative flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 border border-primary/25 shadow-[0_0_40px_var(--primary-glow-subtle)]"
           >
             <KairoLogo size="sm" iconOnly />
           </div>
@@ -72,7 +72,7 @@ export function AppLoader({ message }: { message?: string }) {
 
         {/* Current status */}
         <p
-          className="text-xs text-zinc-500 font-mono min-h-[1rem] transition-all duration-300"
+          className="text-xs text-text-tertiary font-mono min-h-[1rem] transition-all duration-300"
           key={statusText}
           style={{ animation: 'fadeSlide 0.35s ease both' }}
         >
@@ -87,8 +87,8 @@ export function AppLoader({ message }: { message?: string }) {
               className={[
                 'h-1 rounded-full transition-all duration-500',
                 i <= activeStep
-                  ? 'bg-emerald-500 w-6 shadow-[0_0_6px_rgba(16,185,129,0.6)]'
-                  : 'bg-zinc-800 w-4',
+                  ? 'bg-primary w-6 shadow-[0_0_6px_var(--primary-glow)]'
+                  : 'bg-surface-3 w-4',
               ].join(' ')}
             />
           ))}

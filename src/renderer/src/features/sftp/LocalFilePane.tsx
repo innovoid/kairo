@@ -215,7 +215,7 @@ export function LocalFilePane({ sessionId, remotePath }: LocalFilePaneProps) {
                 >
                   <TableCell className="py-1">
                     {entry.type === 'directory' ? (
-                      <FolderOpen className="h-3.5 w-3.5 text-emerald-400" />
+                      <FolderOpen className="h-3.5 w-3.5 text-primary" />
                     ) : (
                       <File className="h-3.5 w-3.5 text-muted-foreground" />
                     )}

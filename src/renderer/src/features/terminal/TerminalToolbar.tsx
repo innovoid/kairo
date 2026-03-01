@@ -146,7 +146,7 @@ export function TerminalToolbar({ tab, terminal, onSplit, onClosePane }: Termina
             <PopoverTrigger
               render={
                 <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" title="Broadcast targets">
-                  <span className="text-emerald-500">({targetSessionIds.length})</span>
+                  <span className="text-primary">({targetSessionIds.length})</span>
                 </Button>
               }
             />

@@ -25,8 +25,8 @@ export function KairoLogo({ className = '', size = 32 }: LogoProps) {
       {/* Gradient Definitions */}
       <defs>
         <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#34d399" />
+          <stop offset="0%" stopColor="var(--primary)" />
+          <stop offset="100%" stopColor="var(--primary-light)" />
         </linearGradient>
         <filter id="logo-glow">
           <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -70,7 +70,7 @@ export function KairoLogo({ className = '', size = 32 }: LogoProps) {
         width="50"
         height="45"
         rx="2"
-        stroke="#10b981"
+        stroke="var(--primary)"
         strokeWidth="2"
         fill="none"
         opacity="0.6"
@@ -96,7 +96,7 @@ export function KairoLogo({ className = '', size = 32 }: LogoProps) {
         y="48"
         width="2.5"
         height="14"
-        fill="#34d399"
+        fill="var(--primary-light)"
         rx="1"
       >
         <animate
@@ -108,7 +108,7 @@ export function KairoLogo({ className = '', size = 32 }: LogoProps) {
       </rect>
 
       {/* Connection indicator dots */}
-      <circle cx="30" cy="25" r="1.5" fill="#10b981">
+      <circle cx="30" cy="25" r="1.5" fill="var(--primary)">
         <animate
           attributeName="opacity"
           values="0.3;1;0.3"
@@ -116,7 +116,7 @@ export function KairoLogo({ className = '', size = 32 }: LogoProps) {
           repeatCount="indefinite"
         />
       </circle>
-      <circle cx="36" cy="25" r="1.5" fill="#10b981">
+      <circle cx="36" cy="25" r="1.5" fill="var(--primary)">
         <animate
           attributeName="opacity"
           values="0.3;1;0.3"
@@ -125,7 +125,7 @@ export function KairoLogo({ className = '', size = 32 }: LogoProps) {
           repeatCount="indefinite"
         />
       </circle>
-      <circle cx="42" cy="25" r="1.5" fill="#34d399">
+      <circle cx="42" cy="25" r="1.5" fill="var(--primary-light)">
         <animate
           attributeName="opacity"
           values="0.3;1;0.3"
@@ -155,8 +155,8 @@ export function KairoLogoSimple({ className = '', size = 32 }: LogoProps) {
       {/* Gradient Definition */}
       <defs>
         <linearGradient id="simple-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#34d399" />
+          <stop offset="0%" stopColor="var(--primary)" />
+          <stop offset="100%" stopColor="var(--primary-light)" />
         </linearGradient>
       </defs>
 
@@ -173,7 +173,7 @@ export function KairoLogoSimple({ className = '', size = 32 }: LogoProps) {
       {/* Terminal bracket accent - left */}
       <path
         d="M 22 40 L 28 46 L 22 52"
-        stroke="#10b981"
+        stroke="var(--primary)"
         strokeWidth="3"
         strokeLinecap="square"
         strokeLinejoin="miter"
@@ -184,7 +184,7 @@ export function KairoLogoSimple({ className = '', size = 32 }: LogoProps) {
       {/* Terminal bracket accent - right */}
       <path
         d="M 78 40 L 72 46 L 78 52"
-        stroke="#34d399"
+        stroke="var(--primary-light)"
         strokeWidth="3"
         strokeLinecap="square"
         strokeLinejoin="miter"
@@ -193,10 +193,10 @@ export function KairoLogoSimple({ className = '', size = 32 }: LogoProps) {
       />
 
       {/* Corner accents - minimal refined brutalist style */}
-      <rect x="20" y="20" width="2" height="8" fill="#10b981" opacity="0.5" />
-      <rect x="20" y="20" width="8" height="2" fill="#10b981" opacity="0.5" />
-      <rect x="78" y="20" width="2" height="8" fill="#34d399" opacity="0.5" />
-      <rect x="72" y="20" width="8" height="2" fill="#34d399" opacity="0.5" />
+      <rect x="20" y="20" width="2" height="8" fill="var(--primary)" opacity="0.5" />
+      <rect x="20" y="20" width="8" height="2" fill="var(--primary)" opacity="0.5" />
+      <rect x="78" y="20" width="2" height="8" fill="var(--primary-light)" opacity="0.5" />
+      <rect x="72" y="20" width="8" height="2" fill="var(--primary-light)" opacity="0.5" />
     </svg>
   );
 }
@@ -218,12 +218,12 @@ export function KairoLogoIcon({ className = '', size = 32 }: LogoProps) {
       {/* Gradient Definition */}
       <defs>
         <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#34d399" />
+          <stop offset="0%" stopColor="var(--primary)" />
+          <stop offset="100%" stopColor="var(--primary-light)" />
         </linearGradient>
         <linearGradient id="glow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#34d399" stopOpacity="0.1" />
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--primary-light)" stopOpacity="0.1" />
         </linearGradient>
       </defs>
 
@@ -234,7 +234,7 @@ export function KairoLogoIcon({ className = '', size = 32 }: LogoProps) {
         width="70"
         height="55"
         rx="3"
-        fill="#052e16"
+        fill="var(--accent-deep)"
         stroke="url(#icon-gradient)"
         strokeWidth="2.5"
       />
@@ -260,9 +260,9 @@ export function KairoLogoIcon({ className = '', size = 32 }: LogoProps) {
       />
 
       {/* Window control dots */}
-      <circle cx="23" cy="31" r="2" fill="#10b981" />
-      <circle cx="31" cy="31" r="2" fill="#34d399" />
-      <circle cx="39" cy="31" r="2" fill="#10b981" opacity="0.5" />
+      <circle cx="23" cy="31" r="2" fill="var(--primary)" />
+      <circle cx="31" cy="31" r="2" fill="var(--primary-light)" />
+      <circle cx="39" cy="31" r="2" fill="var(--primary)" opacity="0.5" />
 
       {/* Stylized "AT" monogram */}
       <text
@@ -280,7 +280,7 @@ export function KairoLogoIcon({ className = '', size = 32 }: LogoProps) {
       {/* Terminal prompt chevron */}
       <path
         d="M 28 68 L 33 73 L 28 78"
-        stroke="#10b981"
+        stroke="var(--primary)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -294,7 +294,7 @@ export function KairoLogoIcon({ className = '', size = 32 }: LogoProps) {
         y="68"
         width="2"
         height="10"
-        fill="#34d399"
+        fill="var(--primary-light)"
         rx="1"
       />
     </svg>
@@ -318,8 +318,8 @@ export function KairoWordmark({ className = '', size = 120 }: LogoProps) {
       {/* Gradient Definition */}
       <defs>
         <linearGradient id="wordmark-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#34d399" />
+          <stop offset="0%" stopColor="var(--primary)" />
+          <stop offset="100%" stopColor="var(--primary-light)" />
         </linearGradient>
       </defs>
 
@@ -330,7 +330,7 @@ export function KairoWordmark({ className = '', size = 120 }: LogoProps) {
         width="30"
         height="22"
         rx="2"
-        fill="#052e16"
+        fill="var(--accent-deep)"
         stroke="url(#wordmark-gradient)"
         strokeWidth="2"
       />
@@ -365,7 +365,7 @@ export function KairoWordmark({ className = '', size = 120 }: LogoProps) {
         y="50"
         fontFamily="monospace"
         fontSize="10"
-        fill="#A1A1AA"
+        fill="var(--text-secondary)"
         letterSpacing="1"
       >
         REFINED SSH CLIENT

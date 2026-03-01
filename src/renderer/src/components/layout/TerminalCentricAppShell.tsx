@@ -777,16 +777,16 @@ export function TerminalCentricAppShell() {
         <div className="text-center space-y-6">
           <div
             className="inline-block animate-pulse"
-            style={{ filter: 'drop-shadow(0 0 40px var(--primary-glow, rgba(16,185,129,0.4)))' }}
+            style={{ filter: 'drop-shadow(0 0 40px var(--primary-glow))' }}
           >
             <KairoLogo iconOnly size="md" />
           </div>
           <div className="space-y-3">
-            <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mx-auto" />
+            <div className="h-4 w-32 bg-surface-3 rounded animate-pulse mx-auto" />
             <div className="flex items-center justify-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.2s' }} />
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.4s' }} />
             </div>
           </div>
         </div>
@@ -958,7 +958,7 @@ export function TerminalCentricAppShell() {
               className="flex justify-center"
               style={{
                 animation: 'scaleInElastic 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                filter: 'drop-shadow(0 0 40px rgba(16,185,129,0.35))',
+                filter: 'drop-shadow(0 0 40px var(--primary-glow))',
               }}
             >
               <KairoLogo stacked size="lg" />

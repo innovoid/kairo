@@ -112,12 +112,12 @@ function SetupFlow({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0a0b10] text-zinc-100">
+    <div className="relative min-h-screen overflow-hidden bg-background text-zinc-100">
       <div
         className="absolute inset-0 opacity-[0.15] pointer-events-none"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(16,185,129,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.12) 1px, transparent 1px)',
+            'linear-gradient(color-mix(in srgb, var(--primary) 12%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--primary) 12%, transparent) 1px, transparent 1px)',
           backgroundSize: '30px 30px',
         }}
       />
@@ -125,28 +125,28 @@ function SetupFlow({
         className="absolute inset-0 pointer-events-none opacity-30"
         style={{
           background:
-            'radial-gradient(circle at 0% 0%, rgba(16,185,129,0.22), transparent 35%), radial-gradient(circle at 100% 100%, rgba(56,189,248,0.18), transparent 40%)',
+            'radial-gradient(circle at 0% 0%, var(--primary-glow), transparent 35%), radial-gradient(circle at 100% 100%, rgba(56,189,248,0.18), transparent 40%)',
         }}
       />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl items-center p-6">
-        <div className="w-full rounded-2xl border border-emerald-500/20 bg-black/55 p-6 backdrop-blur-xl lg:p-8">
+        <div className="w-full rounded-2xl border border-primary/20 bg-black/55 p-6 backdrop-blur-xl lg:p-8">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2">
-                <Terminal className="h-5 w-5 text-emerald-400" />
+              <div className="rounded-lg border border-primary/30 bg-primary/10 p-2">
+                <Terminal className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-xs font-mono text-emerald-400">first-run.setup</p>
+                <p className="text-xs font-mono text-primary">first-run.setup</p>
                 <h1 className="text-lg font-semibold">Initialize Workspace</h1>
               </div>
             </div>
-            <div className="text-xs font-mono text-zinc-400">Step {step + 1} / 3</div>
+            <div className="text-xs font-mono text-text-secondary">Step {step + 1} / 3</div>
           </div>
 
           <div className="mb-6 h-1.5 w-full rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-all duration-300"
               style={{ width: `${((step + 1) / 3) * 100}%` }}
             />
           </div>
@@ -155,22 +155,22 @@ function SetupFlow({
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">Welcome to Kairo</h2>
-                <p className="mt-2 text-sm text-zinc-300">
+                <p className="mt-2 text-sm text-text-secondary">
                   Before you start, configure your workspace identity and encryption posture.
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <FolderTree className="mb-2 h-4 w-4 text-emerald-400" />
-                  <p className="text-xs text-zinc-300">Name your workspace for shared clarity.</p>
+                  <FolderTree className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-xs text-text-secondary">Name your workspace for shared clarity.</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <ShieldCheck className="mb-2 h-4 w-4 text-emerald-400" />
-                  <p className="text-xs text-zinc-300">Set baseline controls for team operations.</p>
+                  <ShieldCheck className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-xs text-text-secondary">Set baseline controls for team operations.</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <Lock className="mb-2 h-4 w-4 text-emerald-400" />
-                  <p className="text-xs text-zinc-300">Encrypt cloud key sync with a passphrase.</p>
+                  <Lock className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-xs text-text-secondary">Encrypt cloud key sync with a passphrase.</p>
                 </div>
               </div>
             </div>
@@ -180,12 +180,12 @@ function SetupFlow({
             <div className="space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">Workspace Identity</h2>
-                <p className="mt-1 text-sm text-zinc-300">
+                <p className="mt-1 text-sm text-text-secondary">
                   Choose a name your team can quickly recognize.
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="workspace-name" className="text-sm text-zinc-300">
+                <Label htmlFor="workspace-name" className="text-sm text-text-secondary">
                   Workspace Name
                 </Label>
                 <Input
@@ -194,7 +194,7 @@ function SetupFlow({
                   onChange={(e) => setWorkspaceName(e.target.value)}
                   placeholder="Production Ops"
                   autoFocus
-                  className="h-12 border-white/15 bg-black/40 font-mono text-base text-zinc-100 placeholder:text-zinc-500"
+                  className="h-12 border-white/15 bg-black/40 font-mono text-base text-zinc-100 placeholder:text-text-tertiary"
                 />
               </div>
             </div>
@@ -204,19 +204,19 @@ function SetupFlow({
             <div className="space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">Encryption Passphrase</h2>
-                <p className="mt-1 text-sm text-zinc-300">
+                <p className="mt-1 text-sm text-text-secondary">
                   Required for secure key sync between devices and team environments.
                 </p>
               </div>
 
               {encryptionInitialized ? (
-                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">
+                <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
                   Encryption is already initialized for this workspace.
                 </div>
               ) : (
                 <>
                   <div className="space-y-1.5">
-                    <Label htmlFor="workspace-passphrase" className="text-xs text-zinc-300">
+                    <Label htmlFor="workspace-passphrase" className="text-xs text-text-secondary">
                       Passphrase
                     </Label>
                     <Input
@@ -225,11 +225,11 @@ function SetupFlow({
                       value={passphrase}
                       onChange={(e) => setPassphrase(e.target.value)}
                       placeholder="Use a long passphrase with symbols"
-                      className="border-white/15 bg-black/40 font-mono text-zinc-100 placeholder:text-zinc-500"
+                      className="border-white/15 bg-black/40 font-mono text-zinc-100 placeholder:text-text-tertiary"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="workspace-passphrase-confirm" className="text-xs text-zinc-300">
+                    <Label htmlFor="workspace-passphrase-confirm" className="text-xs text-text-secondary">
                       Confirm Passphrase
                     </Label>
                     <Input
@@ -238,7 +238,7 @@ function SetupFlow({
                       value={confirmPassphrase}
                       onChange={(e) => setConfirmPassphrase(e.target.value)}
                       placeholder="Repeat passphrase"
-                      className="border-white/15 bg-black/40 font-mono text-zinc-100 placeholder:text-zinc-500"
+                      className="border-white/15 bg-black/40 font-mono text-zinc-100 placeholder:text-text-tertiary"
                     />
                   </div>
                   <div className="space-y-1">
@@ -246,12 +246,12 @@ function SetupFlow({
                       <div
                         className={cn(
                           'h-full rounded-full transition-all',
-                          score >= 80 ? 'bg-emerald-500' : score >= 55 ? 'bg-amber-500' : 'bg-rose-500'
+                          score >= 80 ? 'bg-primary' : score >= 55 ? 'bg-amber-500' : 'bg-rose-500'
                         )}
                         style={{ width: `${score}%` }}
                       />
                     </div>
-                    <p className="text-[11px] text-zinc-400">Passphrase strength: {score}%</p>
+                    <p className="text-[11px] text-text-secondary">Passphrase strength: {score}%</p>
                   </div>
                 </>
               )}
@@ -277,7 +277,7 @@ function SetupFlow({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="text-zinc-300 hover:text-zinc-100"
+                  className="text-text-secondary hover:text-zinc-100"
                   onClick={() => void handleEncryptionStep({ skip: true })}
                   disabled={loading}
                 >
@@ -288,7 +288,7 @@ function SetupFlow({
               {step === 0 && (
                 <Button
                   type="button"
-                  className="bg-emerald-500 text-black hover:bg-emerald-400"
+                  className="bg-primary text-black hover:bg-primary-hover"
                   onClick={() => setStep(1)}
                 >
                   Continue
@@ -299,7 +299,7 @@ function SetupFlow({
               {step === 1 && (
                 <Button
                   type="button"
-                  className="bg-emerald-500 text-black hover:bg-emerald-400"
+                  className="bg-primary text-black hover:bg-primary-hover"
                   onClick={() => void handleWorkspaceStep()}
                   disabled={loading}
                 >
@@ -311,7 +311,7 @@ function SetupFlow({
               {step === 2 && (
                 <Button
                   type="button"
-                  className="bg-emerald-500 text-black hover:bg-emerald-400"
+                  className="bg-primary text-black hover:bg-primary-hover"
                   onClick={() => void handleEncryptionStep()}
                   disabled={loading || encryptionInitialized === null}
                 >

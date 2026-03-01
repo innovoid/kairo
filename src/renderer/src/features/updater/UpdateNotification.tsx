@@ -216,8 +216,8 @@ export function UpdateReadyModal({ state, actions }: UpdateReadyModalProps) {
                 onClick={actions.installAndRestart}
                 className={cn(
                   'flex-[2] gap-1.5 font-mono text-xs',
-                  'shadow-[0_0_20px_var(--primary-glow,rgba(16,185,129,0.3))]',
-                  'hover:shadow-[0_0_28px_var(--primary-glow,rgba(16,185,129,0.45))]',
+                  'shadow-[0_0_20px_var(--primary-glow)]',
+                  'hover:shadow-[0_0_28px_var(--primary-glow)]',
                   'transition-shadow',
                 )}
               >

@@ -355,7 +355,7 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
                         >
                           <TableCell className="py-1">
                             {entry.type === 'directory' ? (
-                              <FolderOpen className="h-3.5 w-3.5 text-emerald-500" />
+                              <FolderOpen className="h-3.5 w-3.5 text-primary" />
                             ) : (
                               <File className="h-3.5 w-3.5 text-muted-foreground" />
                             )}
@@ -374,9 +374,9 @@ export function FilePane({ sessionId, title, onPathChange }: FilePaneProps) {
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-12">
                             <div className="flex flex-col items-center gap-2">
-                              <FolderOpen className="h-8 w-8 text-zinc-700" />
-                              <p className="text-xs text-zinc-500">This directory is empty</p>
-                              <p className="text-[10px] text-zinc-600">Drop files here or click Upload to add files</p>
+                              <FolderOpen className="h-8 w-8 text-border" />
+                              <p className="text-xs text-text-tertiary">This directory is empty</p>
+                              <p className="text-[10px] text-text-disabled">Drop files here or click Upload to add files</p>
                             </div>
                           </TableCell>
                         </TableRow>

@@ -66,9 +66,9 @@ interface FloatingTabBarProps {
 }
 
 const statusDot = {
-  connected: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]',
+  connected: 'bg-success shadow-[0_0_6px_var(--primary-glow)]',
   connecting: 'bg-amber-400 animate-pulse',
-  disconnected: 'bg-zinc-600',
+  disconnected: 'bg-text-disabled',
   error: 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]',
 };
 
@@ -108,7 +108,7 @@ export function FloatingTabBar({
       <div
         className={cn(
           'relative flex items-center w-full h-11',
-          'bg-zinc-950/95 border-b border-zinc-800/60',
+          'bg-background/95 border-b border-border-subtle/60',
           'shadow-[0_1px_0_0_rgba(255,255,255,0.04)]',
           className,
         )}
@@ -116,7 +116,7 @@ export function FloatingTabBar({
         {/* Left: tabs + new tab */}
         <div className="flex items-center flex-1 min-w-0 h-full pl-1 pr-1 gap-0.5 overflow-x-auto no-scrollbar">
           {tabs.length === 0 ? (
-            <div className="flex items-center gap-1.5 px-3 text-zinc-600 text-xs font-mono select-none">
+            <div className="flex items-center gap-1.5 px-3 text-text-disabled text-xs font-mono select-none">
               <Terminal className="h-3.5 w-3.5" />
               <span>No sessions</span>
             </div>
@@ -147,7 +147,7 @@ export function FloatingTabBar({
                   onClick={onNewTab}
                   className={cn(
                     'flex items-center justify-center h-7 w-7 rounded-md ml-0.5 shrink-0',
-                    'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60',
+                    'text-text-tertiary hover:text-text-secondary hover:bg-surface-3/60',
                     'transition-all duration-150 active:scale-90',
                   )}
                   aria-label="New connection"
@@ -158,20 +158,20 @@ export function FloatingTabBar({
             />
             <TooltipContent side="bottom" sideOffset={6}>
               <span className="text-xs">New connection</span>
-              <kbd className="ml-2 text-[10px] text-zinc-400 font-mono">{getShortcutLabel('new-tab')}</kbd>
+              <kbd className="ml-2 text-[10px] text-text-secondary font-mono">{getShortcutLabel('new-tab')}</kbd>
             </TooltipContent>
           </Tooltip>
         </div>
 
         {/* Right: toolbar actions */}
-        <div className="flex items-center shrink-0 h-full border-l border-zinc-800/60 px-1.5 gap-0.5">
+        <div className="flex items-center shrink-0 h-full border-l border-border-subtle/60 px-1.5 gap-0.5">
           <ActionButton icon={Folder} label="Hosts" shortcut={getShortcutLabel('browse-hosts')} onClick={onBrowseHosts} />
           <ActionButton icon={FileText} label="SFTP" shortcut={getShortcutLabel('browse-files')} onClick={onBrowseFiles} />
           <ActionButton icon={Sparkles} label="Snippets" shortcut={getShortcutLabel('snippets')} onClick={onSnippets} />
           <ActionButton icon={Key} label="SSH Keys" onClick={onKeys} />
           <ConnectionHealthButton tab={activeTab} />
 
-          <div className="h-5 w-px bg-zinc-800/80 mx-1" />
+          <div className="h-5 w-px bg-border/80 mx-1" />
 
           <ActionButton icon={Search} label="Command Palette" shortcut={getShortcutLabel('command-palette')} onClick={onCommandPalette} />
           <ActionButton icon={Bot} label="AI Agent" shortcut={getShortcutLabel('ai-agent')} onClick={onAiAgent} />
@@ -179,7 +179,7 @@ export function FloatingTabBar({
 
           {workspaces.length > 0 && (
             <>
-              <div className="h-5 w-px bg-zinc-800/80 mx-1" />
+              <div className="h-5 w-px bg-border/80 mx-1" />
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={(props) => (
@@ -187,13 +187,13 @@ export function FloatingTabBar({
                       {...props}
                       className={cn(
                         'flex items-center gap-1 h-7 px-2.5 rounded-md',
-                        'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60',
+                        'text-text-secondary hover:text-foreground hover:bg-surface-3/60',
                         'font-mono text-[11px] tracking-tight transition-all duration-150',
                         'active:scale-95',
                       )}
                     >
                       <span className="max-w-[90px] truncate">{currentWorkspaceLabel}</span>
-                      <ChevronDown className="h-3 w-3 shrink-0 text-zinc-600" />
+                      <ChevronDown className="h-3 w-3 shrink-0 text-text-disabled" />
                     </button>
                   )}
                 />
@@ -204,11 +204,11 @@ export function FloatingTabBar({
                       onClick={() => onWorkspaceChange?.(ws.id)}
                       className={cn(
                         'font-mono text-xs',
-                        ws.id === currentWorkspaceId && 'text-emerald-400 bg-emerald-500/5',
+                        ws.id === currentWorkspaceId && 'text-primary bg-primary/5',
                       )}
                     >
                       {ws.id === currentWorkspaceId && (
-                        <span className="mr-2 h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />
+                        <span className="mr-2 h-1.5 w-1.5 rounded-full bg-primary inline-block" />
                       )}
                       {ws.name}
                     </DropdownMenuItem>
@@ -233,10 +233,10 @@ export function FloatingTabBar({
 }
 
 const keepaliveStateTone: Record<ReturnType<typeof deriveKeepaliveState>, { text: string; dot: string }> = {
-  healthy: { text: 'Healthy', dot: 'bg-emerald-400' },
+  healthy: { text: 'Healthy', dot: 'bg-success' },
   degraded: { text: 'Degraded', dot: 'bg-amber-400' },
   failed: { text: 'Failed', dot: 'bg-red-400' },
-  unknown: { text: 'Unknown', dot: 'bg-zinc-500' },
+  unknown: { text: 'Unknown', dot: 'bg-text-tertiary' },
 };
 
 function ConnectionHealthButton({ tab }: { tab?: Tab }) {
@@ -268,8 +268,8 @@ function ConnectionHealthButton({ tab }: { tab?: Tab }) {
             size="sm"
             className={cn(
               'h-7 w-7 px-0',
-              tab.status === 'connected' && keepalive === 'healthy' && 'text-zinc-500 hover:text-emerald-300',
-              tab.status !== 'connected' && 'text-zinc-500 hover:text-zinc-200',
+              tab.status === 'connected' && keepalive === 'healthy' && 'text-text-tertiary hover:text-primary',
+              tab.status !== 'connected' && 'text-text-tertiary hover:text-foreground',
             )}
             aria-label="Connection health"
             title="Connection health"
@@ -278,27 +278,27 @@ function ConnectionHealthButton({ tab }: { tab?: Tab }) {
           </Button>
         )}
       />
-      <PopoverContent align="end" className="w-72 p-3 border-zinc-800 bg-zinc-950 text-zinc-100">
+      <PopoverContent align="end" className="w-72 p-3 border-border bg-background text-foreground">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Session health</div>
-            <div className="text-[10px] text-zinc-500 font-mono">{tab.sessionId.slice(0, 8)}</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-text-secondary">Session health</div>
+            <div className="text-[10px] text-text-tertiary font-mono">{tab.sessionId.slice(0, 8)}</div>
           </div>
 
           <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-xs">
-            <span className="text-zinc-500">Status</span>
+            <span className="text-text-tertiary">Status</span>
             <span className="capitalize">{tab.status}</span>
 
-            <span className="text-zinc-500">Connect latency</span>
+            <span className="text-text-tertiary">Connect latency</span>
             <span className="font-mono">{formatLatency(tab.connectLatencyMs)}</span>
 
-            <span className="text-zinc-500">Last activity</span>
+            <span className="text-text-tertiary">Last activity</span>
             <span className="font-mono">{formatAge(tab.lastActivityAt, now)}</span>
 
-            <span className="text-zinc-500">Reconnects</span>
+            <span className="text-text-tertiary">Reconnects</span>
             <span className="font-mono">{reconnectAttempts}</span>
 
-            <span className="text-zinc-500">Keepalive</span>
+            <span className="text-text-tertiary">Keepalive</span>
             <span className="inline-flex items-center gap-1.5">
               <span className={cn('h-1.5 w-1.5 rounded-full', keepaliveTone.dot)} />
               <span>{keepaliveTone.text}</span>
@@ -306,9 +306,9 @@ function ConnectionHealthButton({ tab }: { tab?: Tab }) {
           </div>
 
           {tab.disconnectReason && (
-            <div className="rounded-md border border-zinc-800 bg-zinc-900/70 px-2 py-1.5">
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Last disconnect reason</div>
-              <p className="text-[11px] text-zinc-300 leading-snug break-words">{tab.disconnectReason}</p>
+            <div className="rounded-md border border-border bg-surface-1/70 px-2 py-1.5">
+              <div className="text-[10px] uppercase tracking-wide text-text-tertiary mb-1">Last disconnect reason</div>
+              <p className="text-[11px] text-text-secondary leading-snug break-words">{tab.disconnectReason}</p>
             </div>
           )}
         </div>
@@ -350,13 +350,13 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
               'group relative flex items-center gap-1.5 h-7 pl-2.5 rounded-md cursor-pointer select-none shrink-0',
               'transition-all duration-150',
               tab.isActive
-                ? 'bg-zinc-800 text-zinc-100 pr-1.5'
-                : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 pr-1.5',
+                ? 'bg-surface-3 text-foreground pr-1.5'
+                : 'text-text-tertiary hover:text-text-secondary hover:bg-surface-3/50 pr-1.5',
             )}
           >
             {/* Active left accent */}
             {tab.isActive && (
-              <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
+              <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-primary shadow-[0_0_8px_var(--primary-glow)]" />
             )}
 
             {/* Status dot */}
@@ -373,7 +373,7 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
             {/* Label */}
             <span className={cn(
               'text-[11px] font-mono tracking-tight truncate max-w-[110px]',
-              tab.isActive ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300',
+              tab.isActive ? 'text-foreground' : 'text-text-secondary group-hover:text-text-secondary',
             )}>
               {tab.hostname || tab.title}
             </span>
@@ -383,7 +383,7 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
               onClick={handleClose}
               className={cn(
                 'flex items-center justify-center h-4 w-4 rounded shrink-0',
-                'text-zinc-600 hover:text-zinc-300 hover:bg-zinc-700',
+                'text-text-disabled hover:text-text-secondary hover:bg-surface-3',
                 'transition-all duration-100',
                 'opacity-0 group-hover:opacity-100',
                 tab.isActive && 'opacity-60',
@@ -401,7 +401,7 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onOpenSftp} className="gap-2 text-xs">
           <FolderOpen className="h-3.5 w-3.5" />
           Open SFTP
-          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('open-sftp')}</span>
+          <span className="ml-auto text-[10px] text-text-tertiary">{getShortcutLabel('open-sftp')}</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -423,12 +423,12 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onSplitHorizontal} className="gap-2 text-xs">
           <SplitSquareHorizontal className="h-3.5 w-3.5" />
           Split Horizontal
-          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('split-horizontal')}</span>
+          <span className="ml-auto text-[10px] text-text-tertiary">{getShortcutLabel('split-horizontal')}</span>
         </ContextMenuItem>
         <ContextMenuItem onClick={onSplitVertical} className="gap-2 text-xs">
           <SplitSquareVertical className="h-3.5 w-3.5" />
           Split Vertical
-          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('split-vertical')}</span>
+          <span className="ml-auto text-[10px] text-text-tertiary">{getShortcutLabel('split-vertical')}</span>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -443,7 +443,7 @@ function Tab({ tab, index, onClick, onClose, onOpenSftp, onStartRecording, onSto
         <ContextMenuItem onClick={onClose} className="gap-2 text-xs text-red-400 focus:text-red-400">
           <X className="h-3.5 w-3.5" />
           Close Tab
-          <span className="ml-auto text-[10px] text-zinc-500">{getShortcutLabel('close-tab')}</span>
+          <span className="ml-auto text-[10px] text-text-tertiary">{getShortcutLabel('close-tab')}</span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -469,7 +469,7 @@ function ActionButton({ icon: Icon, label, shortcut, onClick }: ActionButtonProp
             onClick={onClick}
             className={cn(
               'flex items-center justify-center h-7 w-7 rounded-md',
-              'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60',
+              'text-text-tertiary hover:text-text-secondary hover:bg-surface-3/60',
               'transition-all duration-150 active:scale-90',
             )}
             aria-label={label}
@@ -482,7 +482,7 @@ function ActionButton({ icon: Icon, label, shortcut, onClick }: ActionButtonProp
         <div className="flex items-center gap-2">
           <span className="text-xs">{label}</span>
           {shortcut && (
-            <kbd className="text-[10px] text-zinc-400 font-mono">{shortcut}</kbd>
+            <kbd className="text-[10px] text-text-secondary font-mono">{shortcut}</kbd>
           )}
         </div>
       </TooltipContent>

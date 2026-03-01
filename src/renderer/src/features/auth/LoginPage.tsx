@@ -29,7 +29,7 @@ function PasswordStrength({ password }: { password: string }) {
 
   const tone =
     score >= 80
-      ? "bg-emerald-500"
+      ? "bg-primary"
       : score >= 55
         ? "bg-amber-500"
         : "bg-rose-500";
@@ -45,7 +45,7 @@ function PasswordStrength({ password }: { password: string }) {
           style={{ width: `${score}%` }}
         />
       </div>
-      <p className="text-[11px] text-zinc-400">Password strength: {score}%</p>
+      <p className="text-[11px] text-text-secondary">Password strength: {score}%</p>
     </div>
   );
 }
@@ -116,12 +116,12 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0a0a0f] text-zinc-100">
+    <div className="relative min-h-screen overflow-hidden bg-background text-zinc-100">
       <div
         className="absolute inset-0 opacity-30 pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(circle at 20% 10%, rgba(16,185,129,0.2) 0, transparent 35%), radial-gradient(circle at 85% 80%, rgba(59,130,246,0.18) 0, transparent 40%)",
+            "radial-gradient(circle at 20% 10%, var(--primary-glow) 0, transparent 35%), radial-gradient(circle at 85% 80%, var(--primary-glow-subtle) 0, transparent 40%)",
         }}
       />
       <div
@@ -145,7 +145,7 @@ export function LoginPage() {
           </div>
 
           <div className="space-y-6">
-            <p className="text-lg leading-relaxed text-zinc-300 max-w-md">
+            <p className="text-lg leading-relaxed text-text-secondary max-w-md">
               Securely connect, automate, and collaborate across your
               infrastructure from a single terminal-native workspace.
             </p>
@@ -153,13 +153,13 @@ export function LoginPage() {
             <div className="grid gap-4 mt-8">
               <div className="flex items-start gap-4">
                 <div className="mt-1 rounded-full bg-white/5 p-2 ring-1 ring-white/10">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  <ShieldCheck className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-zinc-100">
                     End-to-End Encrypted
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-text-secondary mt-1">
                     Your SSH keys and connection data are encrypted at rest
                     using AES-256-GCM.
                   </p>
@@ -168,13 +168,13 @@ export function LoginPage() {
 
               <div className="flex items-start gap-4">
                 <div className="mt-1 rounded-full bg-white/5 p-2 ring-1 ring-white/10">
-                  <KeyRound className="h-4 w-4 text-emerald-400" />
+                  <KeyRound className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-zinc-100">
                     Zero-Trust Key Management
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-text-secondary mt-1">
                     Private keys never leave your machine. Synchronize access
                     securely.
                   </p>
@@ -183,13 +183,13 @@ export function LoginPage() {
 
               <div className="flex items-start gap-4">
                 <div className="mt-1 rounded-full bg-white/5 p-2 ring-1 ring-white/10">
-                  <Users className="h-4 w-4 text-emerald-400" />
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-zinc-100">
                     Team Workspaces
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-text-secondary mt-1">
                     Organize hosts, snippets, and playbooks in isolated team
                     environments.
                   </p>
@@ -205,7 +205,7 @@ export function LoginPage() {
           transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
           className="rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl shadow-2xl relative overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-50 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-50 pointer-events-none" />
 
           <div className="relative">
             <div className="mb-6 flex items-center justify-between rounded-lg border border-white/10 bg-black/60 p-1">
@@ -214,8 +214,8 @@ export function LoginPage() {
                 className={cn(
                   "w-1/2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
                   !isSignUp
-                    ? "bg-zinc-800/80 text-white shadow-sm"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5",
+                    ? "bg-surface-3/80 text-white shadow-sm"
+                    : "text-text-secondary hover:text-zinc-200 hover:bg-white/5",
                 )}
                 onClick={() => {
                   setMode("signin");
@@ -230,8 +230,8 @@ export function LoginPage() {
                 className={cn(
                   "w-1/2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
                   isSignUp
-                    ? "bg-zinc-800/80 text-white shadow-sm"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5",
+                    ? "bg-surface-3/80 text-white shadow-sm"
+                    : "text-text-secondary hover:text-zinc-200 hover:bg-white/5",
                 )}
                 onClick={() => {
                   setMode("signup");
@@ -246,7 +246,7 @@ export function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-xs text-zinc-300">
+                  <Label htmlFor="name" className="text-xs text-text-secondary">
                     Name
                   </Label>
                   <Input
@@ -258,13 +258,13 @@ export function LoginPage() {
                     required
                     disabled={loading}
                     data-no-focus-ring="true"
-                    className="border-white/10 bg-black/40 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-1 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-500/50 shadow-none"
+                    className="border-white/10 bg-black/40 text-zinc-100 placeholder:text-text-disabled focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/50 shadow-none"
                   />
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs text-zinc-300">
+                <Label htmlFor="email" className="text-xs text-text-secondary">
                   Email
                 </Label>
                 <Input
@@ -275,19 +275,19 @@ export function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={loading}
-                  className="border-white/10 bg-black/40 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-1 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-500/50 shadow-none"
+                  className="border-white/10 bg-black/40 text-zinc-100 placeholder:text-text-disabled focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/50 shadow-none"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs text-zinc-300">
+                  <Label htmlFor="password" className="text-xs text-text-secondary">
                     Password
                   </Label>
                   {!isSignUp && (
                     <a
                       href="#"
-                      className="text-[10px] text-zinc-500 hover:text-emerald-400 transition-colors"
+                      className="text-[10px] text-text-tertiary hover:text-primary transition-colors"
                     >
                       Forgot password?
                     </a>
@@ -301,7 +301,7 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={loading}
-                  className="border-white/10 bg-black/40 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-1 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-500/50 shadow-none"
+                  className="border-white/10 bg-black/40 text-zinc-100 placeholder:text-text-disabled focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/50 shadow-none"
                 />
                 <AnimatePresence>
                   {isSignUp && password.length > 0 && (
@@ -330,16 +330,16 @@ export function LoginPage() {
                   <motion.div
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2"
+                    className="rounded-md bg-primary/10 border border-primary/20 px-3 py-2"
                   >
-                    <p className="text-xs text-emerald-400">{notice}</p>
+                    <p className="text-xs text-primary">{notice}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
 
               <Button
                 type="submit"
-                className="w-full bg-emerald-500 text-black hover:bg-emerald-400 mt-2 transition-all active:scale-[0.98]"
+                className="w-full bg-primary text-black hover:bg-primary-hover mt-2 transition-all active:scale-[0.98]"
                 disabled={loading}
               >
                 {loading ? (
@@ -360,7 +360,7 @@ export function LoginPage() {
                 <div className="w-full border-t border-white/10"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-[#1a1a1f] px-2 text-zinc-500">
+                <span className="bg-surface-1 px-2 text-text-tertiary">
                   or continue with
                 </span>
               </div>
@@ -369,7 +369,7 @@ export function LoginPage() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="outline"
-                className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white transition-all active:scale-[0.98]"
+                className="border-white/10 bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white transition-all active:scale-[0.98]"
                 onClick={() => void handleOAuth("github")}
                 disabled={loading}
               >
@@ -378,7 +378,7 @@ export function LoginPage() {
               </Button>
               <Button
                 variant="outline"
-                className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white transition-all active:scale-[0.98]"
+                className="border-white/10 bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white transition-all active:scale-[0.98]"
                 onClick={() => void handleOAuth("google")}
                 disabled={loading}
               >

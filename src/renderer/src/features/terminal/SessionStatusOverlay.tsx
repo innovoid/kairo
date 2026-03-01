@@ -347,7 +347,7 @@ export function SessionStatusOverlay({ tab, onReconnect, onClose }: SessionStatu
                 onClick={() => { cancelAuto(); onReconnect(); }}
                 className={cn(
                   'flex-[2] font-mono text-xs gap-1.5',
-                  'shadow-[0_0_16px_var(--primary-glow,rgba(16,185,129,0.25))]',
+                  'shadow-[0_0_16px_var(--primary-glow)]',
                 )}
               >
                 <RotateCcw className="h-3.5 w-3.5" />

@@ -40,12 +40,12 @@ export function PreviewBanner() {
         animation: 'slideUpFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
       }}
     >
-      <div className="relative bg-gradient-to-br from-[var(--surface-4)] to-[var(--surface-3)] backdrop-blur-xl rounded-xl border border-[var(--border)] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(59,130,246,0.1)] p-4 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-[var(--surface-4)] to-[var(--surface-3)] backdrop-blur-xl rounded-xl border border-[var(--border)] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.6),0_0_0_1px_var(--primary-shadow)] p-4 overflow-hidden">
         {/* Animated gradient background */}
         <div
           className="absolute inset-0 opacity-10 pointer-events-none"
           style={{
-            background: 'linear-gradient(135deg, var(--primary), #06B6D4)',
+            background: 'linear-gradient(135deg, var(--primary), var(--accent-deep))',
             animation: 'borderFlow 4s ease-in-out infinite',
             backgroundSize: '200% 200%',
           }}
@@ -61,7 +61,7 @@ export function PreviewBanner() {
 
         <div className="relative flex items-start gap-3">
           <div
-            className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-cyan-400"
+            className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary-light"
             style={{
               animation: 'pulseGlow 2s ease-in-out infinite',
             }}
@@ -84,7 +84,7 @@ export function PreviewBanner() {
               <Link to="/preview">
                 <Button
                   size="sm"
-                  className="h-7 text-xs gap-1.5 hover:scale-105 active:scale-95 transition-transform shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+                  className="h-7 text-xs gap-1.5 hover:scale-105 active:scale-95 transition-transform shadow-[0_0_20px_var(--primary-glow)]"
                 >
                   <Sparkles className="h-3 w-3" />
                   Try Preview
@@ -137,10 +137,10 @@ export function PreviewBanner() {
           @keyframes pulseGlow {
             0%,
             100% {
-              box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+              box-shadow: 0 0 16px var(--primary-glow);
             }
             50% {
-              box-shadow: 0 0 24px rgba(59, 130, 246, 0.6);
+              box-shadow: 0 0 24px var(--primary-glow);
             }
           }
         `}</style>
